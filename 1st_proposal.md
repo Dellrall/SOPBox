@@ -146,16 +146,22 @@ flowchart LR
 
 ## 7. Timeline (MYT)
 
+The deadline is Sunday 08:00 MYT, so Saturday night is the last work session. Submit by 06:00 Sunday.
+
 | Day | Date | Goal | Done when |
 |---|---|---|---|
-| Tue | 20 Oct | Proposal written; scope agreed | This document approved by the team |
-| Wed | 21 Oct | Accounts and data. Replit project created. React + Vite + TypeScript + Tailwind scaffold. RunPod account created; live pricing and storage billing confirmed. Telegram bot created via BotFather. Build the synthetic order generator and label the mock test set (off-GPU). Two models tested zero-shot on the test set (section 12). Product list and pack conversions confirmed with the team. | Model candidates scored; seed data ready |
-| Thu | 22 Oct | Catalogue CRUD and database schema. ADK extraction agent against a mock, then against the RunPod endpoint. Decide: fine-tune or not, from the zero-shot scores. If yes, run the one planned fine-tune and evaluate. | Catalogue works; extraction works from Replit |
-| Fri | 23 Oct | Receiving journey, happy path and fail path. Rules engine with tests. Temperature and quantity checks working. | A delivery can be recorded and checked end to end |
-| Sat | 24 Oct | Manager approval, audit log, stock update. Telegram notifications. SOP cards and lookup. Demo data loaded. Feature freeze at 22:00. | Full journey runs on the demo phone |
-| Sun | 25 Oct | Rehearse demo. Submission pack: slides, 2-minute video, README, RunPod endpoint link. Submit by 06:00. | Submitted before 08:00 |
+| Tue | 20 Oct | Lock scope and owners. Confirm hackathon rules on other AI models and fine-tuning. Confirm the Coke pack unit and Orbyte modules. Start labelling 10 to 20 mock orders. | Scope signed off; owners assigned; mock orders started |
+| Wed | 21 Oct | Model day. Create one serverless endpoint (24 GB pool, scale-to-zero). Test PaddleOCR-VL first, then one Qwen3-VL 7B-class model, on the mock orders (section 12). Start Replit and the catalogue. | Model chosen from the scores; spend under about $3 |
+| Thu | 22 Oct | Connect Replit to the endpoint. ADK go/no-go by midday: if the LiteLLM path fails, call the endpoint directly. Fine-tune decision by evening: only if both models fail the thresholds and the rules require training. | Photo in, lines out, from the app; fine-tune decision recorded |
+| Fri | 23 Oct | Receiving journey end to end: happy path, fail path, rules engine, manager approval, audit log. Test on a real phone. | A delivery can be recorded, checked, approved, and logged |
+| Sat | 24 Oct | SOP cards and lookup. Demo data. Telegram, time-boxed to 3 hours; if not working by 16:00, switch to in-app notifications. | Full journey runs on the demo phone |
+| Sun | 25 Oct | Early hours: rehearse the demo, bug fixes only. Submission pack: slides, 2-minute video, README, endpoint link. | Submitted by 06:00 |
 
-**Rule:** after Sat 22:00 no new features. Only bug fixes and submission material. If time runs short, cut Telegram inline buttons first, then the SOP lookup agent, and keep the core journey.
+**Freeze:** after Sat 22:00 no new features. Only bug fixes and submission material.
+
+**Cut order if behind:** Telegram, then SOP lookup, then ADK. Keep the receiving journey and the rules.
+
+**Checkpoints:** Wed 21 evening (model chosen, or fall back to manual entry); Thu 22 midday (ADK go/no-go); Sat 24 16:00 (Telegram go/no-go).
 
 ## 8. Business benefit
 
@@ -246,8 +252,20 @@ Network volume storage is not included above and may be billed continuously. Che
 1. Confirm the hackathon rules on other AI models and on whether training or fine-tuning on RunPod is required (proposal assumes any open-weight model is allowed if it runs on RunPod).
 2. Confirm the Orbyte modules and APIs available to us.
 3. Confirm the pack conversion for Coke. The brief says "8 oz (4.5 kg) / box", which mixes units, so the team must agree on the base unit before seeding data.
-4. Assign owners: backend, frontend, RunPod/model, Telegram bot, demo and submission.
+4. Fill in the owners in section 15.
 5. Confirm the RunPod price and volume billing on the live pricing page, and approve the budget split in section 13.
 6. Check the license of each Kaggle dataset before use.
 7. Verify that ADK's LiteLLM path works against the RunPod-served model (Wed).
 8. Create the Telegram bot token and agree on who gets which notifications (managers, staff, or both).
+
+## 15. Owners
+
+Fill in names once the team confirms. Five members, one role each.
+
+| Role | Owner | Owns |
+|---|---|---|
+| Leader | | Scope, timeline, go/no-go calls, RunPod budget, demo video, submission pack |
+| Backend | | FastAPI, rules engine, catalogue, database, approval and audit API |
+| Frontend | | React screens, photo and barcode capture, approval screen, phone testing |
+| AI and RunPod | | Endpoint setup, model tests, JSON output, ADK check, fine-tune if needed |
+| Data, Telegram and QA | | Seed products, mock orders, Telegram bot and linking, test cases and bug log |
