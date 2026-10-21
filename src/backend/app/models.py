@@ -35,3 +35,14 @@ class LineCheck(BaseModel):
     passed: bool
     issues: list[str]
     received_base_qty: int | None = None
+
+class MapExtractedRequest(BaseModel):
+    lines: list[ExtractedLine]
+
+
+class MappedExtractedLine(BaseModel):
+    name: str
+    quantity: int
+    unit: str
+    product_id: str | None = None
+    needs_confirmation: bool
