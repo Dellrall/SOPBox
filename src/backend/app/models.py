@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import date
 from typing import Annotated, Literal
 
@@ -14,8 +15,40 @@ def _check_range(low: float | None, high: float | None) -> None:
         raise ValueError("temp_min_c must not be above temp_max_c")
 
 
-class _In(BaseModel):
-    """Base for request bodies: strip whitespace before length checks."""
+# Characters that are never wanted in stored text: control characters (a NUL byte would make the
+# database refuse the row), zero-width characters, and the bidi overrides that can make a name
+# display differently from what it is ("Trojan Source").
+_INVISIBLE = re.compile(
+    "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]"
+)
+
+
+def clean_text(value: str) -> str:
+    """NFC-normalise and drop invisible characters. Newlines and tabs are kept (SOP text)."""
+    return _INVISIBLE.sub("", unicodedata.normalize("NFC", value.replace("\r\n", "\n").replace("\r", "\n")))
+
+
+def _clean_all(value: object) -> object:
+    if isinstance(value, str):
+        return clean_text(value)
+    if isinstance(value, list):
+        return [_clean_all(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _clean_all(v) for k, v in value.items()}
+    return value
+
+
+class _Clean(BaseModel):
+    """Cleans every string it receives, including text a model produced from a photo."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _clean_strings(cls, data: object) -> object:
+        return _clean_all(data)
+
+
+class _In(_Clean):
+    """Base for request bodies: clean text, then strip whitespace before length checks."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -85,7 +118,7 @@ class ArchiveIn(_In):
     archived: bool
 
 
-class ExtractedLine(BaseModel):
+class ExtractedLine(_Clean):
     """One line read from an order photo. Untrusted: the model produced it.
 
     A quantity or unit the model could not read is None, so staff see the line and fill it in,
@@ -107,7 +140,7 @@ _PACK_SIZE = re.compile(
 )
 
 
-class ProductSuggestion(BaseModel):
+class ProductSuggestion(_Clean):
     """A product read from a supplier sheet. Untrusted: a manager reviews it before it is saved."""
 
     name: str = Field(min_length=1, max_length=120)
@@ -238,7 +271,13 @@ class AuditEntry(BaseModel):
 # ---- accounts ---------------------------------------------------------------------------------
 
 Role = Literal["owner", "manager", "staff"]
-_USERNAME = re.compile(r"^[a-z0-9._-]{3,32}$")
+# 3 to 32 of a-z, 0-9 and . _ -, starting and ending with a letter or number. No spaces or other
+# symbols, so a username can always be typed again exactly, on any keyboard.
+_USERNAME = re.compile(r"^[a-z0-9](?:[a-z0-9._-]{1,30})[a-z0-9]$")
+USERNAME_RULE = (
+    "a username is 3 to 32 characters: letters a-z, numbers, and . _ - only (no spaces or other "
+    "symbols), starting and ending with a letter or number"
+)
 _CHAT_ID = re.compile(r"^(-?\d{1,20}|@[A-Za-z0-9_]{5,32})?$")
 
 
@@ -250,7 +289,7 @@ def _email(value: str | None) -> str | None:
     """Lower-case and check an email. Empty means none."""
     if value is None:
         return None
-    value = value.strip().lower()
+    value = normalise_login(value)
     if not value:
         return None
     if len(value) > 254 or not _EMAIL.match(value):
@@ -258,10 +297,18 @@ def _email(value: str | None) -> str | None:
     return value
 
 
+def normalise_login(value: str) -> str:
+    """How a username or email is compared: NFKC turns full-width letters from phone keyboards
+    into plain ones, then lower case. Used for storing and for signing in, so the two agree."""
+    return unicodedata.normalize("NFKC", value).strip().lower()
+
+
 def _username(value: str) -> str:
-    value = value.strip().lower()
+    value = normalise_login(value)
+    if "@" in value:
+        raise ValueError("a username cannot contain @ (your email goes in the Email field)")
     if not _USERNAME.match(value):
-        raise ValueError("username must be 3 to 32 characters: letters, digits, dot, dash, underscore")
+        raise ValueError(USERNAME_RULE)
     return value
 
 

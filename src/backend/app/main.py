@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 import psycopg
 from fastapi import BackgroundTasks, Depends, FastAPI, Query, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -98,6 +99,34 @@ def _error_handler(status_code: int, fixed_detail: str | None = None):
         return JSONResponse({"detail": fixed_detail or str(exc)}, status_code=status_code)
 
     return handle
+
+
+# Plain names for the fields people type into, used in validation messages.
+_FIELD_NAMES = {
+    "username": "Username",
+    "password": "Password",
+    "new_password": "New password",
+    "email": "Email",
+    "workspace_name": "Business name",
+    "display_name": "Name",
+}
+
+
+async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+    """One readable sentence per problem. FastAPI's default also echoes the submitted body back,
+    which would put a password in the response, so only the messages are returned."""
+    messages = []
+    for err in exc.errors():
+        message = str(err.get("msg", "invalid value")).removeprefix("Value error, ")
+        field = next((str(p) for p in reversed(err.get("loc", ())) if isinstance(p, str) and p != "body"), "")
+        if field in _FIELD_NAMES and err.get("type") != "value_error":
+            message = f"{_FIELD_NAMES[field]}: {message[0].lower()}{message[1:]}"
+        if message not in messages:
+            messages.append(message)
+    return JSONResponse({"detail": "; ".join(messages) or "the request is not valid"}, status_code=422)
+
+
+app.add_exception_handler(RequestValidationError, _validation_error)
 
 
 for _exc, _code in [
