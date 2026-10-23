@@ -45,3 +45,8 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[userenv]
+
+[userenv.shared]
+RUNPOD_ENDPOINT_ID = "sriet0cftztbik"
