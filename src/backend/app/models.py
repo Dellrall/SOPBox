@@ -1,4 +1,5 @@
-from typing import Literal
+import re
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -102,7 +103,6 @@ class DeliveryLineIn(_In):
 
 class DeliveryIn(_In):
     supplier: str = Field(default="", max_length=120)
-    received_by: str = Field(min_length=1, max_length=80)
     lines: list[DeliveryLineIn] = Field(min_length=1, max_length=100)
 
 
@@ -139,7 +139,6 @@ class Delivery(BaseModel):
 
 class DecisionIn(_In):
     decision: Literal["accept", "reject", "return"]
-    decided_by: str = Field(min_length=1, max_length=80)
     reason: str = Field(default="", max_length=500)
 
     @model_validator(mode="after")
@@ -156,3 +155,108 @@ class AuditEntry(BaseModel):
     action: str
     delivery_id: int | None
     detail: str
+
+
+# ---- accounts ---------------------------------------------------------------------------------
+
+Role = Literal["owner", "manager", "staff"]
+_USERNAME = re.compile(r"^[a-z0-9._-]{3,32}$")
+_CHAT_ID = re.compile(r"^(-?\d{1,20}|@[A-Za-z0-9_]{5,32})?$")
+
+
+def _username(value: str) -> str:
+    value = value.strip().lower()
+    if not _USERNAME.match(value):
+        raise ValueError("username must be 3 to 32 characters: letters, digits, dot, dash, underscore")
+    return value
+
+
+Username = Annotated[str, Field(min_length=3, max_length=32)]
+Password = Annotated[str, Field(min_length=8, max_length=128)]
+
+
+class RegisterIn(_In):
+    """Creates a workspace. Whoever registers it becomes its owner."""
+
+    workspace_name: str = Field(min_length=1, max_length=80)
+    display_name: str = Field(min_length=1, max_length=80)
+    username: Username
+    password: Password
+
+    @model_validator(mode="after")
+    def _clean(self) -> "RegisterIn":
+        self.username = _username(self.username)
+        return self
+
+
+class LoginIn(_In):
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class WorkspaceRef(BaseModel):
+    id: int
+    name: str
+
+
+class Me(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    role: Role
+    workspace: WorkspaceRef
+
+
+class PasswordChangeIn(_In):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: Password
+
+
+class UserCreateIn(_In):
+    username: Username
+    display_name: str = Field(min_length=1, max_length=80)
+    role: Literal["manager", "staff"]
+    password: Password
+
+    @model_validator(mode="after")
+    def _clean(self) -> "UserCreateIn":
+        self.username = _username(self.username)
+        return self
+
+
+class UserUpdateIn(_In):
+    """Only the fields that are sent change. A new password signs the person out everywhere."""
+
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    role: Literal["manager", "staff"] | None = None
+    active: bool | None = None
+    password: Password | None = None
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    role: Role
+    active: bool
+    created_at: str
+
+
+class WorkspaceSettings(BaseModel):
+    id: int
+    name: str
+    telegram_manager_chat_id: str
+    telegram_staff_chat_id: str
+
+
+class WorkspaceUpdateIn(_In):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    telegram_manager_chat_id: str | None = Field(default=None, max_length=40)
+    telegram_staff_chat_id: str | None = Field(default=None, max_length=40)
+
+    @model_validator(mode="after")
+    def _chat_ids(self) -> "WorkspaceUpdateIn":
+        for value in (self.telegram_manager_chat_id, self.telegram_staff_chat_id):
+            if value is not None and not _CHAT_ID.match(value):
+                raise ValueError("a Telegram chat id is a number (or @channelname), or empty")
+        return self

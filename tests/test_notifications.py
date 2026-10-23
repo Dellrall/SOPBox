@@ -13,8 +13,6 @@ TOKEN = "123:secret-token"
 @pytest.fixture
 def telegram(monkeypatch):
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", TOKEN)
-    monkeypatch.setenv("TELEGRAM_MANAGER_CHAT_ID", "111")
-    monkeypatch.setenv("TELEGRAM_STAFF_CHAT_ID", "222")
 
 
 def test_send_posts_the_message_to_the_chat(telegram, monkeypatch):
@@ -80,9 +78,14 @@ def test_httpx_request_logging_is_kept_quiet_because_urls_hold_the_token():
 
 
 @pytest.fixture
-def alerts(telegram, monkeypatch):
+def alerts(telegram, client, monkeypatch):
     from app import main
 
+    # Each workspace chooses where its own alerts go.
+    resp = client.patch(
+        "/api/workspace", json={"telegram_manager_chat_id": "111", "telegram_staff_chat_id": "222"}
+    )
+    assert resp.status_code == 200
     sent = []
     monkeypatch.setattr(main, "send_telegram", lambda chat_id, text: sent.append((chat_id, text)))
     return sent
@@ -91,43 +94,41 @@ def alerts(telegram, monkeypatch):
 def test_a_held_delivery_alerts_the_managers_with_the_reasons(client, catalogue_ids, alerts):
     ids = catalogue_ids
     line = {"product_id": ids["sausage"], "name": "Frozen sausage", "quantity": 5, "unit": "pcs", "temp_c": -2}
-    client.post("/api/deliveries", json={"received_by": "Aina", "supplier": "Fresh Foods", "lines": [line]})
+    client.post("/api/deliveries", json={"supplier": "Fresh Foods", "lines": [line]})
 
     ((chat_id, text),) = alerts
     assert chat_id == "111"
     assert "Delivery #1 needs approval" in text
-    assert "Fresh Foods" in text and "Aina" in text
+    assert "Fresh Foods" in text and "Olive Owner" in text
     assert "Frozen sausage: temperature -2 C outside -20 to -10 C" in text
 
 
 def test_a_clean_delivery_sends_no_alert(client, catalogue_ids, alerts):
     ids = catalogue_ids
     line = {"product_id": ids["sausage"], "name": "Frozen sausage", "quantity": 5, "unit": "pcs", "temp_c": -15}
-    client.post("/api/deliveries", json={"received_by": "Aina", "lines": [line]})
+    client.post("/api/deliveries", json={"lines": [line]})
     assert alerts == []
 
 
-def test_a_decision_alerts_the_staff_with_the_reason(client, manager, catalogue_ids, alerts):
+def test_a_decision_alerts_the_staff_with_the_reason(client, catalogue_ids, alerts):
     ids = catalogue_ids
     line = {"product_id": ids["sausage"], "name": "Frozen sausage", "quantity": 5, "unit": "pcs", "temp_c": -2}
-    client.post("/api/deliveries", json={"received_by": "Aina", "lines": [line]})
+    client.post("/api/deliveries", json={"lines": [line]})
     alerts.clear()
 
     client.post(
         "/api/deliveries/1/decision",
-        json={"decision": "return", "decided_by": "Mr Tan", "reason": "Too warm"},
-        headers=manager,
+        json={"decision": "return", "reason": "Too warm"},
     )
     ((chat_id, text),) = alerts
     assert chat_id == "222"
-    assert text == "Delivery #1 returned to the supplier by Mr Tan.\nReason: Too warm"
+    assert text == "Delivery #1 returned to the supplier by Olive Owner.\nReason: Too warm"
 
 
-def test_a_failed_decision_sends_no_alert(client, manager, alerts):
+def test_a_failed_decision_sends_no_alert(client, alerts):
     resp = client.post(
         "/api/deliveries/9999/decision",
-        json={"decision": "accept", "decided_by": "Mr Tan"},
-        headers=manager,
+        json={"decision": "accept"},
     )
     assert resp.status_code == 404
     assert alerts == []
@@ -140,6 +141,6 @@ def test_the_delivery_still_succeeds_when_telegram_is_down(client, catalogue_ids
     monkeypatch.setattr(notifications.httpx, "post", down)
     ids = catalogue_ids
     line = {"product_id": ids["sausage"], "name": "Frozen sausage", "quantity": 5, "unit": "pcs", "temp_c": -2}
-    resp = client.post("/api/deliveries", json={"received_by": "Aina", "lines": [line]})
+    resp = client.post("/api/deliveries", json={"lines": [line]})
     assert resp.status_code == 201
     assert resp.json()["status"] == "pending_approval"

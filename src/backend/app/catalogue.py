@@ -1,8 +1,12 @@
-"""Categories and products: create, read, update, delete, and search (the SOP lookup)."""
+"""Categories and products: create, read, update, delete, and search (the SOP lookup).
+
+Every function takes the caller's `workspace_id` and only touches that workspace's rows.
+"""
 
 import re
-import sqlite3
 from collections import defaultdict
+
+import psycopg
 
 from app.errors import InvalidRequestError, NotFoundError
 from app.models import Category, CategoryIn, PackUnit, Product, ProductIn
@@ -10,50 +14,58 @@ from app.models import Category, CategoryIn, PackUnit, Product, ProductIn
 _PRODUCT_SELECT = """
 SELECT p.*, c.name AS category, c.temp_min_c AS cat_min, c.temp_max_c AS cat_max
 FROM products p JOIN categories c ON c.id = p.category_id
+WHERE p.workspace_id = %s
 """
 
 
 # ---- categories -------------------------------------------------------------------------------
 
 
-def list_categories(conn: sqlite3.Connection) -> list[Category]:
-    rows = conn.execute("SELECT * FROM categories ORDER BY name").fetchall()
-    return [Category(**dict(r)) for r in rows]
+def list_categories(conn: psycopg.Connection, ws: int) -> list[Category]:
+    rows = conn.execute(
+        "SELECT * FROM categories WHERE workspace_id = %s ORDER BY lower(name)", (ws,)
+    ).fetchall()
+    return [Category(**r) for r in rows]
 
 
-def get_category(conn: sqlite3.Connection, category_id: int) -> Category:
-    row = conn.execute("SELECT * FROM categories WHERE id = ?", (category_id,)).fetchone()
+def get_category(conn: psycopg.Connection, ws: int, category_id: int) -> Category:
+    row = conn.execute(
+        "SELECT * FROM categories WHERE id = %s AND workspace_id = %s", (category_id, ws)
+    ).fetchone()
     if row is None:
         raise NotFoundError(f"category {category_id} not found")
-    return Category(**dict(row))
+    return Category(**row)
 
 
-def create_category(conn: sqlite3.Connection, data: CategoryIn) -> Category:
-    with conn:
-        cur = conn.execute(
-            "INSERT INTO categories (name, temp_min_c, temp_max_c) VALUES (?, ?, ?)",
-            (data.name, data.temp_min_c, data.temp_max_c),
-        )
-    return get_category(conn, cur.lastrowid)
+def create_category(conn: psycopg.Connection, ws: int, data: CategoryIn) -> Category:
+    row = conn.execute(
+        "INSERT INTO categories (workspace_id, name, temp_min_c, temp_max_c) "
+        "VALUES (%s, %s, %s, %s) RETURNING id",
+        (ws, data.name, data.temp_min_c, data.temp_max_c),
+    ).fetchone()
+    return get_category(conn, ws, row["id"])
 
 
-def update_category(conn: sqlite3.Connection, category_id: int, data: CategoryIn) -> Category:
-    with conn:
-        cur = conn.execute(
-            "UPDATE categories SET name = ?, temp_min_c = ?, temp_max_c = ? WHERE id = ?",
-            (data.name, data.temp_min_c, data.temp_max_c, category_id),
-        )
-        if cur.rowcount == 0:
-            raise NotFoundError(f"category {category_id} not found")
-    return get_category(conn, category_id)
+def update_category(
+    conn: psycopg.Connection, ws: int, category_id: int, data: CategoryIn
+) -> Category:
+    cur = conn.execute(
+        "UPDATE categories SET name = %s, temp_min_c = %s, temp_max_c = %s "
+        "WHERE id = %s AND workspace_id = %s",
+        (data.name, data.temp_min_c, data.temp_max_c, category_id, ws),
+    )
+    if cur.rowcount == 0:
+        raise NotFoundError(f"category {category_id} not found")
+    return get_category(conn, ws, category_id)
 
 
-def delete_category(conn: sqlite3.Connection, category_id: int) -> None:
+def delete_category(conn: psycopg.Connection, ws: int, category_id: int) -> None:
     # A category that still has products is protected by the foreign key (HTTP 409).
-    with conn:
-        cur = conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
-        if cur.rowcount == 0:
-            raise NotFoundError(f"category {category_id} not found")
+    cur = conn.execute(
+        "DELETE FROM categories WHERE id = %s AND workspace_id = %s", (category_id, ws)
+    )
+    if cur.rowcount == 0:
+        raise NotFoundError(f"category {category_id} not found")
 
 
 # ---- products ---------------------------------------------------------------------------------
@@ -63,16 +75,17 @@ def _escape_like(text: str) -> str:
     return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _load(conn: sqlite3.Connection, where: str = "", params: tuple = ()) -> list[Product]:
-    rows = conn.execute(f"{_PRODUCT_SELECT} {where} ORDER BY p.name", params).fetchall()
+def _load(conn: psycopg.Connection, ws: int, where: str = "", params: tuple = ()) -> list[Product]:
+    rows = conn.execute(
+        f"{_PRODUCT_SELECT} {where} ORDER BY lower(p.name)", (ws, *params)
+    ).fetchall()
     packs: dict[int, list[PackUnit]] = defaultdict(list)
     ids = [r["id"] for r in rows]
     if ids:
-        marks = ",".join("?" * len(ids))
         pack_rows = conn.execute(
-            f"SELECT product_id, unit, base_qty FROM pack_units "
-            f"WHERE product_id IN ({marks}) ORDER BY base_qty, unit",
-            ids,
+            "SELECT product_id, unit, base_qty FROM pack_units "
+            "WHERE product_id = ANY(%s) ORDER BY base_qty, unit",
+            (ids,),
         )
         for p in pack_rows:
             packs[p["product_id"]].append(PackUnit(unit=p["unit"], base_qty=p["base_qty"]))
@@ -102,67 +115,71 @@ def _load(conn: sqlite3.Connection, where: str = "", params: tuple = ()) -> list
     return products
 
 
-def list_products(conn: sqlite3.Connection, q: str | None = None) -> list[Product]:
+def list_products(conn: psycopg.Connection, ws: int, q: str | None = None) -> list[Product]:
     """All products, or those whose name, category or SOP text contains `q`."""
     if q and q.strip():
         like = f"%{_escape_like(q.strip())}%"
         where = (
-            "WHERE p.name LIKE ? ESCAPE '\\' OR p.sop LIKE ? ESCAPE '\\' "
-            "OR c.name LIKE ? ESCAPE '\\'"
+            "AND (p.name ILIKE %s ESCAPE '\\' OR p.sop ILIKE %s ESCAPE '\\' "
+            "OR c.name ILIKE %s ESCAPE '\\')"
         )
-        return _load(conn, where, (like, like, like))
-    return _load(conn)
+        return _load(conn, ws, where, (like, like, like))
+    return _load(conn, ws)
 
 
-def get_product(conn: sqlite3.Connection, product_id: int) -> Product:
-    found = _load(conn, "WHERE p.id = ?", (product_id,))
+def get_product(conn: psycopg.Connection, ws: int, product_id: int) -> Product:
+    found = _load(conn, ws, "AND p.id = %s", (product_id,))
     if not found:
         raise NotFoundError(f"product {product_id} not found")
     return found[0]
 
 
-def _require_category(conn: sqlite3.Connection, category_id: int) -> None:
-    if conn.execute("SELECT 1 FROM categories WHERE id = ?", (category_id,)).fetchone() is None:
+def _require_category(conn: psycopg.Connection, ws: int, category_id: int) -> None:
+    row = conn.execute(
+        "SELECT 1 FROM categories WHERE id = %s AND workspace_id = %s", (category_id, ws)
+    ).fetchone()
+    if row is None:
         raise InvalidRequestError(f"unknown category_id {category_id}")
 
 
-def _replace_packs(conn: sqlite3.Connection, product_id: int, packs: list[PackUnit]) -> None:
-    conn.execute("DELETE FROM pack_units WHERE product_id = ?", (product_id,))
-    conn.executemany(
-        "INSERT INTO pack_units (product_id, unit, base_qty) VALUES (?, ?, ?)",
-        [(product_id, p.unit, p.base_qty) for p in packs],
-    )
+def _replace_packs(conn: psycopg.Connection, product_id: int, packs: list[PackUnit]) -> None:
+    conn.execute("DELETE FROM pack_units WHERE product_id = %s", (product_id,))
+    for p in packs:
+        conn.execute(
+            "INSERT INTO pack_units (product_id, unit, base_qty) VALUES (%s, %s, %s)",
+            (product_id, p.unit, p.base_qty),
+        )
 
 
-def create_product(conn: sqlite3.Connection, data: ProductIn, stock: int = 0) -> Product:
-    """`stock` is only for seeding. After that, stock changes only when a delivery is accepted."""
-    _require_category(conn, data.category_id)
-    with conn:
-        cur = conn.execute(
+def create_product(conn: psycopg.Connection, ws: int, data: ProductIn) -> Product:
+    """New products start with no stock. Stock changes only when a delivery is accepted."""
+    _require_category(conn, ws, data.category_id)
+    with conn.transaction():
+        row = conn.execute(
             "INSERT INTO products "
-            "(name, category_id, base_unit, temp_min_c, temp_max_c, min_stock, stock, sop) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "(workspace_id, name, category_id, base_unit, temp_min_c, temp_max_c, min_stock, sop) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (
+                ws,
                 data.name,
                 data.category_id,
                 data.base_unit,
                 data.temp_min_c,
                 data.temp_max_c,
                 data.min_stock,
-                stock,
                 data.sop,
             ),
-        )
-        _replace_packs(conn, cur.lastrowid, data.pack_units)
-    return get_product(conn, cur.lastrowid)
+        ).fetchone()
+        _replace_packs(conn, row["id"], data.pack_units)
+    return get_product(conn, ws, row["id"])
 
 
-def update_product(conn: sqlite3.Connection, product_id: int, data: ProductIn) -> Product:
-    _require_category(conn, data.category_id)
-    with conn:
+def update_product(conn: psycopg.Connection, ws: int, product_id: int, data: ProductIn) -> Product:
+    _require_category(conn, ws, data.category_id)
+    with conn.transaction():
         cur = conn.execute(
-            "UPDATE products SET name = ?, category_id = ?, base_unit = ?, temp_min_c = ?, "
-            "temp_max_c = ?, min_stock = ?, sop = ? WHERE id = ?",
+            "UPDATE products SET name = %s, category_id = %s, base_unit = %s, temp_min_c = %s, "
+            "temp_max_c = %s, min_stock = %s, sop = %s WHERE id = %s AND workspace_id = %s",
             (
                 data.name,
                 data.category_id,
@@ -172,20 +189,20 @@ def update_product(conn: sqlite3.Connection, product_id: int, data: ProductIn) -
                 data.min_stock,
                 data.sop,
                 product_id,
+                ws,
             ),
         )
         if cur.rowcount == 0:
             raise NotFoundError(f"product {product_id} not found")
         _replace_packs(conn, product_id, data.pack_units)
-    return get_product(conn, product_id)
+    return get_product(conn, ws, product_id)
 
 
-def delete_product(conn: sqlite3.Connection, product_id: int) -> None:
+def delete_product(conn: psycopg.Connection, ws: int, product_id: int) -> None:
     # A product that appears on a delivery is protected by the foreign key (HTTP 409).
-    with conn:
-        cur = conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
-        if cur.rowcount == 0:
-            raise NotFoundError(f"product {product_id} not found")
+    cur = conn.execute("DELETE FROM products WHERE id = %s AND workspace_id = %s", (product_id, ws))
+    if cur.rowcount == 0:
+        raise NotFoundError(f"product {product_id} not found")
 
 
 # ---- matching order text to products ----------------------------------------------------------

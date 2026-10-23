@@ -3,10 +3,8 @@
 import pytest
 
 
-def receive(client, ids, *lines, received_by="Aina", supplier="Fresh Foods"):
-    resp = client.post(
-        "/api/deliveries", json={"received_by": received_by, "supplier": supplier, "lines": list(lines)}
-    )
+def receive(client, ids, *lines, supplier="Fresh Foods"):
+    resp = client.post("/api/deliveries", json={"supplier": supplier, "lines": list(lines)})
     assert resp.status_code == 201, resp.text
     return resp.json()
 
@@ -25,9 +23,9 @@ def stock(client, product_id):
     return client.get(f"/api/products/{product_id}").json()["stock"]
 
 
-def decide(client, manager, delivery_id, **body):
-    payload = {"decision": "accept", "decided_by": "Mr Tan", **body}
-    return client.post(f"/api/deliveries/{delivery_id}/decision", json=payload, headers=manager)
+def decide(client, delivery_id, **body):
+    payload = {"decision": "accept", **body}
+    return client.post(f"/api/deliveries/{delivery_id}/decision", json=payload)
 
 
 # ---- happy path -------------------------------------------------------------------------------
@@ -96,9 +94,7 @@ def test_a_line_staff_could_not_match_goes_to_a_manager(client, catalogue_ids):
 
 def test_an_unknown_product_id_is_rejected(client, catalogue_ids):
     ids = catalogue_ids
-    resp = client.post(
-        "/api/deliveries", json={"received_by": "Aina", "lines": [sausage_line(ids, product_id=9999)]}
-    )
+    resp = client.post("/api/deliveries", json={"lines": [sausage_line(ids, product_id=9999)]})
     assert resp.status_code == 422
 
 
@@ -106,13 +102,12 @@ def test_an_unknown_product_id_is_rejected(client, catalogue_ids):
     "mutate",
     [
         lambda d: d.update(lines=[]),
-        lambda d: d.update(received_by="  "),
         lambda d: d["lines"][0].update(quantity=0),
         lambda d: d["lines"][0].update(temp_c=150),
     ],
 )
 def test_invalid_deliveries_are_rejected(client, catalogue_ids, mutate):
-    body = {"received_by": "Aina", "lines": [sausage_line(catalogue_ids)]}
+    body = {"lines": [sausage_line(catalogue_ids)]}
     mutate(body)
     assert client.post("/api/deliveries", json=body).status_code == 422
 
@@ -127,68 +122,80 @@ def held_delivery(client, ids):
     return delivery["id"]
 
 
-def test_accepting_a_held_delivery_stocks_what_actually_arrived(client, manager, catalogue_ids):
+def test_accepting_a_held_delivery_stocks_what_actually_arrived(client, catalogue_ids):
     ids = catalogue_ids
     delivery_id = held_delivery(client, ids)
 
-    resp = decide(client, manager, delivery_id, reason="Supplier confirmed the extra bundle")
+    resp = decide(client, delivery_id, reason="Supplier confirmed the extra bundle")
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "accepted"
-    assert body["decided_by"] == "Mr Tan"
+    assert body["decided_by"] == "Olive Owner"  # the signed-in user, not a name typed by the client
     assert body["decision_reason"] == "Supplier confirmed the extra bundle"
     assert stock(client, ids["fries"]) == 500  # received, not expected
 
 
 @pytest.mark.parametrize(("decision", "status"), [("reject", "rejected"), ("return", "returned")])
 def test_rejecting_or_returning_does_not_touch_stock(
-    client, manager, catalogue_ids, decision, status
+    client, catalogue_ids, decision, status
 ):
     ids = catalogue_ids
     delivery_id = held_delivery(client, ids)
 
-    resp = decide(client, manager, delivery_id, decision=decision, reason="Short by 100")
+    resp = decide(client, delivery_id, decision=decision, reason="Short by 100")
     assert resp.json()["status"] == status
     assert stock(client, ids["fries"]) == 0
 
 
 @pytest.mark.parametrize("decision", ["reject", "return"])
-def test_rejecting_or_returning_needs_a_reason(client, manager, catalogue_ids, decision):
+def test_rejecting_or_returning_needs_a_reason(client, catalogue_ids, decision):
     delivery_id = held_delivery(client, catalogue_ids)
-    resp = decide(client, manager, delivery_id, decision=decision)
+    resp = decide(client, delivery_id, decision=decision)
     assert resp.status_code == 422
     assert client.get(f"/api/deliveries/{delivery_id}").json()["status"] == "pending_approval"
 
 
-def test_a_delivery_can_only_be_decided_once(client, manager, catalogue_ids):
+def test_a_delivery_can_only_be_decided_once(client, catalogue_ids):
     ids = catalogue_ids
     delivery_id = held_delivery(client, ids)
-    assert decide(client, manager, delivery_id).status_code == 200
-    assert decide(client, manager, delivery_id).status_code == 409
+    assert decide(client, delivery_id).status_code == 200
+    assert decide(client, delivery_id).status_code == 409
     assert stock(client, ids["fries"]) == 500  # not added twice
 
 
-def test_an_auto_accepted_delivery_cannot_be_decided(client, manager, catalogue_ids):
+def test_an_auto_accepted_delivery_cannot_be_decided(client, catalogue_ids):
     delivery = receive(client, catalogue_ids, sausage_line(catalogue_ids))
-    assert decide(client, manager, delivery["id"]).status_code == 409
+    assert decide(client, delivery["id"]).status_code == 409
 
 
-def test_deciding_an_unknown_delivery_is_404(client, manager):
-    assert decide(client, manager, 9999).status_code == 404
+def test_deciding_an_unknown_delivery_is_404(client):
+    assert decide(client, 9999).status_code == 404
 
 
-def test_deciding_needs_the_manager_pin(client, catalogue_ids):
+def test_staff_cannot_decide_a_delivery(client, catalogue_ids, make_user):
     delivery_id = held_delivery(client, catalogue_ids)
-    resp = client.post(
-        f"/api/deliveries/{delivery_id}/decision", json={"decision": "accept", "decided_by": "Aina"}
-    )
-    assert resp.status_code == 401
+    staff = make_user("staff")
+    assert decide(staff, delivery_id).status_code == 403
+    assert client.get(f"/api/deliveries/{delivery_id}").json()["status"] == "pending_approval"
+
+
+def test_a_manager_can_decide_a_delivery(client, catalogue_ids, make_user):
+    delivery_id = held_delivery(client, catalogue_ids)
+    manager = make_user("manager", name="Mina Manager")
+    body = decide(manager, delivery_id).json()
+    assert (body["status"], body["decided_by"]) == ("accepted", "Mina Manager")
+
+
+def test_the_person_who_received_it_is_the_signed_in_user(client, catalogue_ids, make_user):
+    staff = make_user("staff", name="Sam Staff")
+    delivery = receive(staff, catalogue_ids, sausage_line(catalogue_ids))
+    assert delivery["received_by"] == "Sam Staff"
 
 
 # ---- reading ----------------------------------------------------------------------------------
 
 
-def test_list_filters_by_status_newest_first(client, manager, catalogue_ids):
+def test_list_filters_by_status_newest_first(client, catalogue_ids):
     ids = catalogue_ids
     first = receive(client, ids, sausage_line(ids))
     held = held_delivery(client, ids)
@@ -209,19 +216,19 @@ def test_get_delivery_by_id(client, catalogue_ids):
 # ---- audit log --------------------------------------------------------------------------------
 
 
-def test_every_step_is_logged_with_who_and_what(client, manager, catalogue_ids):
+def test_every_step_is_logged_with_who_and_what(client, catalogue_ids):
     ids = catalogue_ids
-    receive(client, ids, sausage_line(ids), received_by="Aina")
+    receive(client, ids, sausage_line(ids))
     delivery_id = held_delivery(client, ids)
-    decide(client, manager, delivery_id, decision="reject", reason="Short by 100")
+    decide(client, delivery_id, decision="reject", reason="Short by 100")
 
     entries = client.get("/api/audit").json()
     summary = [(e["actor"], e["action"], e["delivery_id"]) for e in reversed(entries)]
     assert summary == [
-        ("Aina", "delivery.received", 1),
+        ("Olive Owner", "delivery.received", 1),
         ("system", "delivery.accepted", 1),
-        ("Aina", "delivery.received", 2),
-        ("Mr Tan", "delivery.rejected", 2),
+        ("Olive Owner", "delivery.received", 2),
+        ("Olive Owner", "delivery.rejected", 2),
     ]
     assert entries[0]["detail"] == "Short by 100"
     assert all(e["at"] for e in entries)

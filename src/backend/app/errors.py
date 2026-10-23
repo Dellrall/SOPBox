@@ -15,4 +15,12 @@ class ExtractionError(Exception):
 
 
 class RateLimitError(Exception):
-    """Too many model calls this hour (HTTP 429). Protects the RunPod budget."""
+    """Too many model calls this hour, or too many sign-in attempts (HTTP 429)."""
+
+
+class AuthError(Exception):
+    """Not signed in, or the sign-in details are wrong (HTTP 401)."""
+
+
+class ForbiddenError(Exception):
+    """Signed in, but this role may not do that (HTTP 403)."""

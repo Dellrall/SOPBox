@@ -69,18 +69,12 @@ class FakeResponse:
 
 @pytest.fixture
 def runpod(monkeypatch):
-    monkeypatch.setenv("EXTRACTION_MODE", "runpod")
     monkeypatch.setenv("RUNPOD_ENDPOINT_URL", "https://api.runpod.ai/v2/abc/runsync")
     monkeypatch.setenv("RUNPOD_API_KEY", "secret-key")
 
 
 def completed(text):
     return FakeResponse({"status": "COMPLETED", "output": {"text": text}})
-
-
-def test_mock_mode_returns_fixed_lines_without_using_the_budget(monkeypatch):
-    monkeypatch.setattr(extraction, "EXTRACTION_MAX_PER_HOUR", 0)
-    assert [line.name for line in extraction.extract_lines("img")] == ["Fries tray", "Frozen sausage"]
 
 
 def test_runpod_mode_sends_the_image_with_the_key_and_parses_the_reply(runpod, monkeypatch):
@@ -126,16 +120,15 @@ def test_a_network_error_does_not_leak_the_api_key(runpod, monkeypatch):
     assert caught.value.__cause__ is None
 
 
-def test_runpod_mode_needs_configuration(monkeypatch):
-    monkeypatch.setenv("EXTRACTION_MODE", "runpod")
-    with pytest.raises(ExtractionError, match="not configured"):
+def test_reading_photos_needs_a_configured_endpoint():
+    with pytest.raises(ExtractionError, match="not set up"):
         extraction.extract_lines("img")
 
 
-def test_an_unknown_mode_is_an_error(monkeypatch):
-    monkeypatch.setenv("EXTRACTION_MODE", "gemini")
-    with pytest.raises(ExtractionError, match="unknown EXTRACTION_MODE"):
-        extraction.extract_lines("img")
+def test_the_route_says_so_when_reading_photos_is_not_set_up(client):
+    resp = client.post("/api/extract", json={"image_b64": "ZmFrZQ=="})
+    assert resp.status_code == 502
+    assert "enter the lines by hand" in resp.json()["detail"]
 
 
 def test_the_hourly_limit_stops_runaway_gpu_spend(runpod, monkeypatch):
@@ -166,11 +159,21 @@ def test_the_hourly_limit_resets_after_an_hour(runpod, monkeypatch):
 # ---- the route --------------------------------------------------------------------------------
 
 
-def test_extract_route_returns_lines_in_mock_mode(client):
+def test_extract_route_returns_lines_matched_to_the_catalogue(client, catalogue_ids, monkeypatch):
+    from app import main
+    from app.models import ExtractedLine
+
+    monkeypatch.setattr(
+        main,
+        "extract_lines",
+        lambda _: [
+            ExtractedLine(name="Fries tray", quantity=2, unit="bdl"),
+            ExtractedLine(name="Mystery sauce", quantity=1, unit="box"),
+        ],
+    )
     resp = client.post("/api/extract", json={"image_b64": "ZmFrZQ=="})
     assert resp.status_code == 200
-    assert [line["name"] for line in resp.json()] == ["Fries tray", "Frozen sausage"]
-    assert all(line["product_id"] is None for line in resp.json())  # empty catalogue
+    assert [line["product_id"] for line in resp.json()] == [catalogue_ids["fries"], None]
 
 
 def test_extract_route_rejects_an_empty_image(client):

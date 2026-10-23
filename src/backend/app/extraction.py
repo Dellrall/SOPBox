@@ -28,11 +28,6 @@ EXTRACTION_MAX_PER_HOUR = 60
 _calls: deque[float] = deque()
 _calls_lock = threading.Lock()
 
-MOCK_LINES = [
-    ExtractedLine(name="Fries tray", quantity=2, unit="bdl"),
-    ExtractedLine(name="Frozen sausage", quantity=40, unit="pcs"),
-]
-
 _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 
 
@@ -80,12 +75,8 @@ def parse_model_output(text: str) -> list[ExtractedLine]:
 
 def extract_lines(image_b64: str) -> list[ExtractedLine]:
     settings = get_settings()
-    if settings.extraction_mode == "mock":
-        return list(MOCK_LINES)
-    if settings.extraction_mode != "runpod":
-        raise ExtractionError(f"unknown EXTRACTION_MODE '{settings.extraction_mode}'")
     if not (settings.runpod_endpoint_url and settings.runpod_api_key):
-        raise ExtractionError("RunPod endpoint is not configured")
+        raise ExtractionError("reading photos is not set up; enter the lines by hand")
 
     _take_budget()
     try:
