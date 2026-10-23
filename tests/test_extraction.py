@@ -296,3 +296,16 @@ def test_extract_route_maps_failures_to_502_and_429(client, monkeypatch):
 
     monkeypatch.setattr(main, "extract_lines", limit)
     assert client.post("/api/extract", json={"image_b64": "ZmFrZQ=="}).status_code == 429
+
+
+def test_parses_the_reply_for_a_scribbled_out_quantity():
+    # Recorded from endpoint sriet0cftztbik on 24 Oct 2026 with the current PROMPT, for an order
+    # whose Fries Tray quantity was scribbled over. The model left it blank and said why.
+    reply = (
+        '{\n  "lines": [\n    {"name": "Frozen Sausage 1kg", "quantity": 10, "unit": "pkt"},\n'
+        '    {"name": "Fries Tray", "quantity": null, "unit": "bdl", "warning": "quantity unclear"},\n'
+        '    {"name": "Coke 330ml", "quantity": 3, "unit": "ctn"}\n  ]\n}'
+    )
+    sausage, fries, coke = extraction.parse_model_output(reply)
+    assert (sausage.quantity, coke.quantity) == (10, 3)
+    assert (fries.quantity, fries.warning) == (None, "quantity unclear")

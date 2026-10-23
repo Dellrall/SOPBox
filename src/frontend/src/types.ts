@@ -97,6 +97,7 @@ export type ProductSuggestion = {
   name: string;
   category: string | null;
   category_id: number | null; // an existing category with that name
+  pack_size: string | null; // as printed, e.g. "10 pcs/ctn"; the units below come from it
   base_unit: string | null;
   pack_unit: string | null;
   units_per_pack: number | null;

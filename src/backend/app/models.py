@@ -102,11 +102,17 @@ class ExtractedLine(BaseModel):
         return None if isinstance(value, str) and not value.strip() else value
 
 
+_PACK_SIZE = re.compile(
+    r"^\s*(?P<qty>\d+)\s*(?P<base>[A-Za-z]+)\.?\s*(?:/|per)\s*(?P<pack>[A-Za-z]+)\.?\s*$", re.IGNORECASE
+)
+
+
 class ProductSuggestion(BaseModel):
     """A product read from a supplier sheet. Untrusted: a manager reviews it before it is saved."""
 
     name: str = Field(min_length=1, max_length=120)
     category: str | None = Field(default=None, max_length=80)
+    pack_size: str | None = Field(default=None, max_length=60)  # as printed, e.g. "10 pcs/ctn"
     base_unit: str | None = Field(default=None, max_length=20)
     pack_unit: str | None = Field(default=None, max_length=20)
     units_per_pack: int | None = Field(default=None, gt=0, le=100_000)
@@ -114,10 +120,25 @@ class ProductSuggestion(BaseModel):
     temp_max_c: float | None = Field(default=None, ge=-60, le=100)
     warning: str | None = Field(default=None, max_length=200)
 
-    @field_validator("category", "base_unit", "pack_unit", "warning", mode="before")
+    @field_validator("category", "pack_size", "base_unit", "pack_unit", "warning", mode="before")
     @classmethod
     def _blank_is_none(cls, value: object) -> object:
         return None if isinstance(value, str) and not value.strip() else value
+
+    @model_validator(mode="after")
+    def _units_from_pack_size(self) -> "ProductSuggestion":
+        # "10 pcs/ctn", "500 pcs per bdl": the printed pack size decides the units, not the
+        # model's own fields, which it fills from the product name ("kg" from "Nuggets 1kg").
+        if self.pack_size:
+            found = _PACK_SIZE.match(self.pack_size)
+            if found and 0 < int(found["qty"]) <= 100_000:
+                self.units_per_pack = int(found["qty"])
+                self.base_unit = found["base"]
+                self.pack_unit = found["pack"]
+            else:
+                note = f"check the pack size: {self.pack_size}"
+                self.warning = f"{self.warning}; {note}" if self.warning else note
+        return self
 
     @model_validator(mode="after")
     def _one_sided_range_is_dropped(self) -> "ProductSuggestion":
