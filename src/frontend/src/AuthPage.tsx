@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { BellRing, Camera, ClipboardCheck, ScrollText, ShieldCheck, Thermometer } from "lucide-react";
 import { api } from "./api";
+import type { PublicPath } from "./App";
 import type { Me } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton } from "./ui";
 
@@ -14,8 +15,19 @@ const STEPS = [
 ];
 
 /** Sign in, or create a new workspace. The person who creates a workspace becomes its owner. */
-export default function AuthPage({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
-  const [mode, setMode] = useState<Mode>("signin");
+export default function AuthPage({
+  mode,
+  navigate,
+  onSignedIn,
+}: {
+  mode: Mode;
+  navigate: (to: PublicPath) => void;
+  onSignedIn: (me: Me) => void;
+}) {
+  const setMode = (m: Mode) => navigate(m === "register" ? "/register" : "/signin");
+  useEffect(() => {
+    document.title = mode === "register" ? "Create a workspace · SOPBox" : "Sign in · SOPBox";
+  }, [mode]);
   const [workspace, setWorkspace] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -66,10 +78,18 @@ export default function AuthPage({ onSignedIn }: { onSignedIn: (me: Me) => void 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[1.05fr_1fr]">
       <section className="hero-pattern relative flex flex-col justify-between overflow-hidden px-6 py-8 text-white sm:px-10 lg:min-h-screen lg:px-14 lg:py-12">
-        <div className="flex items-center gap-3">
-          <img src="/logo-128.webp" alt="SOPBox logo" width={44} height={44} className="h-11 w-11 rounded-xl object-cover ring-2 ring-white/15" />
+        <a
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/");
+          }}
+          className="flex w-fit items-center gap-3 rounded-xl"
+        >
+          <img src="/logo-128.webp" alt="" width={44} height={44} className="h-11 w-11 rounded-xl object-cover ring-2 ring-white/15" />
           <span className="text-xl font-bold">SOPBox</span>
-        </div>
+          <span className="sr-only">: back to the welcome page</span>
+        </a>
 
         <div className="my-10 max-w-xl lg:my-0">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-leaf ring-1 ring-white/15">
