@@ -4,10 +4,23 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Settings:
-    # "mock" returns fixed lines; "runpod" calls the RunPod serverless endpoint.
-    extraction_mode: str = os.getenv("EXTRACTION_MODE", "mock")
-    runpod_endpoint_url: str = os.getenv("RUNPOD_ENDPOINT_URL", "")
-    runpod_api_key: str = os.getenv("RUNPOD_API_KEY", "")
+    # PostgreSQL connection string. On Replit, the Database tool sets this for you.
+    database_url: str
+    # Send the session cookie over HTTPS only. Turn off (COOKIE_SECURE=0) for plain-http local runs.
+    cookie_secure: bool
+    runpod_endpoint_id: str
+    runpod_api_key: str
+    # One bot for the whole app. Each workspace sets its own chat ids in Settings.
+    telegram_bot_token: str
 
 
-settings = Settings()
+def get_settings() -> Settings:
+    """Read the environment on every call, so tests and Replit Secrets changes take effect."""
+    env = os.environ.get
+    return Settings(
+        database_url=env("DATABASE_URL", ""),
+        cookie_secure=(env("COOKIE_SECURE") or "1") != "0",
+        runpod_endpoint_id=env("RUNPOD_ENDPOINT_ID", ""),
+        runpod_api_key=env("RUNPOD_API_KEY", ""),
+        telegram_bot_token=env("TELEGRAM_BOT_TOKEN", ""),
+    )

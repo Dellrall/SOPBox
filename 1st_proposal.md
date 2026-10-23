@@ -47,9 +47,14 @@ Stretch goals, only if the core is done: (1) low-stock alert on Telegram that dr
 - ADK extraction agent (and a simple SOP lookup agent if time allows)
 - One planned LoRA fine-tune of the extraction model on RunPod, if zero-shot results fall short of the thresholds or the challenge rules require training
 - SOP cards per product, plus a simple SOP lookup for staff
-- Seed data: 10 products including the examples from the brief (frozen sausage, chocolate balls, fries tray, hot dog box, nuggets, Coke)
+- Accounts: a workspace is created at sign-up and its owner creates manager and staff accounts. Data starts empty; the team loads the brief's example products (frozen sausage, chocolate balls, fries tray, hot dog box, nuggets, Coke) for the demo
+
+**Stretch (Saturday, only if the receiving journey works on a phone; cut first if behind):**
+- Product card from a photo: a manager photographs an SOP sheet or supplier list, the model proposes the card (category, temperature range, pack sizes, SOP steps), and the manager reviews and saves. It reuses the extraction path, and the result is structured data the rules engine enforces
+- SOP Q&A without RAG: take the top matches from the existing SOP search, paste those cards into the prompt, answer only from them and name the card
 
 **Out (roadmap):**
+- RAG over long SOP documents. Business facts the rules use (temperature, pack conversion, thresholds) stay structured fields, never retrieved text. Revisit only when SOPs reach 50+ pages or a few hundred cards
 - Demand forecasting
 - POS integration
 - Multi-outlet support
@@ -74,7 +79,7 @@ Stretch goals, only if the core is done: (1) low-stock alert on Telegram that dr
 | **App hosting** | Replit (deployment) | Hosts the web app and API. Replit does no training. |
 | **Backend and REST API** | Python, FastAPI. FastAPI is the REST layer; there is no separate middleware tier. | Same language as the ADK agent and the RunPod worker, so one codebase for logic and model calls |
 | **Frontend** | React + Vite + TypeScript + Tailwind CSS, mobile-first. Vite builds static files that FastAPI serves. | TypeScript types the API responses, which catches frontend and backend mismatches early. Tailwind speeds up phone-friendly UI. React has the most examples for forms and camera UIs. |
-| **Database** | Replit PostgreSQL (fall back to SQLite if the plan lacks it) | Stores catalogue, rules, SOPs, Telegram links, and audit log |
+| **Database** | Replit PostgreSQL (the deployed filesystem is not persistent, so SQLite is not used) | Stores catalogue, rules, SOPs, Telegram links, and audit log |
 | **Barcode scan** | html5-qrcode in the browser | Uses the phone camera; no ML needed |
 | **Secrets** | Replit Secrets | Holds the RunPod endpoint key and the Telegram bot token; never committed to git |
 | **Model weights** | RunPod network volume | Avoids re-downloading the model on every cold start. Storage may be billed separately. |

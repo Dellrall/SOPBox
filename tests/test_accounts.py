@@ -1,0 +1,305 @@
+"""Workspaces, sign-in, and the owner managing their people."""
+
+import pytest
+
+from fastapi.testclient import TestClient
+
+from app.main import app
+from conftest import PASSWORD, sign_in, sign_up
+
+
+def register_body(**overrides):
+    body = {
+        "workspace_name": "Test Kitchen",
+        "display_name": "Olive Owner",
+        "username": "olive",
+        "password": PASSWORD,
+    }
+    return {**body, **overrides}
+
+
+# ---- registering a workspace ------------------------------------------------------------------
+
+
+def test_registering_creates_a_workspace_and_makes_you_its_owner(anon):
+    resp = anon.post("/api/auth/register", json=register_body())
+    assert resp.status_code == 201
+    assert resp.json()["role"] == "owner"
+    assert resp.json()["workspace"]["name"] == "Test Kitchen"
+    # Already signed in: the session cookie came with the response.
+    assert anon.get("/api/auth/me").json()["username"] == "olive"
+
+
+def test_a_new_workspace_is_empty(client):
+    assert client.get("/api/products").json() == []
+    assert client.get("/api/categories").json() == []
+    assert client.get("/api/deliveries").json() == []
+    assert [u["username"] for u in client.get("/api/users").json()] == ["olive"]
+
+
+def test_usernames_are_unique_across_workspaces_ignoring_case(client, anon):
+    resp = anon.post("/api/auth/register", json=register_body(workspace_name="Other", username="OLIVE"))
+    assert resp.status_code == 409
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"username": "ab"},
+        {"username": "has space"},
+        {"username": "UPPER!"},
+        {"password": "short"},
+        {"workspace_name": "  "},
+        {"display_name": ""},
+    ],
+)
+def test_registration_checks_its_input(anon, overrides):
+    assert anon.post("/api/auth/register", json=register_body(**overrides)).status_code == 422
+
+
+def test_usernames_are_stored_in_lower_case(anon):
+    anon.post("/api/auth/register", json=register_body(username="Olive.Owner"))
+    assert anon.get("/api/auth/me").json()["username"] == "olive.owner"
+    assert sign_in("OLIVE.owner").get("/api/auth/me").status_code == 200
+
+
+def test_one_address_cannot_create_unlimited_workspaces(anon):
+    for i in range(10):
+        assert anon.post("/api/auth/register", json=register_body(username=f"owner{i}")).status_code == 201
+    assert anon.post("/api/auth/register", json=register_body(username="owner10")).status_code == 429
+
+
+# ---- signing in and out -----------------------------------------------------------------------
+
+
+def test_sign_in_with_the_right_password(client, anon):
+    resp = anon.post("/api/auth/login", json={"username": "olive", "password": PASSWORD})
+    assert resp.status_code == 200
+    assert anon.get("/api/auth/me").json()["display_name"] == "Olive Owner"
+
+
+@pytest.mark.parametrize("username", ["olive", "nobody"])
+def test_a_wrong_password_and_an_unknown_user_look_the_same(client, anon, username):
+    resp = anon.post("/api/auth/login", json={"username": username, "password": "wrong password"})
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "wrong username or password"
+
+
+def test_five_wrong_passwords_lock_the_account_for_a_while(client, anon):
+    for _ in range(5):
+        anon.post("/api/auth/login", json={"username": "olive", "password": "wrong password"})
+    resp = anon.post("/api/auth/login", json={"username": "olive", "password": PASSWORD})
+    assert resp.status_code == 429
+
+
+def test_signing_out_ends_the_session(client):
+    assert client.post("/api/auth/logout").status_code == 204
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_the_session_cookie_is_http_only_and_secure_by_default(anon, monkeypatch):
+    monkeypatch.setenv("COOKIE_SECURE", "1")
+    cookie = anon.post("/api/auth/register", json=register_body()).headers["set-cookie"].lower()
+    assert "httponly" in cookie and "secure" in cookie and "samesite=lax" in cookie
+
+
+def test_the_database_never_holds_a_usable_session_token(client, _database):
+    import psycopg
+
+    token = client.cookies["sopbox_session"]
+    with psycopg.connect(_database) as conn:
+        hashes = [r[0] for r in conn.execute("SELECT token_hash FROM sessions").fetchall()]
+    assert token not in hashes and len(hashes) == 1
+
+
+def test_passwords_are_hashed_and_never_returned(client, _database):
+    import psycopg
+
+    with psycopg.connect(_database) as conn:
+        stored = conn.execute("SELECT password_hash FROM users").fetchone()[0]
+    assert PASSWORD not in stored and stored.startswith("scrypt$")
+    assert "password" not in client.get("/api/users").text
+
+
+# ---- the owner manages people -----------------------------------------------------------------
+
+
+def test_the_owner_creates_accounts_for_employees(client):
+    resp = client.post(
+        "/api/users",
+        json={"username": "sam", "display_name": "Sam Staff", "role": "staff", "password": PASSWORD},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["role"] == "staff" and resp.json()["active"] is True
+    assert sign_in("sam").get("/api/auth/me").json()["workspace"]["name"] == "Test Kitchen"
+
+
+def test_a_second_owner_cannot_be_created(client):
+    resp = client.post(
+        "/api/users",
+        json={"username": "bob", "display_name": "Bob", "role": "owner", "password": PASSWORD},
+    )
+    assert resp.status_code == 422
+
+
+def test_a_taken_username_is_a_conflict(client, make_user):
+    make_user("staff", "sam")
+    resp = client.post(
+        "/api/users",
+        json={"username": "SAM", "display_name": "Other", "role": "staff", "password": PASSWORD},
+    )
+    assert resp.status_code == 409
+
+
+def test_only_the_owner_can_create_accounts(make_user):
+    manager = make_user("manager")
+    resp = manager.post(
+        "/api/users",
+        json={"username": "x" * 5, "display_name": "X", "role": "staff", "password": PASSWORD},
+    )
+    assert resp.status_code == 403
+
+
+def test_disabling_an_account_signs_the_person_out_and_blocks_sign_in(client, make_user):
+    staff = make_user("staff", "sam")
+    user_id = next(u["id"] for u in client.get("/api/users").json() if u["username"] == "sam")
+
+    assert client.patch(f"/api/users/{user_id}", json={"active": False}).status_code == 200
+    assert staff.get("/api/auth/me").status_code == 401
+    anon = TestClient(app)
+    assert anon.post("/api/auth/login", json={"username": "sam", "password": PASSWORD}).status_code == 401
+
+    client.patch(f"/api/users/{user_id}", json={"active": True})
+    assert sign_in("sam").get("/api/auth/me").status_code == 200
+
+
+def test_resetting_a_password_signs_the_person_out_everywhere(client, make_user):
+    staff = make_user("staff", "sam")
+    user_id = next(u["id"] for u in client.get("/api/users").json() if u["username"] == "sam")
+
+    client.patch(f"/api/users/{user_id}", json={"password": "a brand new password"})
+    assert staff.get("/api/auth/me").status_code == 401
+    assert sign_in("sam", "a brand new password").get("/api/auth/me").status_code == 200
+
+
+def test_changing_a_role_takes_effect_at_once(client, make_user):
+    staff = make_user("staff", "sam")
+    user_id = next(u["id"] for u in client.get("/api/users").json() if u["username"] == "sam")
+    client.patch(f"/api/users/{user_id}", json={"role": "manager"})
+    assert staff.get("/api/auth/me").status_code == 401  # signed out, so the old role is gone
+    assert sign_in("sam").get("/api/auth/me").json()["role"] == "manager"
+
+
+def test_the_owner_account_cannot_be_edited_through_the_people_list(client):
+    owner_id = client.get("/api/auth/me").json()["id"]
+    assert client.patch(f"/api/users/{owner_id}", json={"active": False}).status_code == 422
+    assert client.patch(f"/api/users/{owner_id}", json={"role": "staff"}).status_code == 422
+
+
+def test_people_can_change_their_own_password(client, make_user):
+    staff = make_user("staff", "sam")
+    other_device = sign_in("sam")
+
+    wrong = staff.post(
+        "/api/auth/password", json={"current_password": "nope nope nope", "new_password": "another new one"}
+    )
+    assert wrong.status_code == 422
+    ok = staff.post(
+        "/api/auth/password", json={"current_password": PASSWORD, "new_password": "another new one"}
+    )
+    assert ok.status_code == 204
+    assert staff.get("/api/auth/me").status_code == 200  # this device stays signed in
+    assert other_device.get("/api/auth/me").status_code == 401
+    assert sign_in("sam", "another new one").get("/api/auth/me").status_code == 200
+
+
+def test_the_owner_sets_where_telegram_alerts_go(client):
+    resp = client.patch(
+        "/api/workspace", json={"telegram_manager_chat_id": "-100123", "telegram_staff_chat_id": "@sopbox_team"}
+    )
+    assert resp.json()["telegram_manager_chat_id"] == "-100123"
+    assert client.patch("/api/workspace", json={"telegram_manager_chat_id": "not an id"}).status_code == 422
+
+
+def test_user_changes_are_in_the_audit_log(client, make_user):
+    make_user("staff", "sam")
+    actions = [(e["actor"], e["action"]) for e in client.get("/api/audit").json()]
+    assert ("Olive Owner", "user.created") in actions
+
+
+# ---- one workspace cannot see another ---------------------------------------------------------
+
+
+def test_workspaces_cannot_see_each_others_data(client, catalogue_ids):
+    receive = {
+        "supplier": "Fresh Foods",
+        "lines": [{"product_id": catalogue_ids["sausage"], "name": "Frozen sausage", "quantity": 5, "unit": "pcs", "temp_c": -5}],
+    }
+    delivery = client.post("/api/deliveries", json=receive).json()
+
+    other = sign_up(workspace="Other Cafe", username="omar", name="Omar Owner")
+    for path in ("/api/products", "/api/categories", "/api/deliveries", "/api/audit"):
+        assert other.get(path).json() == [], path
+    assert [u["username"] for u in other.get("/api/users").json()] == ["omar"]
+    assert other.get(f"/api/products/{catalogue_ids['sausage']}").status_code == 404
+    assert other.get(f"/api/deliveries/{delivery['id']}").status_code == 404
+
+
+def test_one_workspace_cannot_change_or_decide_anothers_records(client, catalogue_ids):
+    receive = {
+        "lines": [{"product_id": catalogue_ids["sausage"], "name": "Frozen sausage", "quantity": 5, "unit": "pcs", "temp_c": -5}]
+    }
+    delivery = client.post("/api/deliveries", json=receive).json()
+    other = sign_up(workspace="Other Cafe", username="omar", name="Omar Owner")
+
+    assert other.post(f"/api/deliveries/{delivery['id']}/decision", json={"decision": "accept"}).status_code == 404
+    assert other.delete(f"/api/products/{catalogue_ids['sausage']}").status_code == 404
+    assert other.delete(f"/api/categories/{catalogue_ids['frozen_category']}").status_code == 404
+    body = {"name": "Mine", "category_id": catalogue_ids["frozen_category"], "base_unit": "pcs"}
+    assert other.post("/api/products", json=body).status_code == 422  # not their category
+    assert client.get(f"/api/deliveries/{delivery['id']}").json()["status"] == "pending_approval"
+
+
+def test_the_same_names_can_be_used_in_two_workspaces(client, catalogue_ids):
+    other = sign_up(workspace="Other Cafe", username="omar", name="Omar Owner")
+    assert other.post("/api/categories", json={"name": "Frozen"}).status_code == 201
+
+
+def test_another_workspace_cannot_manage_my_people(client, make_user):
+    make_user("staff", "sam")
+    sam_id = next(u["id"] for u in client.get("/api/users").json() if u["username"] == "sam")
+    other = sign_up(workspace="Other Cafe", username="omar", name="Omar Owner")
+    assert other.patch(f"/api/users/{sam_id}", json={"active": False}).status_code == 404
+
+
+def test_the_database_itself_hides_other_workspaces_rows(client, catalogue_ids, _database):
+    """Row Level Security: even a query with no workspace filter sees only the current workspace."""
+    import psycopg
+
+    other = sign_up(workspace="Other Cafe", username="omar", name="Omar Owner")
+    other.post("/api/categories", json={"name": "Dry"})
+    ids = {r["id"]: r["name"] for r in client.get("/api/categories").json()}
+    other_ids = {r["id"] for r in other.get("/api/categories").json()}
+    assert other_ids.isdisjoint(ids)
+
+    # The embedded server's owner is a superuser, who bypasses RLS. Use an ordinary role instead.
+    with psycopg.connect(_database, autocommit=True) as conn:
+        conn.execute("DROP ROLE IF EXISTS rls_probe")
+        conn.execute("CREATE ROLE rls_probe NOSUPERUSER NOBYPASSRLS")
+        conn.execute("GRANT ALL ON ALL TABLES IN SCHEMA public TO rls_probe")
+        conn.execute("SET ROLE rls_probe")
+        conn.execute("SELECT set_config('app.workspace_id', '1', false)")
+        seen = {r[0] for r in conn.execute("SELECT id FROM categories").fetchall()}
+        assert seen == set(ids)
+
+        conn.execute("SELECT set_config('app.workspace_id', '2', false)")
+        seen = {r[0] for r in conn.execute("SELECT id FROM categories").fetchall()}
+        assert seen == other_ids
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("INSERT INTO categories (workspace_id, name) VALUES (1, 'sneaky')")
+
+        conn.execute("RESET app.workspace_id")
+        assert conn.execute("SELECT count(*) FROM categories").fetchone()[0] == 0
+        conn.execute("RESET ROLE")
+        conn.execute("DROP OWNED BY rls_probe")
+        conn.execute("DROP ROLE rls_probe")

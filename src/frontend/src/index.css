@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+/* SOPBox green, from the Orbyte-style design. */
+@theme {
+  --color-brand-50: #f1f6ee;
+  --color-brand-100: #e7f3ea;
+  --color-brand-200: #d3eada;
+  --color-brand-500: #2e9b60;
+  --color-brand-600: #16804a;
+  --color-brand-700: #116a3d;
+  --color-brand-800: #0b5130;
+  --color-brand-900: #004225;
+  --color-leaf: #78b82a;
+  --color-sand: #f4c88b;
+  --color-surface: #f7faf5;
+  --color-line: #e2ebdd;
+}
+
+body {
+  background: var(--color-surface);
+  color: #243b2d;
+}

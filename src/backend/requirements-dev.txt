@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=8.0
+# Embedded PostgreSQL for the tests and for running locally without installing Postgres.
+pixeltable-pgserver>=0.6
