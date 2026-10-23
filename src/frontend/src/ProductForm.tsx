@@ -27,6 +27,11 @@ export default function ProductForm({
     (product?.pack_units ?? []).map((p) => ({ unit: p.unit, qty: String(p.base_qty) })),
   );
   const [sop, setSop] = useState(product?.sop ?? "");
+  // The form can open before its categories load, or keep an id that was since deleted. Fall back
+  // to the first category, which is what the dropdown shows anyway.
+  const selectedCategory = categories.some((c) => String(c.id) === categoryId)
+    ? categoryId
+    : String(categories[0]?.id ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -34,13 +39,14 @@ export default function ProductForm({
     const low = num(tempMin);
     const high = num(tempMax);
     const stockMin = Number(minStock);
-    if (!categoryId) return setError("Choose a category. Add one first if the list is empty.");
+    if (!selectedCategory) return setError("Choose a category. Add one first if the list is empty.");
     if ((low === null) !== (high === null)) return setError("Fill in both temperatures, or leave both empty.");
     if ((low !== null && Number.isNaN(low)) || (high !== null && Number.isNaN(high)))
       return setError("Temperatures must be numbers.");
     if (!Number.isInteger(stockMin) || stockMin < 0) return setError("Minimum stock must be a whole number, 0 or more.");
     const packUnits: PackUnit[] = [];
     for (const p of packs) {
+      if (!p.unit.trim() && !p.qty.trim()) continue; // a blank row the user added but did not fill
       const qty = Number(p.qty);
       if (!p.unit.trim() || !Number.isInteger(qty) || qty <= 0)
         return setError("Each pack size needs a unit name and a whole number of base units above 0.");
@@ -50,7 +56,7 @@ export default function ProductForm({
     setError("");
     const body = {
       name: name.trim(),
-      category_id: Number(categoryId),
+      category_id: Number(selectedCategory),
       base_unit: baseUnit.trim(),
       temp_min_c: low,
       temp_max_c: high,
@@ -88,7 +94,7 @@ export default function ProductForm({
           <label className={labelClass} htmlFor="p-category">
             Category
           </label>
-          <select id="p-category" className={inputClass} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+          <select id="p-category" className={inputClass} value={selectedCategory} onChange={(e) => setCategoryId(e.target.value)}>
             {categories.length === 0 && <option value="">No categories yet</option>}
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
