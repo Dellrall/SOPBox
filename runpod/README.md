@@ -13,7 +13,7 @@ official vLLM worker, so there is no custom image to build.
 | Served model name | `sopbox-reader` (`OPENAI_SERVED_MODEL_NAME_OVERRIDE`) |
 | Engine | `MAX_MODEL_LEN=8192`, `MAX_NUM_SEQS=4`, `GPU_MEMORY_UTILIZATION=0.90` |
 | GPU pool | `AMPERE_24` (24 GB: RTX A5000, RTX 3090, L4, PRO 6000 MIG 24 GB). Serverless price $0.69 per hour on 23 Oct 2026 |
-| Workers | min 0, max 1, idle timeout 30 s, FlashBoot on |
+| Workers | min 0, max 1, idle timeout 600 s (10 min, for testing; 30 s keeps cost lowest), FlashBoot on |
 | CUDA floor | 13.0 |
 | Container disk | 50 GB. Weights download on each cold start (no network volume) |
 
@@ -21,9 +21,22 @@ Sizing: 8.8B parameters at FP8 (1 byte each) is about 9 GB of weights plus the v
 which leaves room for the KV cache of 8192 tokens on a 24 GB card.
 
 Cost: it bills only while a worker runs. A cold start (pull, download, load) took 2.5 minutes on an
-RTX A5000 (job delay 148 s; the read itself took 1.8 s); after 30 s idle the worker stops. A warm worker
-for the demo window costs $0.69 per hour (`workers.min = 1`). The demo is over; the endpoint is back
-at `workers.min = 0`.
+RTX A5000 (job delay 148 s; the read itself took 1.8 to 3.4 s); after 10 minutes idle the worker
+stops. A warm worker for the demo window costs $0.69 per hour (`workers.min = 1`); set it back to 0
+afterwards (see the check below).
+
+## Prompts
+
+Both prompts are in `src/backend/app/extraction.py` and were tested live on this endpoint on
+24 Oct 2026:
+
+- Delivery orders: on a clean order every line was read correctly; on an order with a scribbled-out
+  quantity the model returned null with "quantity unclear". An earlier "do not guess" rule alone
+  let it guess (it read the scribble as 8).
+- Supplier sheets: products, pack sizes and temperature ranges were read correctly and the subtotal
+  and tax lines were skipped. Asked for units directly, the model took them from the product name
+  ("kg" from "Nuggets 1kg"), so it now copies the printed pack size and the code takes the units
+  from that.
 
 ## Contract
 
@@ -60,15 +73,7 @@ curl -s -X POST "https://api.runpod.ai/v2/sriet0cftztbik/openai/v1/chat/completi
 - Max 1 worker, so at most $0.69 per hour can bill from this endpoint.
 - Check spend in the RunPod console under Billing; the team cap is USD 25.
 
-## After-demo worker check
+## After the demo
 
-At the end of every demo, the operator checks the endpoint in the RunPod console:
-
-1. Open the `sopbox-reader` endpoint (`sriet0cftztbik`) and inspect its worker settings.
-2. Confirm **Minimum workers** is `0`. A nonzero minimum can keep a worker running and billing at up to $0.69 per hour.
-3. If the value is nonzero, immediately alert the workspace owner in the configured workspace Telegram channel (Settings). If that channel is unavailable, contact the owner directly. Include the endpoint and observed value. For example:
-
-   > RunPod post-demo alert: `sopbox-reader` (`sriet0cftztbik`) still has Minimum workers set to `1` after the demo. It may cost up to $0.69/hour. Please review the endpoint setting.
-4. Do not change or save the endpoint setting as part of this check. The owner decides whether to change it.
-
-Record the check and its result with the demo closeout. If the check was missed, perform it as soon as possible; repeat it each day until the post-demo setting has been reviewed.
+Open the `sopbox-reader` endpoint in the RunPod console and check **Minimum workers** is `0`. A
+nonzero minimum keeps a worker billing at $0.69 per hour, about $16.56 a day.
