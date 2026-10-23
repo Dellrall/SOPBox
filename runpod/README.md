@@ -59,3 +59,16 @@ curl -s -X POST "https://api.runpod.ai/v2/sriet0cftztbik/openai/v1/chat/completi
 - The backend allows at most 60 model calls an hour (`EXTRACTION_MAX_PER_HOUR` in `extraction.py`). Beyond that, staff type the lines.
 - Max 1 worker, so at most $0.69 per hour can bill from this endpoint.
 - Check spend in the RunPod console under Billing; the team cap is USD 25.
+
+## After-demo worker check
+
+At the end of every demo, the operator checks the endpoint in the RunPod console:
+
+1. Open the `sopbox-reader` endpoint (`sriet0cftztbik`) and inspect its worker settings.
+2. Confirm **Minimum workers** is `0`. A nonzero minimum can keep a worker running and billing at up to $0.69 per hour.
+3. If the value is nonzero, immediately alert the workspace owner in the configured workspace Telegram channel (Settings). If that channel is unavailable, contact the owner directly. Include the endpoint and observed value. For example:
+
+   > RunPod post-demo alert: `sopbox-reader` (`sriet0cftztbik`) still has Minimum workers set to `1` after the demo. It may cost up to $0.69/hour. Please review the endpoint setting.
+4. Do not change or save the endpoint setting as part of this check. The owner decides whether to change it.
+
+Record the check and its result with the demo closeout. If the check was missed, perform it as soon as possible; repeat it each day until the post-demo setting has been reviewed.
