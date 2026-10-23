@@ -1,11 +1,14 @@
 # Replit configuration. Not yet verified on a live Replit deployment: see "Deploy on Replit" in README.md.
-modules = ["python-3.12", "nodejs-20"]
+modules = ["python-3.12", "nodejs-20", "web"]
 
 # The Run button: build the frontend, then serve everything from one process.
 run = ["sh", "-c", "cd src/frontend && npm ci && npm run build && cd ../backend && pip install -r requirements.txt && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
 
 [nix]
-channel = "stable-24_05"
+channel = "stable-25_05"
+
+[agent]
+expertMode = true
 
 [deployment]
 deploymentTarget = "autoscale"
