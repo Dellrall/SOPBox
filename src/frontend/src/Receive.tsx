@@ -144,13 +144,12 @@ export default function Receive({
             name: l.name,
             quantity: l.quantity === null ? "" : String(l.quantity),
             unit: l.unit === null ? "" : product ? matchUnit(product, l.unit) : l.unit,
-            note: [
-              l.warning,
-              l.quantity === null ? "quantity could not be read" : null,
-              l.unit === null ? "unit could not be read" : null,
-            ]
-              .filter(Boolean)
-              .join("; "),
+            // The model's own note says why; the generic reasons only fill in when it gave none.
+            note:
+              l.warning ??
+              [l.quantity === null ? "quantity could not be read" : null, l.unit === null ? "unit could not be read" : null]
+                .filter(Boolean)
+                .join("; "),
           };
         }),
       );
