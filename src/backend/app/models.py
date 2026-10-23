@@ -381,6 +381,8 @@ class CancelIn(_In):
 
 class LowStockDraftIn(_In):
     supplier_id: int
+    # The person's local date. The server may run in UTC, a day behind Malaysia before 08:00.
+    order_date: date | None = None
 
 
 class PurchaseOrderLine(BaseModel):

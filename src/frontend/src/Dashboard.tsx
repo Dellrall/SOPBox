@@ -142,7 +142,7 @@ export default function Dashboard({ me, go }: { me: Me; go: (page: PageId) => vo
                 <span className="min-w-0">
                   <span className="font-semibold text-ink">{d.supplier || "Unknown supplier"}</span>
                   <span className="block text-xs text-muted">
-                    #{d.id} · {when(d.created_at)}
+                    #{d.id}{d.purchase_order && ` · ${d.purchase_order}`} · {when(d.created_at)}
                   </span>
                 </span>
                 <StatusBadge status={d.status} />

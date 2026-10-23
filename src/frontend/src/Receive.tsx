@@ -3,7 +3,7 @@ import { Camera, Loader2 } from "lucide-react";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
 import { imageToJpegBase64 } from "./image";
-import type { Delivery, Product } from "./types";
+import type { Delivery, Product, PurchaseOrder } from "./types";
 import {
   Empty,
   ErrorNote,
@@ -48,8 +48,18 @@ const rangeHint = (p?: Product): string =>
     ? `Required: ${p.effective_temp_min_c} to ${p.effective_temp_max_c} °C`
     : "";
 
-export default function Receive({ active }: { active: boolean }) {
+export default function Receive({
+  active,
+  purchaseOrderId,
+  onPurchaseOrderTaken,
+}: {
+  active: boolean;
+  purchaseOrderId?: number | null; // preselect this order, from its "Receive a delivery" button
+  onPurchaseOrderTaken?: () => void;
+}) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
+  const [orderId, setOrderId] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [supplier, setSupplier] = useState("");
   const [lines, setLines] = useState<Draft[]>([blankLine()]);
@@ -63,15 +73,47 @@ export default function Receive({ active }: { active: boolean }) {
   // opened: a manager may have added products or a delivery may have changed the stock.
   useEffect(() => {
     if (!active) return;
-    api
-      .products()
-      .then((found) => {
+    Promise.all([api.products(), api.purchaseOrders("issued")])
+      .then(([found, issued]) => {
         setProducts(found.filter((p) => !p.archived)); // archived products are not received
+        setOrders(issued.filter((o) => o.receiving_status !== "fully_received"));
         setError("");
       })
       .catch((e: Error) => setError(`Could not load the catalogue: ${e.message}`))
       .finally(() => setLoaded(true));
   }, [active]);
+
+  // Fill the lines with what is still to come on the order, in the units it was ordered in.
+  function fillFromOrder(order: PurchaseOrder | undefined) {
+    setOrderId(order?.id ?? null);
+    if (!order) return;
+    setSupplier(order.supplier);
+    const toCome = order.lines.filter((l) => l.outstanding_base_qty > 0);
+    setLines(
+      toCome.map((l) => {
+        const perUnit = l.ordered_base_qty / l.quantity;
+        const inOrderedUnit = l.outstanding_base_qty % perUnit === 0;
+        return {
+          ...blankLine(),
+          productId: l.product_id,
+          name: l.product_name,
+          quantity: String(inOrderedUnit ? l.outstanding_base_qty / perUnit : l.outstanding_base_qty),
+          unit: inOrderedUnit ? l.unit : l.base_unit,
+          expected: String(l.outstanding_base_qty),
+        };
+      }),
+    );
+    setNotice(`Filled from ${order.reference}. Change the quantities to what actually arrived, and add each temperature.`);
+  }
+
+  useEffect(() => {
+    // The list may still be the one from the last visit; wait until it includes the order.
+    const order = purchaseOrderId ? orders.find((o) => o.id === purchaseOrderId) : undefined;
+    if (!order) return;
+    fillFromOrder(order);
+    onPurchaseOrderTaken?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseOrderId, orders]);
 
   const update = (key: number, patch: Partial<Draft>) =>
     setLines((all) => all.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -156,7 +198,7 @@ export default function Receive({ active }: { active: boolean }) {
     setBusy("submitting");
     try {
       setResult(
-        await api.createDelivery({ supplier: supplier.trim(), lines: payload }),
+        await api.createDelivery({ supplier: supplier.trim(), purchase_order_id: orderId, lines: payload }),
       );
     } catch (e) {
       setError((e as Error).message);
@@ -169,6 +211,7 @@ export default function Receive({ active }: { active: boolean }) {
     setResult(null);
     setLines([blankLine()]);
     setSupplier("");
+    setOrderId(null);
     setNotice("");
     setError("");
   }
@@ -177,7 +220,9 @@ export default function Receive({ active }: { active: boolean }) {
     return (
       <section className={`${cardClass} space-y-3`} aria-live="polite">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-bold text-brand-950">Delivery #{result.id}</h2>
+          <h2 className="text-base font-bold text-brand-950">Delivery #{result.id}
+            {result.purchase_order && ` · ${result.purchase_order}`}
+          </h2>
           <StatusBadge status={result.status} />
         </div>
         <p className="text-sm text-slate-700">
@@ -217,6 +262,31 @@ export default function Receive({ active }: { active: boolean }) {
           void submit();
         }}
       >
+        {orders.length > 0 && (
+          <div>
+            <label className={labelClass} htmlFor="purchase-order">
+              Purchase order <span className="font-normal text-muted">(optional)</span>
+            </label>
+            <select
+              id="purchase-order"
+              className={inputClass}
+              value={orderId ?? ""}
+              onChange={(e) => fillFromOrder(orders.find((o) => o.id === Number(e.target.value)))}
+            >
+              <option value="">No purchase order</option>
+              {orders.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.reference} · {o.supplier}
+                </option>
+              ))}
+            </select>
+            {orderId !== null && (
+              <p className="mt-1 text-xs text-muted">
+                Each line is checked against what is still to come on this order. Products not on it go to a manager.
+              </p>
+            )}
+          </div>
+        )}
         <div>
           <label className={labelClass} htmlFor="supplier">
             Supplier (optional)

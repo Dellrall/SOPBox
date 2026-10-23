@@ -11,7 +11,12 @@ import type {
   Product,
   ProductIn,
   ProfileUpdateIn,
+  PurchaseOrder,
+  PurchaseOrderIn,
+  PurchaseOrderStatus,
   RegisterIn,
+  Supplier,
+  SupplierIn,
   UserCreateIn,
   UserOut,
   UserUpdateIn,
@@ -102,4 +107,19 @@ export const api = {
     get<Delivery[]>(`/deliveries?limit=${limit}${status ? `&status=${status}` : ""}`),
   decide: (id: number, body: DecisionIn) => post<Delivery>(`/deliveries/${id}/decision`, body),
   audit: (limit = 50) => get<AuditEntry[]>(`/audit?limit=${limit}`),
+
+  // purchasing
+  suppliers: () => get<Supplier[]>("/suppliers"),
+  createSupplier: (body: SupplierIn) => post<Supplier>("/suppliers", body),
+  updateSupplier: (id: number, body: SupplierIn) => put<Supplier>(`/suppliers/${id}`, body),
+  setSupplierArchived: (id: number, archived: boolean) => patch<Supplier>(`/suppliers/${id}`, { archived }),
+  purchaseOrders: (status?: PurchaseOrderStatus) =>
+    get<PurchaseOrder[]>(`/purchase-orders${status ? `?status=${status}` : ""}`),
+  purchaseOrder: (id: number) => get<PurchaseOrder>(`/purchase-orders/${id}`),
+  createPurchaseOrder: (body: PurchaseOrderIn) => post<PurchaseOrder>("/purchase-orders", body),
+  updatePurchaseOrder: (id: number, body: PurchaseOrderIn) => put<PurchaseOrder>(`/purchase-orders/${id}`, body),
+  issuePurchaseOrder: (id: number) => post<PurchaseOrder>(`/purchase-orders/${id}/issue`),
+  cancelPurchaseOrder: (id: number, reason: string) => post<PurchaseOrder>(`/purchase-orders/${id}/cancel`, { reason }),
+  lowStockDraft: (supplier_id: number, order_date: string) =>
+    post<PurchaseOrder>("/purchase-orders/low-stock-draft", { supplier_id, order_date }),
 };

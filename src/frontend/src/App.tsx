@@ -6,6 +6,7 @@ import {
   LogOut,
   Menu,
   PackageSearch,
+  ShoppingCart,
   ScanLine,
   Settings as SettingsIcon,
   ShieldCheck,
@@ -21,6 +22,7 @@ import AuthPage from "./AuthPage";
 import Landing from "./Landing";
 import Dashboard from "./Dashboard";
 import Products from "./Products";
+import PurchaseOrders from "./PurchaseOrders";
 import Receive from "./Receive";
 import Records from "./Records";
 import Settings from "./Settings";
@@ -33,6 +35,7 @@ export type PageId =
   | "receive"
   | "records"
   | "products"
+  | "purchasing"
   | "approvals"
   | "activity"
   | "team"
@@ -43,6 +46,7 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[] }[] = [
   { id: "receive", label: "Receiving check", icon: ScanLine, roles: ["owner", "manager", "staff"] },
   { id: "records", label: "Delivery records", icon: Truck, roles: ["owner", "manager", "staff"] },
   { id: "products", label: "Products & SOP", icon: PackageSearch, roles: ["owner", "manager", "staff"] },
+  { id: "purchasing", label: "Purchase orders", icon: ShoppingCart, roles: ["owner", "manager"] },
   { id: "approvals", label: "Approvals", icon: ClipboardCheck, roles: ["owner", "manager"] },
   { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager"] },
   { id: "team", label: "Team", icon: Users, roles: ["owner"] },
@@ -111,6 +115,8 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
   const [page, setPage] = useState<PageId>("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [pending, setPending] = useState(0);
+  // Set when a purchase order's "Receive a delivery" button opens the receiving check.
+  const [receivePo, setReceivePo] = useState<number | null>(null);
   const canDecide = me.role !== "staff";
 
   const refreshPending = useCallback(() => {
@@ -129,8 +135,12 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
     document.title = `${label} · ${me.workspace.name} · SOPBox`;
   }, [page, me.workspace.name]);
 
+  // Bumped on every menu click, so choosing the page you are on returns it to its start
+  // (for example from one purchase order back to the list).
+  const [visit, setVisit] = useState(0);
   const go = (id: PageId) => {
     setPage(id);
+    setVisit((v) => v + 1);
     setMenuOpen(false);
   };
 
@@ -146,7 +156,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:shadow">
         Skip to content
       </a>
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-white/85 px-4 py-3 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-white/85 px-4 py-3 backdrop-blur lg:hidden print:hidden">
         <button
           aria-label="Open the menu"
           aria-expanded={menuOpen}
@@ -170,7 +180,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
       {menuOpen && <div className="fixed inset-0 z-30 bg-brand-950/50 backdrop-blur-sm lg:hidden" onClick={() => setMenuOpen(false)} />}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-brand-950 text-white shadow-2xl transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:translate-x-0 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col print:hidden bg-brand-950 text-white shadow-2xl transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:translate-x-0 lg:shadow-none ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -232,15 +242,25 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
       <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
         {/* Receive stays mounted so a half-filled delivery survives a look at another page. */}
         <div hidden={page !== "receive"}>
-          <Receive active={page === "receive"} />
+          <Receive active={page === "receive"} purchaseOrderId={receivePo} onPurchaseOrderTaken={() => setReceivePo(null)} />
         </div>
-        {page === "dashboard" && <Dashboard me={me} go={go} />}
-        {page === "records" && <Records />}
-        {page === "products" && <Products canEdit={canDecide} />}
-        {page === "approvals" && canDecide && <Approvals onChanged={refreshPending} />}
-        {page === "activity" && canDecide && <Activity />}
-        {page === "team" && me.role === "owner" && <Team />}
-        {page === "settings" && <Settings me={me} onMeChanged={onMeChanged} />}
+        {page === "dashboard" && <Dashboard key={visit} me={me} go={go} />}
+        {page === "records" && <Records key={visit} />}
+        {page === "products" && <Products key={visit} canEdit={canDecide} />}
+        {page === "purchasing" && canDecide && (
+          <PurchaseOrders
+            key={visit}
+            canEdit={canDecide}
+            onReceive={(id) => {
+              setReceivePo(id);
+              go("receive");
+            }}
+          />
+        )}
+        {page === "approvals" && canDecide && <Approvals key={visit} onChanged={refreshPending} />}
+        {page === "activity" && canDecide && <Activity key={visit} />}
+        {page === "team" && me.role === "owner" && <Team key={visit} />}
+        {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}
       </main>
     </div>
   );

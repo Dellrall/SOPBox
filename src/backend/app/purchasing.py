@@ -326,7 +326,8 @@ def low_stock_draft(conn: psycopg.Connection, ws: int, actor: str, data: LowStoc
     if not lines:
         raise InvalidRequestError("nothing needs reordering: every low-stock product is already on an open order")
     order_id = _insert_order(
-        conn, ws, actor, data.supplier_id, date.today(), None, "Drafted from low stock.", lines
+        conn, ws, actor, data.supplier_id, data.order_date or date.today(), None,
+        "Drafted from low stock.", lines,
     )
     return get_order(conn, ws, order_id)
 
