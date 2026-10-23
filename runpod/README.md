@@ -28,7 +28,7 @@ $0.69 per hour (`workers.min = 1`); set it back to 0 afterwards.
 
 The backend (`src/backend/app/extraction.py`) queues an OpenAI chat request, with the photo as a
 `data:` URL, on `https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/run` (`openai_route` and
-`openai_input`), then polls `/status/<job>` every 2 s for up to 5 minutes. A job it gives up on is
+`openai_input`), then polls `/status/<job>` every second for up to 5 minutes. A job it gives up on is
 cancelled. The queue is used instead of the synchronous `/openai/v1` route because a cold start
 outlasts a synchronous request. The prompt asks for `{"lines": [{"name": "...", "quantity": 2, "unit": "bdl"}]}`. The backend strips
 code fences and prose, then validates each line. One invalid line rejects the whole reply, and
