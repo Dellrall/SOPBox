@@ -40,7 +40,7 @@ _ENDPOINT_ID = re.compile(r"^[a-z0-9]{6,32}$")
 _JOB_ID = re.compile(r"^[A-Za-z0-9-]{1,80}$")
 # Cold start (image, weights, load) took about 2.5 minutes on an RTX A5000 on 23 Oct 2026.
 WAIT_SECONDS = 300
-POLL_SECONDS = 2.0
+POLL_SECONDS = 1.0
 _TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT"}
 
 _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
