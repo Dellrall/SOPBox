@@ -21,8 +21,9 @@ Sizing: 8.8B parameters at FP8 (1 byte each) is about 9 GB of weights plus the v
 which leaves room for the KV cache of 8192 tokens on a 24 GB card.
 
 Cost: it bills only while a worker runs. A cold start (pull, download, load) took 2.5 minutes on an
-RTX A5000 (job delay 148 s; the read itself took 1.8 s); after 30 s idle the worker stops. A warm worker for the demo window costs
-$0.69 per hour (`workers.min = 1`); set it back to 0 afterwards.
+RTX A5000 (job delay 148 s; the read itself took 1.8 s); after 30 s idle the worker stops. A warm worker
+for the demo window costs $0.69 per hour (`workers.min = 1`). The demo is over; the endpoint is back
+at `workers.min = 0`.
 
 ## Contract
 
