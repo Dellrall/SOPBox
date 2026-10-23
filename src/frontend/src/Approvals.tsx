@@ -89,15 +89,11 @@ export default function Approvals({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Approvals">
+      <PageTitle title="Approvals" subtitle="Deliveries that failed a check. Stock is only counted once you accept one, and your name is recorded with the decision.">
         <button className={secondaryButton} onClick={() => void load()}>
           Refresh
         </button>
       </PageTitle>
-      <p className="text-sm text-slate-600">
-        These deliveries failed a check. Stock is only counted once you accept one. Your name is
-        recorded with the decision.
-      </p>
       <ErrorNote message={error} />
       {loading && <p className="text-sm text-slate-600">Loading…</p>}
       {!loading && !error && pending.length === 0 && (

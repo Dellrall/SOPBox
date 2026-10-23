@@ -2,12 +2,65 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f766e" />
-    <title>SopBox Receiving Check</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>SOPBox · Smart receiving checks for F&amp;B businesses</title>
+    <meta
+      name="description"
+      content="SOPBox turns every supplier delivery into a quick phone check: AI reads the delivery order, rules check temperature, pack size and quantity, and managers approve failures. Built for food and beverage SMEs."
+    />
+    <meta name="application-name" content="SOPBox" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#004225" />
+    <meta name="color-scheme" content="light" />
+
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- __ORIGIN__ is replaced with the site's address when the server sends this page
+         (src/backend/app/main.py), because link previews and canonical URLs must be absolute. -->
+    <link rel="canonical" href="__ORIGIN__/" />
+    <meta property="og:url" content="__ORIGIN__/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SOPBox" />
+    <meta property="og:title" content="SOPBox · Smart receiving checks for F&amp;B businesses" />
+    <meta
+      property="og:description"
+      content="AI reads the delivery order. Rules check every line. Managers approve failures. Everything is logged."
+    />
+    <meta property="og:image" content="__ORIGIN__/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="SOPBox logo on green: receiving checks for F&amp;B businesses" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "SOPBox",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "url": "__ORIGIN__/",
+        "description": "Receiving checks for food and beverage SMEs: AI reads the delivery order, rules check temperature, pack size and quantity, and managers approve failures.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MYR" }
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown until the app loads, and to crawlers that do not run JavaScript. -->
+      <main class="mx-auto my-12 max-w-2xl px-4">
+        <h1 class="text-2xl font-bold text-brand-950">SOPBox: smart receiving checks for F&amp;B businesses</h1>
+        <p class="mt-3 text-muted">
+          Staff photograph the supplier's delivery order, AI reads the lines, and rules check each one for
+          temperature, pack conversion and quantity. Failures go to a manager to accept, reject or return,
+          with Telegram alerts and a full audit log.
+        </p>
+      </main>
+    </div>
+    <noscript>SOPBox needs JavaScript to run. Please turn it on and reload the page.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -47,11 +47,13 @@ def test_category_names_are_unique_ignoring_case(client):
     client.post("/api/categories", json={"name": "Frozen"})
     dup = client.post("/api/categories", json={"name": "frozen"})
     assert dup.status_code == 409
+    assert dup.json()["detail"] == "there is already a category with that name"
 
 
 def test_category_with_products_cannot_be_deleted(client, catalogue_ids):
     resp = client.delete(f"/api/categories/{catalogue_ids['frozen_category']}")
     assert resp.status_code == 409
+    assert "still has products" in resp.json()["detail"]
 
 
 # ---- products ---------------------------------------------------------------------------------
@@ -102,7 +104,9 @@ def test_product_rejects_an_unknown_category(client, catalogue_ids):
 
 def test_product_names_are_unique_ignoring_case(client, catalogue_ids):
     body = product_body(catalogue_ids, name="FROZEN SAUSAGE")
-    assert client.post("/api/products", json=body).status_code == 409
+    resp = client.post("/api/products", json=body)
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "there is already a product with that name"
 
 
 def test_unknown_product_is_404(client, catalogue_ids):
@@ -127,7 +131,9 @@ def test_product_on_a_delivery_cannot_be_deleted(client, catalogue_ids):
         ],
     }
     assert client.post("/api/deliveries", json=delivery).status_code == 201
-    assert client.delete(f"/api/products/{sausage_id}").status_code == 409
+    resp = client.delete(f"/api/products/{sausage_id}")
+    assert resp.status_code == 409
+    assert "on recorded deliveries" in resp.json()["detail"]
 
 
 def test_low_stock_flag_follows_the_minimum(client, catalogue_ids):

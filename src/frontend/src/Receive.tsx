@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Camera, Loader2 } from "lucide-react";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
 import { imageToJpegBase64 } from "./image";
@@ -6,6 +7,7 @@ import type { Delivery, Product } from "./types";
 import {
   Empty,
   ErrorNote,
+  PageTitle,
   StatusBadge,
   cardClass,
   inputClass,
@@ -161,7 +163,7 @@ export default function Receive({ active }: { active: boolean }) {
     return (
       <section className={`${cardClass} space-y-3`} aria-live="polite">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">Delivery #{result.id}</h2>
+          <h2 className="text-base font-bold text-brand-950">Delivery #{result.id}</h2>
           <StatusBadge status={result.status} />
         </div>
         <p className="text-sm text-slate-700">
@@ -177,142 +179,161 @@ export default function Receive({ active }: { active: boolean }) {
     );
   }
 
+  const title = <PageTitle title="Receiving check" subtitle="Record a delivery as it arrives. Each line is checked against its product's rules." />;
+
   if (loaded && products.length === 0 && !error) {
     return (
-      <Empty>
-        There are no products yet, so deliveries cannot be checked. A manager needs to add products
-        under Products &amp; SOP first.
-      </Empty>
+      <div>
+        {title}
+        <Empty>
+          There are no products yet, so deliveries cannot be checked. A manager needs to add products
+          under Products &amp; SOP first.
+        </Empty>
+      </div>
     );
   }
 
   return (
-    <form
-      className="space-y-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void submit();
-      }}
-    >
-      <div>
-        <label className={labelClass} htmlFor="supplier">
-          Supplier (optional)
-        </label>
-        <input id="supplier" className={inputClass} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
-      </div>
+    <div>
+      {title}
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        <div>
+          <label className={labelClass} htmlFor="supplier">
+            Supplier (optional)
+          </label>
+          <input id="supplier" className={inputClass} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+        </div>
 
-      <div className={`${cardClass} space-y-2`}>
-        <p className="text-sm text-slate-700">
-          Take a photo of the delivery order and the lines fill in. You can also type them.
-        </p>
-        <input
-          ref={photoInput}
-          id="order-photo"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="sr-only"
-          onChange={(e) => e.target.files?.[0] && void readPhoto(e.target.files[0])}
-        />
-        <label
-          htmlFor="order-photo"
-          className={`${secondaryButton} inline-block cursor-pointer ${busy ? "pointer-events-none opacity-50" : ""}`}
-        >
-          {busy === "reading" ? "Reading the order… (up to 3 min if the reader was asleep)" : "Photograph the order"}
-        </label>
-        {notice && <p className="text-sm text-brand-900">{notice}</p>}
-      </div>
-
-      {lines.map((line, i) => {
-        const product = products.find((p) => p.id === line.productId);
-        const units = unitsFor(product);
-        const hint = rangeHint(product);
-        return (
-          <fieldset key={line.key} className={`${cardClass} space-y-3`}>
-            <legend className="px-1 text-sm font-semibold text-slate-700">Line {i + 1}</legend>
-            <div>
-              <label className={labelClass} htmlFor={`product-${line.key}`}>
-                Product
-              </label>
-              <select
-                id={`product-${line.key}`}
-                className={inputClass}
-                value={line.productId ?? ""}
-                onChange={(e) => chooseProduct(line, e.target.value)}
-              >
-                <option value="">Not in the catalogue</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {!product && (
-              <div>
-                <label className={labelClass} htmlFor={`name-${line.key}`}>
-                  Name on the order
-                </label>
-                <input id={`name-${line.key}`} className={inputClass} value={line.name} onChange={(e) => update(line.key, { name: e.target.value })} />
-              </div>
+        <div className="rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/60 p-5 text-center">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm">
+            <Camera aria-hidden className="h-6 w-6" />
+          </span>
+          <p className="mx-auto mt-3 max-w-sm text-sm text-slate-700">
+            Take a photo of the delivery order and the lines fill in for you to confirm. You can also type them below.
+          </p>
+          <input
+            ref={photoInput}
+            id="order-photo"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            onChange={(e) => e.target.files?.[0] && void readPhoto(e.target.files[0])}
+          />
+          <label
+            htmlFor="order-photo"
+            className={`${primaryButton} mt-4 cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""}`}
+          >
+            {busy === "reading" ? (
+              <>
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Reading the order… (up to 3 min if the reader was asleep)
+              </>
+            ) : (
+              <>
+                <Camera aria-hidden className="h-4 w-4" /> Photograph the order
+              </>
             )}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelClass} htmlFor={`qty-${line.key}`}>
-                  Quantity
-                </label>
-                <input id={`qty-${line.key}`} className={inputClass} inputMode="numeric" value={line.quantity} onChange={(e) => update(line.key, { quantity: e.target.value })} />
-              </div>
-              <div>
-                <label className={labelClass} htmlFor={`unit-${line.key}`}>
-                  Unit
-                </label>
-                {product ? (
-                  <select id={`unit-${line.key}`} className={inputClass} value={line.unit} onChange={(e) => update(line.key, { unit: e.target.value })}>
-                    <option value="">Choose…</option>
-                    {units.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input id={`unit-${line.key}`} className={inputClass} value={line.unit} onChange={(e) => update(line.key, { unit: e.target.value })} />
-                )}
-              </div>
-              <div>
-                <label className={labelClass} htmlFor={`temp-${line.key}`}>
-                  Probe temperature (°C)
-                </label>
-                <input id={`temp-${line.key}`} className={inputClass} inputMode="decimal" value={line.temp} onChange={(e) => update(line.key, { temp: e.target.value })} />
-                {hint && <p className="mt-1 text-xs text-slate-600">{hint}</p>}
-              </div>
-              <div>
-                <label className={labelClass} htmlFor={`expected-${line.key}`}>
-                  Ordered (base units)
-                </label>
-                <input id={`expected-${line.key}`} className={inputClass} inputMode="numeric" value={line.expected} onChange={(e) => update(line.key, { expected: e.target.value })} />
-                {product && <p className="mt-1 text-xs text-slate-600">Counted in {product.base_unit}</p>}
-              </div>
-            </div>
-            {lines.length > 1 && (
-              <button type="button" className="text-sm text-red-800 underline" onClick={() => setLines((all) => all.filter((l) => l.key !== line.key))}>
-                Remove line {i + 1}
-              </button>
-            )}
-          </fieldset>
-        );
-      })}
+          </label>
+          {notice && <p className="mt-3 text-sm text-brand-900">{notice}</p>}
+        </div>
 
-      <button type="button" className={secondaryButton} onClick={() => setLines((all) => [...all, blankLine()])}>
-        Add a line
-      </button>
+        {lines.map((line, i) => {
+          const product = products.find((p) => p.id === line.productId);
+          const units = unitsFor(product);
+          const hint = rangeHint(product);
+          return (
+            <fieldset key={line.key} className={`${cardClass} space-y-3`}>
+              <legend className="px-1 text-sm font-semibold text-slate-700">Line {i + 1}</legend>
+              <div>
+                <label className={labelClass} htmlFor={`product-${line.key}`}>
+                  Product
+                </label>
+                <select
+                  id={`product-${line.key}`}
+                  className={inputClass}
+                  value={line.productId ?? ""}
+                  onChange={(e) => chooseProduct(line, e.target.value)}
+                >
+                  <option value="">Not in the catalogue</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {!product && (
+                <div>
+                  <label className={labelClass} htmlFor={`name-${line.key}`}>
+                    Name on the order
+                  </label>
+                  <input id={`name-${line.key}`} className={inputClass} value={line.name} onChange={(e) => update(line.key, { name: e.target.value })} />
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass} htmlFor={`qty-${line.key}`}>
+                    Quantity
+                  </label>
+                  <input id={`qty-${line.key}`} className={inputClass} inputMode="numeric" value={line.quantity} onChange={(e) => update(line.key, { quantity: e.target.value })} />
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor={`unit-${line.key}`}>
+                    Unit
+                  </label>
+                  {product ? (
+                    <select id={`unit-${line.key}`} className={inputClass} value={line.unit} onChange={(e) => update(line.key, { unit: e.target.value })}>
+                      <option value="">Choose…</option>
+                      {units.map((u) => (
+                        <option key={u} value={u}>
+                          {u}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input id={`unit-${line.key}`} className={inputClass} value={line.unit} onChange={(e) => update(line.key, { unit: e.target.value })} />
+                  )}
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor={`temp-${line.key}`}>
+                    Probe temperature (°C)
+                  </label>
+                  <input id={`temp-${line.key}`} className={inputClass} inputMode="decimal" value={line.temp} onChange={(e) => update(line.key, { temp: e.target.value })} />
+                  {hint && <p className="mt-1 text-xs text-slate-600">{hint}</p>}
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor={`expected-${line.key}`}>
+                    Ordered (base units)
+                  </label>
+                  <input id={`expected-${line.key}`} className={inputClass} inputMode="numeric" value={line.expected} onChange={(e) => update(line.key, { expected: e.target.value })} />
+                  {product && <p className="mt-1 text-xs text-slate-600">Counted in {product.base_unit}</p>}
+                </div>
+              </div>
+              {lines.length > 1 && (
+                <button type="button" className="text-sm text-red-800 underline" onClick={() => setLines((all) => all.filter((l) => l.key !== line.key))}>
+                  Remove line {i + 1}
+                </button>
+              )}
+            </fieldset>
+          );
+        })}
 
-      <ErrorNote message={error} />
+        <button type="button" className={secondaryButton} onClick={() => setLines((all) => [...all, blankLine()])}>
+          Add a line
+        </button>
 
-      <button type="submit" className={`${primaryButton} w-full`} disabled={busy !== ""}>
-        {busy === "submitting" ? "Checking…" : "Check and submit delivery"}
-      </button>
-    </form>
+        <ErrorNote message={error} />
+
+        <button type="submit" className={`${primaryButton} w-full`} disabled={busy !== ""}>
+          {busy === "submitting" ? "Checking…" : "Check and submit delivery"}
+        </button>
+      </form>
+    </div>
   );
 }

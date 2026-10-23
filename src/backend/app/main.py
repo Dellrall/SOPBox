@@ -1,10 +1,11 @@
+import html
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
 import psycopg
 from fastapi import BackgroundTasks, Depends, FastAPI, Query, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -33,6 +34,7 @@ from app.models import (
     LoginIn,
     Me,
     PasswordChangeIn,
+    ProfileUpdateIn,
     Product,
     ProductIn,
     RegisterIn,
@@ -61,9 +63,16 @@ app = FastAPI(title="SopBox API", lifespan=lifespan, docs_url=None, redoc_url=No
 
 
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next):
+async def add_response_headers(request: Request, call_next):
+    """Security headers on everything; long caching only for files whose names never change."""
     response = await call_next(request)
     response.headers.update(SECURITY_HEADERS)
+    path = request.url.path
+    if path.startswith("/assets/"):
+        # Vite fingerprints these names, so a file never changes once published.
+        response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+    elif not path.startswith("/api/") and response.headers.get("content-type", "").startswith(("image/", "application/manifest")):
+        response.headers.setdefault("Cache-Control", "public, max-age=86400")
     return response
 
 
@@ -87,11 +96,23 @@ for _exc, _code in [
     (ForbiddenError, 403),
 ]:
     app.add_exception_handler(_exc, _error_handler(_code))
-# Duplicate names, a category that still has products, a product that is on a delivery.
-app.add_exception_handler(
-    psycopg.IntegrityError,
-    _error_handler(409, "conflicts with existing data (duplicate name, or the item is in use)"),
-)
+# Duplicate names, a category that still has products, a product that is on a delivery. Named by
+# the constraint the database reports, so people see what to fix. Names follow PostgreSQL's
+# defaults for the REFERENCES clauses in db.py.
+_CONFLICTS = {
+    "categories_name_key": "there is already a category with that name",
+    "products_name_key": "there is already a product with that name",
+    "products_category_id_fkey": "this category still has products: move or delete them first",
+    "delivery_lines_product_id_fkey": "this product is on recorded deliveries, so it cannot be deleted",
+}
+
+
+async def _integrity_error(_: Request, exc: psycopg.IntegrityError) -> JSONResponse:
+    detail = _CONFLICTS.get(exc.diag.constraint_name or "", "this conflicts with existing data")
+    return JSONResponse({"detail": detail}, status_code=409)
+
+
+app.add_exception_handler(psycopg.IntegrityError, _integrity_error)
 
 
 @app.get("/api/health")
@@ -106,6 +127,7 @@ def _me(user: CurrentUser) -> Me:
     return Me(
         id=user.id,
         username=user.username,
+        email=user.email,
         display_name=user.display_name,
         role=user.role,
         workspace=WorkspaceRef(id=user.workspace_id, name=user.workspace_name),
@@ -136,6 +158,19 @@ def logout(request: Request, response: Response, conn: Conn) -> None:
 @app.get("/api/auth/me", response_model=Me)
 def me(user: User):
     return _me(user)
+
+
+@app.get("/api/auth/session", response_model=Me | None)
+def session(request: Request, conn: Conn):
+    """Who is signed in, or null. Unlike /me, a signed-out visitor is not an error."""
+    user = auth.optional_user(request, conn)
+    return _me(user) if user else None
+
+
+@app.patch("/api/auth/me", response_model=Me)
+def update_me(body: ProfileUpdateIn, user: User, conn: Conn):
+    accounts.update_profile(conn, user, body)
+    return _me(auth.get_me(conn, user.id))
 
 
 @app.post("/api/auth/password", status_code=204)
@@ -277,6 +312,46 @@ def decide(
 @app.get("/api/audit", response_model=list[AuditEntry])
 def audit(user: ManagerUp, conn: Conn, limit: int = Query(default=50, ge=1, le=200)):
     return deliveries.list_audit(conn, user.workspace_id, limit)
+
+
+# ---- pages for browsers and search engines ---------------------------------------------------
+
+
+def _origin(request: Request) -> str:
+    """This site's address, e.g. https://sopbox.replit.app. uvicorn runs with --proxy-headers, so
+    behind Replit's proxy this is the public https address."""
+    return str(request.base_url).rstrip("/")
+
+
+@app.get("/", include_in_schema=False)
+@app.get("/index.html", include_in_schema=False)
+def index(request: Request):
+    """The app's single page, with absolute URLs filled in for link previews and the canonical link."""
+    page = FRONTEND_DIST / "index.html"
+    if not page.is_file():
+        return PlainTextResponse("Frontend not built. Run npm run build in src/frontend.", status_code=503)
+    body = page.read_text(encoding="utf-8").replace("__ORIGIN__", html.escape(_origin(request)))
+    # Always fetch the page fresh, so a new deploy's script and style names are picked up.
+    return HTMLResponse(body, headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots(request: Request):
+    return PlainTextResponse(
+        f"User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: {_origin(request)}/sitemap.xml\n"
+    )
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap(request: Request):
+    # One public page: everything else is behind sign-in.
+    url = html.escape(_origin(request))
+    return Response(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f"<url><loc>{url}/</loc></url></urlset>\n",
+        media_type="application/xml",
+    )
 
 
 # The built frontend (npm run build). Mounted last so the API routes above win.

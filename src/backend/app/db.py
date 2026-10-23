@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS users_username_key ON users (lower(username));
+-- Added after the first deploy: ALTER keeps databases created before it working.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_key ON users (lower(email)) WHERE email IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_one_owner_key ON users (workspace_id) WHERE role = 'owner';
 CREATE TABLE IF NOT EXISTS sessions (
     token_hash TEXT PRIMARY KEY,

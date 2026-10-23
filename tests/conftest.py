@@ -67,6 +67,7 @@ def sign_up(workspace="Test Kitchen", username="olive", name="Olive Owner", pass
         json={
             "workspace_name": workspace,
             "display_name": name,
+            "email": f"{username}@example.com",
             "username": username,
             "password": password,
         },

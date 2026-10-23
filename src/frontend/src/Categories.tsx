@@ -119,7 +119,7 @@ export default function Categories({
 
   return (
     <section className={`${cardClass} space-y-3`} aria-labelledby="categories-heading">
-      <h2 id="categories-heading" className="text-lg font-semibold text-brand-900">
+      <h2 id="categories-heading" className="text-base font-bold text-brand-950">
         Categories
       </h2>
       <p className="text-sm text-slate-600">
