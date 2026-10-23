@@ -2,7 +2,7 @@
 # loads nothing from another origin, so the CSP can be strict. Photos are previewed from blob: URLs.
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
-        "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "
+        "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; "
         "connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self'; "
         "frame-ancestors 'none'"
     ),

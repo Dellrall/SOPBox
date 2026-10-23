@@ -347,3 +347,10 @@ def test_the_database_itself_hides_other_workspaces_rows(client, catalogue_ids, 
         conn.execute("RESET ROLE")
         conn.execute("DROP OWNED BY rls_probe")
         conn.execute("DROP ROLE rls_probe")
+
+
+def test_session_says_null_when_signed_out_and_who_you_are_when_signed_in(anon, client):
+    resp = anon.get("/api/auth/session")
+    assert resp.status_code == 200
+    assert resp.json() is None
+    assert client.get("/api/auth/session").json()["username"] == "olive"

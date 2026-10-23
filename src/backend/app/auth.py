@@ -158,6 +158,13 @@ def get_me(conn: psycopg.Connection, user_id: int) -> "CurrentUser":
 Conn = Annotated[psycopg.Connection, Depends(get_db)]
 
 
+def optional_user(request: Request, conn: Conn) -> CurrentUser | None:
+    """The signed-in user, or None. For the app's first "who am I?" question, where being signed
+    out is a normal answer rather than an error."""
+    token = request.cookies.get(COOKIE)
+    return _user_for_token(conn, token) if token else None
+
+
 def current_user(request: Request, conn: Conn) -> CurrentUser:
     """The signed-in user. Also points the database connection at their workspace."""
     token = request.cookies.get(COOKIE)

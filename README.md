@@ -169,9 +169,11 @@ Every route except `/api/health` and the two sign-in routes needs a signed-in se
 
 | Route | Who | Purpose |
 |---|---|---|
-| `POST /api/auth/register` | anyone | Create a workspace and its owner, and sign in |
-| `POST /api/auth/login` | anyone | Sign in |
-| `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/password` | any signed in | Sign out, who am I, change my password |
+| `POST /api/auth/register` | anyone | Create a workspace and its owner (email required), and sign in |
+| `POST /api/auth/login` | anyone | Sign in with a username or an email |
+| `GET /api/auth/session` | anyone | Who is signed in, or `null` |
+| `POST /api/auth/logout`, `GET /api/auth/me`, `PATCH /api/auth/me`, `POST /api/auth/password` | any signed in | Sign out, who am I, change my name or email, change my password |
+| `GET /robots.txt`, `GET /sitemap.xml` | anyone | For search engines. The page itself gets absolute canonical and link-preview URLs from the request's address |
 | `GET/POST /api/users`, `PATCH /api/users/{id}` | owner | List, create, and change accounts (role, disable, reset password) |
 | `GET/PATCH /api/workspace` | owner | Workspace name and Telegram chat ids |
 | `GET /api/products?q=` | any | Products with stock. `q` searches name, category and SOP text |
@@ -197,7 +199,7 @@ The suite starts an embedded PostgreSQL, so it needs no install, network, GPU or
 ## Known limits
 
 - The first photo after the endpoint has been idle waits for a cold start (a few minutes). Staff can type the lines instead.
-- Anyone can create a workspace. An address can create 10 an hour. There is no email, so a forgotten owner password cannot be reset by the app: it takes a database change.
+- Anyone can create a workspace. An address can create 10 an hour. Accounts store an email and can sign in with it, but the app sends no email yet, so a forgotten owner password cannot be reset by the app: it takes a database change.
 - The sign-in lockout counter is in memory, so it is per server process.
 - The order photo is not stored. The audit log records readings and decisions, not the image.
 - `.replit` is untested on a live deployment. If Replit's database role bypasses Row Level Security, the application-level workspace filters still apply.
