@@ -218,7 +218,7 @@ export default function Receive({ active }: { active: boolean }) {
           htmlFor="order-photo"
           className={`${secondaryButton} inline-block cursor-pointer ${busy ? "pointer-events-none opacity-50" : ""}`}
         >
-          {busy === "reading" ? "Reading the order…" : "Photograph the order"}
+          {busy === "reading" ? "Reading the order… (up to 3 min if the reader was asleep)" : "Photograph the order"}
         </label>
         {notice && <p className="text-sm text-brand-900">{notice}</p>}
       </div>

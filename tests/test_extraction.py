@@ -51,6 +51,23 @@ def test_parse_rejects_anything_that_is_not_clean_lines(reply):
         extraction.parse_model_output(reply)
 
 
+def test_parses_the_reply_qwen3_vl_gave_for_the_sample_order():
+    # Recorded from endpoint sriet0cftztbik on 23 Oct 2026 for a synthetic 4-line delivery order.
+    reply = (
+        '{"lines": [{"name": "Frozen Sausage 1kg", "quantity": 10, "unit": "pkt"}, '
+        '{"name": "Chocolate Balls", "quantity": 2, "unit": "box"}, '
+        '{"name": "Fries Tray", "quantity": 2, "unit": "bdl"}, '
+        '{"name": "Coke 330ml", "quantity": 3, "unit": "ctn"}]}'
+    )
+    lines = extraction.parse_model_output(reply)
+    assert [(l.name, l.quantity, l.unit) for l in lines] == [
+        ("Frozen Sausage 1kg", 10, "pkt"),
+        ("Chocolate Balls", 2, "box"),
+        ("Fries Tray", 2, "bdl"),
+        ("Coke 330ml", 3, "ctn"),
+    ]
+
+
 # ---- extract_lines ----------------------------------------------------------------------------
 
 
@@ -74,26 +91,59 @@ def runpod(monkeypatch):
 
 
 def completed(text):
-    return FakeResponse({"choices": [{"message": {"role": "assistant", "content": text}}]})
+    # What /status returns for a finished job; the worker wraps the OpenAI reply in a list.
+    return {"status": "COMPLETED", "output": [{"choices": [{"message": {"role": "assistant", "content": text}}]}]}
 
 
-def test_runpod_mode_sends_the_image_with_the_key_and_parses_the_reply(runpod, monkeypatch):
-    sent = {}
+class FakeRunPod:
+    """Stands in for httpx against the endpoint: /run queues, /status replays `statuses`."""
 
-    def fake_post(url, headers, json, timeout):
-        sent.update(url=url, headers=headers, json=json)
-        return completed('{"lines": [{"name": "Fries tray", "quantity": 2, "unit": "bdl"}]}')
+    def __init__(self, monkeypatch, *statuses):
+        self.statuses = list(statuses)
+        self.posts = []
+        self.gets = []
+        monkeypatch.setattr(extraction.httpx, "post", self.post)
+        monkeypatch.setattr(extraction.httpx, "get", self.get)
 
-    monkeypatch.setattr(extraction.httpx, "post", fake_post)
-    lines = extraction.extract_lines("aW1n")
+    def post(self, url, headers, json=None, timeout=None):
+        self.posts.append({"url": url, "headers": headers, "json": json})
+        return FakeResponse({"id": "job-1", "status": "IN_QUEUE"})
+
+    def get(self, url, headers, timeout=None):
+        self.gets.append(url)
+        body = self.statuses.pop(0) if len(self.statuses) > 1 else self.statuses[0]
+        return FakeResponse(body)
+
+    @property
+    def cancelled(self):
+        return [p["url"] for p in self.posts if "/cancel/" in p["url"]]
+
+
+def no_sleep(_seconds):
+    pass
+
+
+def test_runpod_mode_queues_the_image_waits_and_parses_the_reply(runpod, monkeypatch):
+    fake = FakeRunPod(
+        monkeypatch,
+        {"status": "IN_QUEUE"},
+        {"status": "IN_PROGRESS"},
+        completed('{"lines": [{"name": "Fries tray", "quantity": 2, "unit": "bdl"}]}'),
+    )
+    lines = extraction.extract_lines("aW1n", sleep=no_sleep)
 
     assert [(l.name, l.quantity, l.unit) for l in lines] == [("Fries tray", 2, "bdl")]
-    assert sent["url"] == "https://api.runpod.ai/v2/abc123xyz/openai/v1/chat/completions"
-    assert sent["headers"] == {"Authorization": "Bearer secret-key"}
-    assert sent["json"]["model"] == extraction.MODEL
-    content = sent["json"]["messages"][0]["content"]
+    run = fake.posts[0]
+    assert run["url"] == "https://api.runpod.ai/v2/abc123xyz/run"
+    assert run["headers"] == {"Authorization": "Bearer secret-key"}
+    assert run["json"]["input"]["openai_route"] == "/v1/chat/completions"
+    request = run["json"]["input"]["openai_input"]
+    assert request["model"] == extraction.MODEL
+    content = request["messages"][0]["content"]
     assert content[0] == {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,aW1n"}}
     assert content[1] == {"type": "text", "text": extraction.PROMPT}
+    assert fake.gets == ["https://api.runpod.ai/v2/abc123xyz/status/job-1"] * 3
+    assert fake.cancelled == []
 
 
 def test_an_endpoint_id_that_is_not_an_id_is_refused(runpod, monkeypatch):
@@ -104,19 +154,39 @@ def test_an_endpoint_id_that_is_not_an_id_is_refused(runpod, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "response",
+    "status",
     [
-        FakeResponse({"error": "worker failed"}),
-        FakeResponse({"choices": []}),
-        FakeResponse({"choices": [{"message": {"content": None}}]}),
-        FakeResponse({"error": "boom"}, status_code=500),
+        {"status": "FAILED", "error": "CUDA out of memory"},
+        {"status": "COMPLETED", "output": [{"choices": []}]},
+        {"status": "COMPLETED", "output": None},
+        {"status": "COMPLETED", "output": [{"choices": [{"message": {"content": None}}]}]},
         completed("not json"),
     ],
 )
-def test_runpod_mode_turns_a_bad_job_into_an_extraction_error(runpod, monkeypatch, response):
-    monkeypatch.setattr(extraction.httpx, "post", lambda *a, **k: response)
+def test_runpod_mode_turns_a_bad_job_into_an_extraction_error(runpod, monkeypatch, status):
+    FakeRunPod(monkeypatch, status)
     with pytest.raises(ExtractionError):
-        extraction.extract_lines("img")
+        extraction.extract_lines("img", sleep=no_sleep)
+
+
+def test_a_job_that_outlasts_the_wait_is_cancelled(runpod, monkeypatch):
+    fake = FakeRunPod(monkeypatch, {"status": "IN_QUEUE"})
+    clock = {"now": 0.0}
+    monkeypatch.setattr(extraction.time, "monotonic", lambda: clock["now"])
+
+    def sleep(seconds):
+        clock["now"] += 60
+
+    with pytest.raises(ExtractionError, match="still starting"):
+        extraction.extract_lines("img", sleep=sleep)
+    assert fake.cancelled == ["https://api.runpod.ai/v2/abc123xyz/cancel/job-1"]
+
+
+def test_a_rejected_job_id_is_not_used_in_a_url(runpod, monkeypatch):
+    monkeypatch.setattr(extraction.httpx, "post", lambda *a, **k: FakeResponse({"id": "../../x"}))
+    monkeypatch.setattr(extraction.httpx, "get", lambda *a, **k: pytest.fail("must not poll"))
+    with pytest.raises(ExtractionError):
+        extraction.extract_lines("img", sleep=no_sleep)
 
 
 def test_a_network_error_does_not_leak_the_api_key(runpod, monkeypatch):
@@ -143,27 +213,24 @@ def test_the_route_says_so_when_reading_photos_is_not_set_up(client):
 
 def test_the_hourly_limit_stops_runaway_gpu_spend(runpod, monkeypatch):
     monkeypatch.setattr(extraction, "EXTRACTION_MAX_PER_HOUR", 2)
-    calls = []
-    monkeypatch.setattr(
-        extraction.httpx, "post", lambda *a, **k: calls.append(1) or completed('{"lines": []}')
-    )
+    fake = FakeRunPod(monkeypatch, completed('{"lines": []}'))
 
-    extraction.extract_lines("img")
-    extraction.extract_lines("img")
+    extraction.extract_lines("img", sleep=no_sleep)
+    extraction.extract_lines("img", sleep=no_sleep)
     with pytest.raises(RateLimitError):
-        extraction.extract_lines("img")
-    assert len(calls) == 2  # the third call never reached RunPod
+        extraction.extract_lines("img", sleep=no_sleep)
+    assert len(fake.posts) == 2  # the third call never reached RunPod
 
 
 def test_the_hourly_limit_resets_after_an_hour(runpod, monkeypatch):
     monkeypatch.setattr(extraction, "EXTRACTION_MAX_PER_HOUR", 1)
-    monkeypatch.setattr(extraction.httpx, "post", lambda *a, **k: completed('{"lines": []}'))
+    FakeRunPod(monkeypatch, completed('{"lines": []}'))
     clock = {"now": 1000.0}
     monkeypatch.setattr(extraction.time, "monotonic", lambda: clock["now"])
 
-    extraction.extract_lines("img")
+    extraction.extract_lines("img", sleep=no_sleep)
     clock["now"] += 3601
-    extraction.extract_lines("img")  # does not raise
+    extraction.extract_lines("img", sleep=no_sleep)  # does not raise
 
 
 # ---- the route --------------------------------------------------------------------------------

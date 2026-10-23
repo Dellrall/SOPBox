@@ -1,7 +1,8 @@
 """Read an order photo into lines. The model runs on RunPod; this module only calls it.
 
-The endpoint runs RunPod's vLLM worker, which serves an OpenAI-compatible chat API at
-https://api.runpod.ai/v2/<endpoint-id>/openai/v1. See runpod/README.md for its settings.
+The endpoint runs RunPod's vLLM worker. The photo goes in as an OpenAI chat request through the
+endpoint's job queue (/run, then /status), because a cold worker can take minutes to load the model
+and a synchronous call would time out first. See runpod/README.md for the endpoint settings.
 The reply text is untrusted. It is parsed and validated here before anything else sees it.
 """
 
@@ -10,6 +11,7 @@ import logging
 import re
 import threading
 import time
+from collections.abc import Callable
 from collections import deque
 
 import httpx
@@ -35,6 +37,11 @@ Return only JSON in this exact shape, with one entry per order line:
 {"lines": [{"name": "<item as written>", "quantity": <whole number>, "unit": "<unit as written, e.g. bdl, box, pcs>"}]}
 If you cannot read a quantity, leave that line out. Do not guess. Write nothing outside the JSON."""
 _ENDPOINT_ID = re.compile(r"^[a-z0-9]{6,32}$")
+_JOB_ID = re.compile(r"^[A-Za-z0-9-]{1,80}$")
+# Cold start (image, weights, load) took about 2.5 minutes on an RTX A5000 on 23 Oct 2026.
+WAIT_SECONDS = 300
+POLL_SECONDS = 2.0
+_TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT"}
 
 _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 
@@ -81,7 +88,20 @@ def parse_model_output(text: str) -> list[ExtractedLine]:
         raise ExtractionError("model returned a line that is not valid") from None
 
 
-def extract_lines(image_b64: str) -> list[ExtractedLine]:
+def _reply_text(output: object) -> str:
+    # The worker returns the OpenAI response, sometimes wrapped in a one-item list.
+    if isinstance(output, list) and output:
+        output = output[0]
+    try:
+        text = output["choices"][0]["message"]["content"]  # type: ignore[index]
+    except (KeyError, IndexError, TypeError):
+        raise ExtractionError("the model reply has no message") from None
+    if not isinstance(text, str):
+        raise ExtractionError("the model reply has no message")
+    return text
+
+
+def extract_lines(image_b64: str, sleep: Callable[[float], None] = time.sleep) -> list[ExtractedLine]:
     settings = get_settings()
     if not (settings.runpod_endpoint_id and settings.runpod_api_key):
         raise ExtractionError("reading photos is not set up; enter the lines by hand")
@@ -89,37 +109,64 @@ def extract_lines(image_b64: str) -> list[ExtractedLine]:
         raise ExtractionError("RUNPOD_ENDPOINT_ID is not a valid endpoint id")
 
     _take_budget()
+    base = f"https://api.runpod.ai/v2/{settings.runpod_endpoint_id}"
+    headers = {"Authorization": f"Bearer {settings.runpod_api_key}"}
+    request = {
+        "model": MODEL,
+        "temperature": 0,
+        "max_tokens": 1024,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                    {"type": "text", "text": PROMPT},
+                ],
+            }
+        ],
+    }
+    job_id = None
     try:
         resp = httpx.post(
-            f"https://api.runpod.ai/v2/{settings.runpod_endpoint_id}/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {settings.runpod_api_key}"},
-            json={
-                "model": MODEL,
-                "temperature": 0,
-                "max_tokens": 1024,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-                            {"type": "text", "text": PROMPT},
-                        ],
-                    }
-                ],
-            },
-            # A cold worker pulls the image and loads the model before it answers.
-            timeout=180,
+            f"{base}/run",
+            headers=headers,
+            json={"input": {"openai_route": "/v1/chat/completions", "openai_input": request}},
+            timeout=30,
         )
         resp.raise_for_status()
-        body = resp.json()
-    except (httpx.HTTPError, ValueError) as err:
+        job_id = resp.json().get("id")
+        if not isinstance(job_id, str) or not _JOB_ID.match(job_id):
+            raise ExtractionError("the model endpoint did not accept the job")
+
+        deadline = time.monotonic() + WAIT_SECONDS
+        while True:
+            resp = httpx.get(f"{base}/status/{job_id}", headers=headers, timeout=30)
+            resp.raise_for_status()
+            body = resp.json()
+            if body.get("status") in _TERMINAL:
+                break
+            if time.monotonic() >= deadline:
+                break
+            sleep(POLL_SECONDS)
+    except (httpx.HTTPError, ValueError, AttributeError) as err:
         logger.warning("runpod call failed: %s", type(err).__name__)
+        _cancel(base, headers, job_id)
         raise ExtractionError("could not reach the model endpoint") from None
 
+    status = body.get("status")
+    if status != "COMPLETED":
+        _cancel(base, headers, job_id)
+        if status in _TERMINAL:
+            raise ExtractionError(f"the model job did not finish (status {status})")
+        raise ExtractionError("the model is still starting; try again in a minute or enter the lines by hand")
+    return parse_model_output(_reply_text(body.get("output")))
+
+
+def _cancel(base: str, headers: dict[str, str], job_id: str | None) -> None:
+    """Stop a job we gave up on, so it does not run (and bill) after staff moved on."""
+    if not job_id:
+        return
     try:
-        text = body["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
-        raise ExtractionError("the model reply has no message") from None
-    if not isinstance(text, str):
-        raise ExtractionError("the model reply has no message")
-    return parse_model_output(text)
+        httpx.post(f"{base}/cancel/{job_id}", headers=headers, timeout=10)
+    except httpx.HTTPError:
+        logger.warning("could not cancel runpod job")
