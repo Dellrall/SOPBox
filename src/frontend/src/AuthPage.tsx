@@ -4,6 +4,7 @@ import { api } from "./api";
 import type { PublicPath } from "./App";
 import type { Me } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton } from "./ui";
+import { USERNAME_HINT, USERNAME_PATTERN, cleanUsername, usernameProblem } from "./username";
 
 type Mode = "signin" | "register";
 
@@ -27,18 +28,22 @@ export default function AuthPage({
   const setMode = (m: Mode) => navigate(m === "register" ? "/register" : "/signin");
   useEffect(() => {
     document.title = mode === "register" ? "Create a workspace · SOPBox" : "Sign in · SOPBox";
+    // Whatever was typed for signing in (perhaps an email) must still be a valid new username.
+    if (mode === "register") setUsername((u) => cleanUsername(u).value);
   }, [mode]);
   const [workspace, setWorkspace] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [dropped, setDropped] = useState(false); // a typed character was not allowed in a username
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    if (mode === "register" && usernameProblem(username)) return setError(`Username: ${usernameProblem(username)}`);
     setBusy(true);
     try {
       onSignedIn(
@@ -170,13 +175,24 @@ export default function AuthPage({
                 required
                 autoComplete="username"
                 autoCapitalize="none"
+                autoCorrect="off"
                 spellCheck={false}
+                {...(mode === "register" ? { minLength: 3, maxLength: 32, pattern: USERNAME_PATTERN, title: USERNAME_HINT } : { maxLength: 254 })}
+                aria-describedby={mode === "register" ? "username-hint" : undefined}
                 className={inputClass}
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  if (mode !== "register") return setUsername(e.target.value);
+                  const cleaned = cleanUsername(e.target.value);
+                  setUsername(cleaned.value);
+                  setDropped(cleaned.removed);
+                }}
               />
               {mode === "register" && (
-                <p className="mt-1 text-xs text-muted">3 to 32 characters: letters, digits, dot, dash or underscore.</p>
+                <p id="username-hint" className={`mt-1 text-xs ${dropped ? "font-semibold text-amber-800" : "text-muted"}`} aria-live="polite">
+                  {dropped ? "Spaces and symbols can't be used in a username, so they were left out. " : ""}
+                  {USERNAME_HINT}
+                </p>
               )}
             </div>
             <div>

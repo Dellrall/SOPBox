@@ -9,6 +9,7 @@ from app.auditlog import audit
 from app.auth import CurrentUser
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.models import (
+    normalise_login,
     ProfileUpdateIn,
     RegisterIn,
     UserCreateIn,
@@ -72,7 +73,7 @@ def _taken(err: psycopg.errors.UniqueViolation) -> ConflictError:
 
 def authenticate(conn: psycopg.Connection, login: str, password: str) -> int:
     """Return the user id for a correct username (or email) and password. Same error for every failure."""
-    login = login.strip().lower()
+    login = normalise_login(login)
     auth.check_not_locked(login)
     column = "email" if "@" in login else "username"
     row = conn.execute(

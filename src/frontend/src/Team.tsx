@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 import type { UserOut } from "./types";
+import { USERNAME_HINT, USERNAME_PATTERN, cleanUsername, usernameProblem } from "./username";
 import { Empty, ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 function CreateForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [dropped, setDropped] = useState(false);
   const [role, setRole] = useState<"manager" | "staff">("staff");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -15,9 +17,10 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setBusy(true);
     setError("");
     setDone("");
+    if (usernameProblem(username)) return setError(`Username: ${usernameProblem(username)}`);
+    setBusy(true);
     try {
       const made = await api.createUser({ username, display_name: name, role, password, ...(email.trim() ? { email } : {}) });
       setDone(`Account created. Give ${made.display_name} the username "${made.username}" and the password you just set.`);
@@ -47,7 +50,29 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
           <label className={labelClass} htmlFor="u-username">
             Username
           </label>
-          <input id="u-username" required autoCapitalize="none" className={inputClass} value={username} onChange={(e) => setUsername(e.target.value)} />
+          <input
+            id="u-username"
+            required
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            minLength={3}
+            maxLength={32}
+            pattern={USERNAME_PATTERN}
+            title={USERNAME_HINT}
+            aria-describedby="u-username-hint"
+            className={inputClass}
+            value={username}
+            onChange={(e) => {
+              const cleaned = cleanUsername(e.target.value);
+              setUsername(cleaned.value);
+              setDropped(cleaned.removed);
+            }}
+          />
+          <p id="u-username-hint" className={`mt-1 text-xs ${dropped ? "font-semibold text-amber-800" : "text-muted"}`} aria-live="polite">
+            {dropped ? "Spaces and symbols can't be used, so they were left out. " : ""}
+            {USERNAME_HINT}
+          </p>
         </div>
         <div>
           <label className={labelClass} htmlFor="u-email">

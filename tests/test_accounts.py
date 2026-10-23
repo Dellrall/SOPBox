@@ -369,3 +369,59 @@ def test_every_workspace_table_is_protected_by_row_level_security(client, _datab
             ).fetchone()
             policies = conn.execute("SELECT count(*) FROM pg_policies WHERE tablename = %s", (table,)).fetchone()[0]
             assert (enabled, forced, policies > 0) == (True, True, True), table
+
+
+# ---- username rules and input cleaning ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "username, expected",
+    [
+        ("lye wei", "letters a-z, numbers"),
+        ("LyeWei!", "letters a-z, numbers"),
+        ("lyé", "letters a-z, numbers"),
+        ("...", "starting and ending with a letter or number"),
+        ("-lye", "starting and ending with a letter or number"),
+        ("lye@wei.com", "cannot contain @"),
+        ("ab", "at least 3 characters"),
+    ],
+)
+def test_a_username_with_spaces_or_symbols_is_refused_with_a_clear_reason(anon, username, expected):
+    resp = anon.post("/api/auth/register", json=register_body(username=username))
+    assert resp.status_code == 422
+    assert expected in resp.json()["detail"]
+
+
+def test_full_width_letters_from_a_phone_keyboard_become_plain_ones(anon):
+    resp = anon.post("/api/auth/register", json=register_body(username="ＬｙｅＷｅｉ", email="lye@example.com"))
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["username"] == "lyewei"
+    # Signing in normalises the same way, whichever way it is typed.
+    assert sign_in("ｌｙｅｗｅｉ").get("/api/auth/me").status_code == 200
+    assert sign_in(" LyeWei ").get("/api/auth/me").status_code == 200
+
+
+def test_a_refused_request_never_echoes_the_password(anon):
+    resp = anon.post("/api/auth/register", json=register_body(username="bad name", password="secret-but-long"))
+    assert resp.status_code == 422
+    assert "secret-but-long" not in resp.text
+    assert isinstance(resp.json()["detail"], str)
+
+
+def test_validation_messages_name_the_field(anon):
+    resp = anon.post("/api/auth/register", json=register_body(password="short"))
+    assert resp.json()["detail"].startswith("Password: ")
+
+
+def test_invisible_characters_are_removed_from_text(client):
+    # A NUL byte used to make the database refuse the row; bidi overrides can disguise a name.
+    resp = client.post("/api/categories", json={"name": "Fro\x00zen‮​"})
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["name"] == "Frozen"
+    me = client.patch("/api/auth/me", json={"display_name": "Olive\x07 Owner"}).json()
+    assert me["display_name"] == "Olive Owner"
+
+
+def test_sop_text_keeps_its_line_breaks(client, catalogue_ids):
+    body = {"name": "Nuggets", "category_id": catalogue_ids["frozen_category"], "base_unit": "pcs", "sop": "1. Check\r\n2. Store\t-18 C"}
+    assert client.post("/api/products", json=body).json()["sop"] == "1. Check\n2. Store\t-18 C"
