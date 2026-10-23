@@ -97,6 +97,46 @@ CREATE TABLE IF NOT EXISTS delivery_lines (
     passed BOOLEAN NOT NULL,
     issues TEXT NOT NULL DEFAULT '[]'
 );
+CREATE TABLE IF NOT EXISTS suppliers (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    contact TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    archived BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS suppliers_name_key ON suppliers (workspace_id, lower(name));
+-- Quantity-only purchase orders: what was ordered, not what it cost.
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    number BIGINT NOT NULL,
+    supplier_id BIGINT NOT NULL REFERENCES suppliers(id),
+    status TEXT NOT NULL CHECK (status IN ('draft', 'issued', 'cancelled')),
+    order_date TEXT NOT NULL,
+    expected_date TEXT,
+    notes TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    issued_by TEXT,
+    issued_at TEXT,
+    cancelled_by TEXT,
+    cancelled_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS purchase_orders_number_key ON purchase_orders (workspace_id, number);
+-- ordered_base_qty fixes the pack conversion when the line is saved, so a later change to the
+-- product's pack sizes cannot change what was ordered.
+CREATE TABLE IF NOT EXISTS purchase_order_lines (
+    id {_ID},
+    purchase_order_id BIGINT NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+    product_id BIGINT NOT NULL REFERENCES products(id),
+    quantity BIGINT NOT NULL CHECK (quantity > 0),
+    unit TEXT NOT NULL,
+    ordered_base_qty BIGINT NOT NULL CHECK (ordered_base_qty > 0),
+    UNIQUE (purchase_order_id, product_id)
+);
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS purchase_order_id BIGINT REFERENCES purchase_orders(id);
 CREATE TABLE IF NOT EXISTS audit_log (
     id {_ID},
     workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -120,6 +160,12 @@ RLS_TABLES = {
     "products": f"workspace_id = {_WS}",
     "deliveries": f"workspace_id = {_WS}",
     "audit_log": f"workspace_id = {_WS}",
+    "suppliers": f"workspace_id = {_WS}",
+    "purchase_orders": f"workspace_id = {_WS}",
+    "purchase_order_lines": (
+        f"EXISTS (SELECT 1 FROM purchase_orders o WHERE o.id = purchase_order_lines.purchase_order_id "
+        f"AND o.workspace_id = {_WS})"
+    ),
     "pack_units": (
         f"EXISTS (SELECT 1 FROM products p WHERE p.id = pack_units.product_id "
         f"AND p.workspace_id = {_WS})"

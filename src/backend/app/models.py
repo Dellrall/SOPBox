@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -117,6 +118,9 @@ class DeliveryLineIn(_In):
 
 class DeliveryIn(_In):
     supplier: str = Field(default="", max_length=120)
+    # Receiving against an issued purchase order: each line is checked against what is still
+    # outstanding on it, and a product that is not on the order fails.
+    purchase_order_id: int | None = None
     lines: list[DeliveryLineIn] = Field(min_length=1, max_length=100)
 
 
@@ -148,6 +152,8 @@ class Delivery(BaseModel):
     decided_by: str | None
     decided_at: str | None
     decision_reason: str | None
+    purchase_order_id: int | None = None
+    purchase_order: str | None = None  # its reference, e.g. PO-0007
     lines: list[DeliveryLine]
 
 
@@ -320,3 +326,95 @@ class WorkspaceUpdateIn(_In):
             if value is not None and not _CHAT_ID.match(value):
                 raise ValueError("a Telegram chat id is a number (or @channelname), or empty")
         return self
+
+
+# ---- purchasing ---------------------------------------------------------------------------------
+
+
+class SupplierIn(_In):
+    name: str = Field(min_length=1, max_length=120)
+    contact: str = Field(default="", max_length=120)
+    phone: str = Field(default="", max_length=40)
+    email: str = Field(default="", max_length=254)
+
+    @model_validator(mode="after")
+    def _clean(self) -> "SupplierIn":
+        self.email = _email(self.email) or ""
+        return self
+
+
+class Supplier(BaseModel):
+    id: int
+    name: str
+    contact: str
+    phone: str
+    email: str
+    archived: bool
+
+
+class PurchaseOrderLineIn(_In):
+    product_id: int
+    quantity: int = Field(gt=0, le=1_000_000)
+    unit: str = Field(min_length=1, max_length=20)
+
+
+class PurchaseOrderIn(_In):
+    supplier_id: int
+    order_date: date
+    expected_date: date | None = None
+    notes: str = Field(default="", max_length=1000)
+    lines: list[PurchaseOrderLineIn] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def _check(self) -> "PurchaseOrderIn":
+        if self.expected_date and self.expected_date < self.order_date:
+            raise ValueError("the expected delivery date cannot be before the order date")
+        ids = [line.product_id for line in self.lines]
+        if len(ids) != len(set(ids)):
+            raise ValueError("each product can appear once: combine its quantity on one line")
+        return self
+
+
+class CancelIn(_In):
+    reason: str = Field(default="", max_length=500)
+
+
+class LowStockDraftIn(_In):
+    supplier_id: int
+
+
+class PurchaseOrderLine(BaseModel):
+    id: int
+    product_id: int
+    product_name: str
+    quantity: int
+    unit: str
+    base_unit: str
+    ordered_base_qty: int
+    received_base_qty: int  # on accepted deliveries
+    pending_base_qty: int  # on deliveries still waiting for a manager
+    outstanding_base_qty: int
+
+
+PurchaseOrderStatus = Literal["draft", "issued", "cancelled"]
+ReceivingStatus = Literal["not_received", "partially_received", "fully_received"]
+
+
+class PurchaseOrder(BaseModel):
+    id: int
+    reference: str
+    supplier_id: int
+    supplier: str
+    status: PurchaseOrderStatus
+    receiving_status: ReceivingStatus
+    order_date: str
+    expected_date: str | None
+    notes: str
+    created_by: str
+    created_at: str
+    issued_by: str | None
+    issued_at: str | None
+    cancelled_by: str | None
+    cancelled_at: str | None
+    lines: list[PurchaseOrderLine]
+    delivery_ids: list[int]

@@ -1,7 +1,7 @@
 import html
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import psycopg
 from fastapi import BackgroundTasks, Depends, FastAPI, Query, Request, Response
@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app import accounts, auth, catalogue, deliveries
+from app import accounts, auth, catalogue, deliveries, purchasing
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
 from app.db import close_pool, get_db, init_db
 from app.errors import (
@@ -24,6 +24,12 @@ from app.errors import (
 from app.extraction import extract_lines
 from app.models import (
     ArchiveIn,
+    CancelIn,
+    LowStockDraftIn,
+    PurchaseOrder,
+    PurchaseOrderIn,
+    Supplier,
+    SupplierIn,
     AuditEntry,
     Category,
     CategoryIn,
@@ -105,6 +111,8 @@ _CONFLICTS = {
     "products_name_key": "there is already a product with that name",
     "products_category_id_fkey": "this category still has products: move or delete them first",
     "delivery_lines_product_id_fkey": "this product is on recorded deliveries, so it cannot be deleted: archive it instead",
+    "purchase_order_lines_product_id_fkey": "this product is on purchase orders, so it cannot be deleted: archive it instead",
+    "suppliers_name_key": "there is already a supplier with that name",
 }
 
 
@@ -262,6 +270,67 @@ def archive_product(product_id: int, body: ArchiveIn, user: ManagerUp, conn: Con
 @app.delete("/api/products/{product_id}", status_code=204)
 def delete_product(product_id: int, user: ManagerUp, conn: Conn) -> None:
     catalogue.delete_product(conn, user.workspace_id, product_id)
+
+
+# ---- purchasing: suppliers and purchase orders ------------------------------------------------
+# Anyone signed in can read them (staff receive against issued orders); managers write.
+
+
+@app.get("/api/suppliers", response_model=list[Supplier])
+def list_suppliers(user: User, conn: Conn):
+    return purchasing.list_suppliers(conn, user.workspace_id)
+
+
+@app.post("/api/suppliers", response_model=Supplier, status_code=201)
+def create_supplier(body: SupplierIn, user: ManagerUp, conn: Conn):
+    return purchasing.create_supplier(conn, user.workspace_id, body)
+
+
+@app.put("/api/suppliers/{supplier_id}", response_model=Supplier)
+def update_supplier(supplier_id: int, body: SupplierIn, user: ManagerUp, conn: Conn):
+    return purchasing.update_supplier(conn, user.workspace_id, supplier_id, body)
+
+
+@app.patch("/api/suppliers/{supplier_id}", response_model=Supplier)
+def archive_supplier(supplier_id: int, body: ArchiveIn, user: ManagerUp, conn: Conn):
+    return purchasing.set_supplier_archived(conn, user.workspace_id, supplier_id, body.archived)
+
+
+@app.get("/api/purchase-orders", response_model=list[PurchaseOrder])
+def list_purchase_orders(
+    user: User, conn: Conn, status: Literal["draft", "issued", "cancelled"] | None = None
+):
+    return purchasing.list_orders(conn, user.workspace_id, status)
+
+
+@app.get("/api/purchase-orders/{order_id}", response_model=PurchaseOrder)
+def get_purchase_order(order_id: int, user: User, conn: Conn):
+    return purchasing.get_order(conn, user.workspace_id, order_id)
+
+
+@app.post("/api/purchase-orders", response_model=PurchaseOrder, status_code=201)
+def create_purchase_order(body: PurchaseOrderIn, user: ManagerUp, conn: Conn):
+    return purchasing.create_order(conn, user.workspace_id, user.display_name, body)
+
+
+@app.post("/api/purchase-orders/low-stock-draft", response_model=PurchaseOrder, status_code=201)
+def draft_from_low_stock(body: LowStockDraftIn, user: ManagerUp, conn: Conn):
+    return purchasing.low_stock_draft(conn, user.workspace_id, user.display_name, body)
+
+
+@app.put("/api/purchase-orders/{order_id}", response_model=PurchaseOrder)
+def update_purchase_order(order_id: int, body: PurchaseOrderIn, user: ManagerUp, conn: Conn):
+    return purchasing.update_order(conn, user.workspace_id, user.display_name, order_id, body)
+
+
+@app.post("/api/purchase-orders/{order_id}/issue", response_model=PurchaseOrder)
+def issue_purchase_order(order_id: int, user: ManagerUp, conn: Conn):
+    return purchasing.issue_order(conn, user.workspace_id, user.display_name, order_id)
+
+
+@app.post("/api/purchase-orders/{order_id}/cancel", response_model=PurchaseOrder)
+def cancel_purchase_order(order_id: int, body: CancelIn, user: ManagerUp, conn: Conn):
+    return purchasing.cancel_order(conn, user.workspace_id, user.display_name, order_id, body.reason)
 
 
 # ---- receiving journey ------------------------------------------------------------------------

@@ -354,3 +354,18 @@ def test_session_says_null_when_signed_out_and_who_you_are_when_signed_in(anon, 
     assert resp.status_code == 200
     assert resp.json() is None
     assert client.get("/api/auth/session").json()["username"] == "olive"
+
+
+def test_every_workspace_table_is_protected_by_row_level_security(client, _database):
+    import psycopg
+
+    from app.db import RLS_TABLES
+
+    assert {"suppliers", "purchase_orders", "purchase_order_lines"} <= set(RLS_TABLES)
+    with psycopg.connect(_database, autocommit=True) as conn:
+        for table in RLS_TABLES:
+            enabled, forced = conn.execute(
+                "SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = %s", (table,)
+            ).fetchone()
+            policies = conn.execute("SELECT count(*) FROM pg_policies WHERE tablename = %s", (table,)).fetchone()[0]
+            assert (enabled, forced, policies > 0) == (True, True, True), table
