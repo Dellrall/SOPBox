@@ -33,6 +33,7 @@ from app.models import (
     LoginIn,
     Me,
     PasswordChangeIn,
+    ProfileUpdateIn,
     Product,
     ProductIn,
     RegisterIn,
@@ -106,6 +107,7 @@ def _me(user: CurrentUser) -> Me:
     return Me(
         id=user.id,
         username=user.username,
+        email=user.email,
         display_name=user.display_name,
         role=user.role,
         workspace=WorkspaceRef(id=user.workspace_id, name=user.workspace_name),
@@ -136,6 +138,12 @@ def logout(request: Request, response: Response, conn: Conn) -> None:
 @app.get("/api/auth/me", response_model=Me)
 def me(user: User):
     return _me(user)
+
+
+@app.patch("/api/auth/me", response_model=Me)
+def update_me(body: ProfileUpdateIn, user: User, conn: Conn):
+    accounts.update_profile(conn, user, body)
+    return _me(auth.get_me(conn, user.id))
 
 
 @app.post("/api/auth/password", status_code=204)

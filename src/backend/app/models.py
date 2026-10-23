@@ -164,6 +164,22 @@ _USERNAME = re.compile(r"^[a-z0-9._-]{3,32}$")
 _CHAT_ID = re.compile(r"^(-?\d{1,20}|@[A-Za-z0-9_]{5,32})?$")
 
 
+# A practical check, not RFC 5322: one @, no spaces, a dot in the domain. Nothing is sent to it yet.
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _email(value: str | None) -> str | None:
+    """Lower-case and check an email. Empty means none."""
+    if value is None:
+        return None
+    value = value.strip().lower()
+    if not value:
+        return None
+    if len(value) > 254 or not _EMAIL.match(value):
+        raise ValueError("enter a valid email address, like name@example.com")
+    return value
+
+
 def _username(value: str) -> str:
     value = value.strip().lower()
     if not _USERNAME.match(value):
@@ -180,17 +196,22 @@ class RegisterIn(_In):
 
     workspace_name: str = Field(min_length=1, max_length=80)
     display_name: str = Field(min_length=1, max_length=80)
+    email: str = Field(min_length=3, max_length=254)
     username: Username
     password: Password
 
     @model_validator(mode="after")
     def _clean(self) -> "RegisterIn":
         self.username = _username(self.username)
+        self.email = _email(self.email) or ""
+        if not self.email:
+            raise ValueError("enter your email address")
         return self
 
 
 class LoginIn(_In):
-    username: str = Field(min_length=1, max_length=64)
+    # A username or an email address.
+    username: str = Field(min_length=1, max_length=254)
     password: str = Field(min_length=1, max_length=128)
 
 
@@ -202,9 +223,23 @@ class WorkspaceRef(BaseModel):
 class Me(BaseModel):
     id: int
     username: str
+    email: str | None
     display_name: str
     role: Role
     workspace: WorkspaceRef
+
+
+class ProfileUpdateIn(_In):
+    """A person's own name and email. Only the fields that are sent change; an empty email removes it."""
+
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    email: str | None = Field(default=None, max_length=254)
+
+    @model_validator(mode="after")
+    def _clean(self) -> "ProfileUpdateIn":
+        if self.email is not None:
+            self.email = _email(self.email) or ""
+        return self
 
 
 class PasswordChangeIn(_In):
@@ -215,12 +250,14 @@ class PasswordChangeIn(_In):
 class UserCreateIn(_In):
     username: Username
     display_name: str = Field(min_length=1, max_length=80)
+    email: str | None = Field(default=None, max_length=254)
     role: Literal["manager", "staff"]
     password: Password
 
     @model_validator(mode="after")
     def _clean(self) -> "UserCreateIn":
         self.username = _username(self.username)
+        self.email = _email(self.email)
         return self
 
 
@@ -228,14 +265,23 @@ class UserUpdateIn(_In):
     """Only the fields that are sent change. A new password signs the person out everywhere."""
 
     display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    email: str | None = Field(default=None, max_length=254)
     role: Literal["manager", "staff"] | None = None
     active: bool | None = None
     password: Password | None = None
+
+    @model_validator(mode="after")
+    def _clean(self) -> "UserUpdateIn":
+        # An empty email is kept as "" so it reaches the update and clears the address.
+        if self.email is not None:
+            self.email = _email(self.email) or ""
+        return self
 
 
 class UserOut(BaseModel):
     id: int
     username: str
+    email: str | None
     display_name: str
     role: Role
     active: bool

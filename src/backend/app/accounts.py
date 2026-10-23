@@ -8,6 +8,7 @@ from app import auth, deliveries
 from app.auth import CurrentUser
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.models import (
+    ProfileUpdateIn,
     RegisterIn,
     UserCreateIn,
     UserOut,
@@ -16,7 +17,7 @@ from app.models import (
     WorkspaceUpdateIn,
 )
 
-_USER_COLUMNS = "id, username, display_name, role, active, created_at"
+_USER_COLUMNS = "id, username, email, display_name, role, active, created_at"
 
 
 def _now() -> str:
@@ -34,7 +35,7 @@ def register_workspace(conn: psycopg.Connection, data: RegisterIn) -> int:
             (data.workspace_name, _now()),
         ).fetchone()["id"]
         user_id = _insert_user(
-            conn, ws, data.username, data.display_name, "owner", data.password
+            conn, ws, data.username, data.display_name, "owner", data.password, data.email
         )
     return user_id
 
@@ -46,31 +47,58 @@ def _insert_user(
     display_name: str,
     role: str,
     password: str,
+    email: str | None,
 ) -> int:
     try:
         with conn.transaction():
             return conn.execute(
-                "INSERT INTO users (workspace_id, username, display_name, role, password_hash, "
-                "created_at) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-                (workspace_id, username, display_name, role, auth.hash_password(password), _now()),
+                "INSERT INTO users (workspace_id, username, email, display_name, role, "
+                "password_hash, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                (
+                    workspace_id, username, email, display_name, role,
+                    auth.hash_password(password), _now(),
+                ),
             ).fetchone()["id"]
-    except psycopg.errors.UniqueViolation:
-        raise ConflictError("that username is already taken") from None
+    except psycopg.errors.UniqueViolation as err:
+        raise _taken(err) from None
 
 
-def authenticate(conn: psycopg.Connection, username: str, password: str) -> int:
-    """Return the user id for a correct username and password. Same error for every failure."""
-    username = username.strip().lower()
-    auth.check_not_locked(username)
+def _taken(err: psycopg.errors.UniqueViolation) -> ConflictError:
+    if err.diag.constraint_name == "users_email_key":
+        return ConflictError("that email is already used by another account")
+    return ConflictError("that username is already taken")
+
+
+def authenticate(conn: psycopg.Connection, login: str, password: str) -> int:
+    """Return the user id for a correct username (or email) and password. Same error for every failure."""
+    login = login.strip().lower()
+    auth.check_not_locked(login)
+    column = "email" if "@" in login else "username"
     row = conn.execute(
-        "SELECT id, password_hash, active FROM users WHERE lower(username) = %s", (username,)
+        f"SELECT id, password_hash, active FROM users WHERE lower({column}) = %s", (login,)
     ).fetchone()
     ok = auth.verify_password(password, row["password_hash"] if row else None)
     if not (ok and row and row["active"]):
-        auth.record_failure(username)
-        raise auth.AuthError("wrong username or password")
-    auth.clear_failures(username)
+        auth.record_failure(login)
+        raise auth.AuthError("wrong username, email or password")
+    auth.clear_failures(login)
     return row["id"]
+
+
+def update_profile(conn: psycopg.Connection, user: CurrentUser, data: ProfileUpdateIn) -> None:
+    """Change your own name or email."""
+    try:
+        with conn.transaction():
+            if data.display_name is not None:
+                conn.execute(
+                    "UPDATE users SET display_name = %s WHERE id = %s", (data.display_name, user.id)
+                )
+            if data.email is not None:
+                conn.execute(
+                    "UPDATE users SET email = %s WHERE id = %s", (data.email or None, user.id)
+                )
+    except psycopg.errors.UniqueViolation as err:
+        raise _taken(err) from None
 
 
 def change_own_password(
@@ -103,7 +131,8 @@ def list_users(conn: psycopg.Connection, owner: CurrentUser) -> list[UserOut]:
 
 def create_user(conn: psycopg.Connection, owner: CurrentUser, data: UserCreateIn) -> UserOut:
     user_id = _insert_user(
-        conn, owner.workspace_id, data.username, data.display_name, data.role, data.password
+        conn, owner.workspace_id, data.username, data.display_name, data.role, data.password,
+        data.email,
     )
     deliveries.audit(
         conn, owner.workspace_id, owner.display_name, "user.created", None,
@@ -129,7 +158,19 @@ def update_user(
     if target.role == "owner":
         raise InvalidRequestError("the owner account cannot be changed here")
     changes = data.model_dump(exclude_none=True)
+    try:
+        _apply_user_changes(conn, owner, target, user_id, changes)
+    except psycopg.errors.UniqueViolation as err:
+        raise _taken(err) from None
+    return _get_user(conn, owner.workspace_id, user_id)
+
+
+def _apply_user_changes(
+    conn: psycopg.Connection, owner: CurrentUser, target: UserOut, user_id: int, changes: dict
+) -> None:
     with conn.transaction():
+        if "email" in changes:
+            conn.execute("UPDATE users SET email = %s WHERE id = %s", (changes["email"] or None, user_id))
         if "display_name" in changes:
             conn.execute(
                 "UPDATE users SET display_name = %s WHERE id = %s", (changes["display_name"], user_id)
@@ -150,7 +191,6 @@ def update_user(
             conn, owner.workspace_id, owner.display_name, "user.updated", None,
             f"{target.username}: {', '.join(sorted(changes))}",
         )
-    return _get_user(conn, owner.workspace_id, user_id)
 
 
 # ---- workspace settings -----------------------------------------------------------------------

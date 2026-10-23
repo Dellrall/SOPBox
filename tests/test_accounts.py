@@ -15,7 +15,9 @@ def register_body(**overrides):
         "username": "olive",
         "password": PASSWORD,
     }
-    return {**body, **overrides}
+    body = {**body, **overrides}
+    body.setdefault("email", f"{body['username'].lower()}@example.com")
+    return body
 
 
 # ---- registering a workspace ------------------------------------------------------------------
@@ -51,6 +53,9 @@ def test_usernames_are_unique_across_workspaces_ignoring_case(client, anon):
         {"password": "short"},
         {"workspace_name": "  "},
         {"display_name": ""},
+        {"email": ""},
+        {"email": "not-an-email"},
+        {"email": "two@@example.com"},
     ],
 )
 def test_registration_checks_its_input(anon, overrides):
@@ -61,6 +66,45 @@ def test_usernames_are_stored_in_lower_case(anon):
     anon.post("/api/auth/register", json=register_body(username="Olive.Owner"))
     assert anon.get("/api/auth/me").json()["username"] == "olive.owner"
     assert sign_in("OLIVE.owner").get("/api/auth/me").status_code == 200
+
+
+def test_registering_keeps_the_email_in_lower_case_and_you_can_sign_in_with_it(anon):
+    anon.post("/api/auth/register", json=register_body(email="Olive@Example.COM"))
+    assert anon.get("/api/auth/me").json()["email"] == "olive@example.com"
+    assert sign_in("OLIVE@example.com").get("/api/auth/me").json()["username"] == "olive"
+
+
+def test_an_email_belongs_to_one_account(client, anon):
+    resp = anon.post(
+        "/api/auth/register",
+        json=register_body(workspace_name="Other", username="other", email="olive@example.com"),
+    )
+    assert resp.status_code == 409
+    assert "email" in resp.json()["detail"]
+
+
+def test_you_can_change_your_own_name_and_email(client):
+    resp = client.patch("/api/auth/me", json={"display_name": "Olive O.", "email": "new@example.com"})
+    assert resp.status_code == 200
+    assert resp.json()["display_name"] == "Olive O."
+    assert sign_in("new@example.com").get("/api/auth/me").status_code == 200
+    # An empty email removes it.
+    assert client.patch("/api/auth/me", json={"email": ""}).json()["email"] is None
+    assert client.patch("/api/auth/me", json={"email": "nope"}).status_code == 422
+
+
+def test_staff_email_is_optional_and_the_owner_can_set_it(client):
+    resp = client.post(
+        "/api/users",
+        json={"username": "sam", "display_name": "Sam", "role": "staff", "password": PASSWORD},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["email"] is None
+    user_id = resp.json()["id"]
+    resp = client.patch(f"/api/users/{user_id}", json={"email": "Sam@Example.com"})
+    assert resp.json()["email"] == "sam@example.com"
+    taken = client.patch(f"/api/users/{user_id}", json={"email": "olive@example.com"})
+    assert taken.status_code == 409
 
 
 def test_one_address_cannot_create_unlimited_workspaces(anon):
@@ -82,7 +126,7 @@ def test_sign_in_with_the_right_password(client, anon):
 def test_a_wrong_password_and_an_unknown_user_look_the_same(client, anon, username):
     resp = anon.post("/api/auth/login", json={"username": username, "password": "wrong password"})
     assert resp.status_code == 401
-    assert resp.json()["detail"] == "wrong username or password"
+    assert resp.json()["detail"] == "wrong username, email or password"
 
 
 def test_five_wrong_passwords_lock_the_account_for_a_while(client, anon):

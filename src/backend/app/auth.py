@@ -131,13 +131,14 @@ class CurrentUser:
     workspace_id: int
     workspace_name: str
     username: str
+    email: str | None
     display_name: str
     role: Role
 
 
 def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
     row = conn.execute(
-        "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.display_name, u.role "
+        "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, u.role "
         "FROM sessions s JOIN users u ON u.id = s.user_id JOIN workspaces w ON w.id = u.workspace_id "
         "WHERE s.token_hash = %s AND s.expires_at > now() AND u.active",
         (token_digest(token),),
@@ -147,7 +148,7 @@ def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
 
 def get_me(conn: psycopg.Connection, user_id: int) -> "CurrentUser":
     row = conn.execute(
-        "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.display_name, u.role "
+        "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, u.role "
         "FROM users u JOIN workspaces w ON w.id = u.workspace_id WHERE u.id = %s",
         (user_id,),
     ).fetchone()
