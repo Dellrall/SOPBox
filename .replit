@@ -1,5 +1,4 @@
-# Replit configuration. Not yet verified on a live Replit deployment: see "Deploy on Replit" in README.md.
-modules = ["python-3.12", "nodejs-20", "web"]
+modules = ["python-3.12", "nodejs-20", "web", "postgresql-16"]
 
 # The Run button: build the frontend, then serve everything from one process.
 run = ["sh", "-c", "cd src/frontend && npm ci && npm run build && cd ../backend && pip install -r requirements.txt && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
@@ -16,5 +15,33 @@ build = ["sh", "-c", "cd src/frontend && npm ci && npm run build && cd ../backen
 run = ["sh", "-c", "cd src/backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
 
 [[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
 localPort = 8000
 externalPort = 80
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd src/frontend && npm ci && npm run build && cd ../backend && python -m pip install -r requirements.txt && python -m uvicorn app.main:app --host 0.0.0.0 --port 5000 --proxy-headers --forwarded-allow-ips='*'"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
