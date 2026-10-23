@@ -187,6 +187,9 @@ function OrderForm({
 }) {
   const active = suppliers.filter((s) => !s.archived);
   const [supplierId, setSupplierId] = useState(String(order?.supplier_id ?? active[0]?.id ?? ""));
+  // The form can appear before the suppliers have loaded. Fall back to the first active one,
+  // which is what the dropdown shows, rather than sending no supplier.
+  const chosenSupplier = active.some((s) => String(s.id) === supplierId) ? supplierId : String(active[0]?.id ?? "");
   const [orderDate, setOrderDate] = useState(order?.order_date ?? today());
   const [expectedDate, setExpectedDate] = useState(order?.expected_date ?? "");
   const [notes, setNotes] = useState(order?.notes ?? "");
@@ -208,7 +211,7 @@ function OrderForm({
     e.preventDefault();
     setError("");
     const body: PurchaseOrderIn = {
-      supplier_id: Number(supplierId),
+      supplier_id: Number(chosenSupplier),
       order_date: orderDate,
       expected_date: expectedDate || null,
       notes: notes.trim(),
@@ -241,7 +244,7 @@ function OrderForm({
           <label className={labelClass} htmlFor="po-supplier">
             Supplier
           </label>
-          <select id="po-supplier" className={inputClass} value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+          <select id="po-supplier" className={inputClass} value={chosenSupplier} onChange={(e) => setSupplierId(e.target.value)}>
             {active.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
