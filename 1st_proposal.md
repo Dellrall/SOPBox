@@ -49,7 +49,12 @@ Stretch goals, only if the core is done: (1) low-stock alert on Telegram that dr
 - SOP cards per product, plus a simple SOP lookup for staff
 - Seed data: 10 products including the examples from the brief (frozen sausage, chocolate balls, fries tray, hot dog box, nuggets, Coke)
 
+**Stretch (Saturday, only if the receiving journey works on a phone; cut first if behind):**
+- Product card from a photo: a manager photographs an SOP sheet or supplier list, the model proposes the card (category, temperature range, pack sizes, SOP steps), and the manager reviews and saves. It reuses the extraction path, and the result is structured data the rules engine enforces
+- SOP Q&A without RAG: take the top matches from the existing SOP search, paste those cards into the prompt, answer only from them and name the card
+
 **Out (roadmap):**
+- RAG over long SOP documents. Business facts the rules use (temperature, pack conversion, thresholds) stay structured fields, never retrieved text. Revisit only when SOPs reach 50+ pages or a few hundred cards
 - Demand forecasting
 - POS integration
 - Multi-outlet support

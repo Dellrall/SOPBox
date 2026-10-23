@@ -1,55 +1,74 @@
-export type Role = 'employee' | 'admin';
-export type Page = 'dashboard' | 'receiving' | 'records' | 'products' | 'approvals' | 'activity' | 'users';
-export type Status = 'Draft' | 'Passed' | 'Pending Approval' | 'Accepted' | 'Rejected' | 'Returned';
+// Mirrors src/backend/app/models.py. Keep the two in step when the API changes.
+
+export type PackUnit = { unit: string; base_qty: number };
+
 export type Product = {
-  id: string; name: string; category: string; base_unit: string;
-  temp_min_c: number | null; temp_max_c: number | null;
-  pack_units?: { unit: string; base_qty: number }[];
+  id: number;
+  name: string;
+  category_id: number;
+  category: string;
+  base_unit: string;
+  effective_temp_min_c: number | null;
+  effective_temp_max_c: number | null;
+  min_stock: number;
+  stock: number;
+  sop: string;
+  pack_units: PackUnit[];
+  low_stock: boolean;
 };
-export type Line = {
-  id: string; 
-  product_id: string; 
-  name: string; quantity: number; 
+
+export type ExtractedLine = {
+  name: string;
+  quantity: number;
   unit: string;
-  expected_base_qty: number | null; 
-  temp_c: string;
-  condition: 'Normal' | 'Abnormal'; 
-  remarks: string; 
-  photoName: string;
-  photoData?: string;
+  product_id: number | null;
+};
+
+export type DeliveryStatus = "accepted" | "pending_approval" | "rejected" | "returned";
+
+export type DeliveryLineIn = {
+  product_id: number | null;
+  name: string;
+  quantity: number;
+  unit: string;
+  temp_c: number | null;
+  expected_base_qty: number | null;
+};
+
+export type DeliveryIn = {
+  supplier: string;
+  received_by: string;
+  lines: DeliveryLineIn[];
+};
+
+export type DeliveryLine = DeliveryLineIn & {
+  id: number;
+  received_base_qty: number | null;
+  passed: boolean;
+  issues: string[];
 };
 
 export type Delivery = {
-  id: string; 
-  supplier: string; 
-  po: string; 
-  invoice: string; 
-  createdAt: string;
-  status: Status; 
-  lines: Line[]; 
-  issues: string[]; 
-  decision?: string;
-  documentName?: string;
-  documentData?: string;
+  id: number;
+  supplier: string;
+  received_by: string;
+  status: DeliveryStatus;
+  created_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_reason: string | null;
+  lines: DeliveryLine[];
 };
 
-export type ApiCheck = {
-  checks: { product_id: string; passed: boolean; issues: string[]; received_base_qty: number | null }[];
-  needs_approval: boolean;
-};
+export type Decision = "accept" | "reject" | "return";
 
-export type StaffAccount = {
-  id: string;
-  username: string;
-  password: string; // Demo only; production must use backend authentication
-  role: Role;
-  active: boolean;
-  permissions: Page[];
-};
+export type DecisionIn = { decision: Decision; decided_by: string; reason: string };
 
-export const DEFAULT_STAFF_PERMISSIONS: Page[] = [
-  'dashboard',
-  'receiving',
-  'records',
-  'products',
-];
+export type AuditEntry = {
+  id: number;
+  at: string;
+  actor: string;
+  action: string;
+  delivery_id: number | null;
+  detail: string;
+};
