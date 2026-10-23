@@ -1,4 +1,5 @@
 import html
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
@@ -57,6 +58,8 @@ from app.models import (
 )
 from app.notifications import approval_needed_message, decision_message, send_telegram
 from app.security import SECURITY_HEADERS
+
+logger = logging.getLogger("sopbox")
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
@@ -127,6 +130,19 @@ async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResp
 
 
 app.add_exception_handler(RequestValidationError, _validation_error)
+
+
+async def _unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+    """A bug or an outage: say so plainly, keep the details in the server log (Replit's logs)."""
+    logger.exception("unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        {"detail": "Something went wrong on our side. Please try again."},
+        status_code=500,
+        headers=SECURITY_HEADERS,
+    )
+
+
+app.add_exception_handler(Exception, _unexpected_error)
 
 
 for _exc, _code in [

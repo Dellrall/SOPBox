@@ -190,11 +190,16 @@ def _get_pool() -> ConnectionPool:
             _pool.close()
         # autocommit: reads run outside a transaction, and writers open their own with
         # `conn.transaction()`, so a request never holds a transaction by accident.
+        # Hosted PostgreSQL (Replit's) drops idle connections. check= tests each connection before
+        # a request gets it and replaces a dead one; max_idle closes ours first. Without these the
+        # first request after a quiet spell failed with HTTP 500.
         _pool = ConnectionPool(
             url,
             min_size=1,
             max_size=10,
             kwargs={"autocommit": True, "row_factory": dict_row},
+            check=ConnectionPool.check_connection,
+            max_idle=60,
             open=True,
         )
         _pool_url = url
