@@ -173,6 +173,7 @@ Every route except `/api/health` and the two sign-in routes needs a signed-in se
 | `POST /api/auth/login` | anyone | Sign in with a username or an email |
 | `GET /api/auth/session` | anyone | Who is signed in, or `null` |
 | `POST /api/auth/logout`, `GET /api/auth/me`, `PATCH /api/auth/me`, `POST /api/auth/password` | any signed in | Sign out, who am I, change my name or email, change my password |
+| `GET /`, `GET /signin`, `GET /register` | anyone | The app. Signed out, `/` is the welcome page with a walkthrough of one delivery |
 | `GET /robots.txt`, `GET /sitemap.xml` | anyone | For search engines. The page itself gets absolute canonical and link-preview URLs from the request's address |
 | `GET/POST /api/users`, `PATCH /api/users/{id}` | owner | List, create, and change accounts (role, disable, reset password) |
 | `GET/PATCH /api/workspace` | owner | Workspace name and Telegram chat ids |

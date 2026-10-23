@@ -18,6 +18,7 @@ import { api, setSignedOutHandler } from "./api";
 import Activity from "./Activity";
 import Approvals from "./Approvals";
 import AuthPage from "./AuthPage";
+import Landing from "./Landing";
 import Dashboard from "./Dashboard";
 import Products from "./Products";
 import Receive from "./Receive";
@@ -56,9 +57,33 @@ const initials = (name: string) =>
     .map((w) => w[0]!.toUpperCase())
     .join("");
 
+/** Signed-out visitors move between three addresses: the welcome page, sign in and sign up. */
+export type PublicPath = "/" | "/signin" | "/register";
+const asPublic = (path: string): PublicPath => (path === "/signin" || path === "/register" ? path : "/");
+
 export default function App() {
   // undefined while we ask the server whether there is a session, null when signed out.
   const [me, setMe] = useState<Me | null | undefined>(undefined);
+  const [path, setPath] = useState<PublicPath>(() => asPublic(window.location.pathname));
+
+  useEffect(() => {
+    const onPop = () => setPath(asPublic(window.location.pathname));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const navigate = useCallback((to: PublicPath) => {
+    if (to !== window.location.pathname) window.history.pushState(null, "", to);
+    setPath(to);
+    window.scrollTo(0, 0);
+  }, []);
+
+  const signedIn = useCallback((who: Me) => {
+    // The app itself lives at /, so a refresh after signing in lands back in it.
+    window.history.replaceState(null, "", "/");
+    setPath("/"); // so signing out later shows the welcome page, matching the address
+    setMe(who);
+  }, []);
 
   useEffect(() => {
     setSignedOutHandler(() => setMe(null));
@@ -75,7 +100,10 @@ export default function App() {
         <span className="sr-only">Loading</span>
       </div>
     );
-  if (me === null) return <AuthPage onSignedIn={setMe} />;
+  if (me === null) {
+    if (path === "/") return <Landing navigate={navigate} />;
+    return <AuthPage mode={path === "/register" ? "register" : "signin"} navigate={navigate} onSignedIn={signedIn} />;
+  }
   return <Shell me={me} onMeChanged={setMe} onSignedOut={() => setMe(null)} />;
 }
 

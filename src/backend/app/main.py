@@ -325,6 +325,8 @@ def _origin(request: Request) -> str:
 
 @app.get("/", include_in_schema=False)
 @app.get("/index.html", include_in_schema=False)
+@app.get("/signin", include_in_schema=False)
+@app.get("/register", include_in_schema=False)
 def index(request: Request):
     """The app's single page, with absolute URLs filled in for link previews and the canonical link."""
     page = FRONTEND_DIST / "index.html"

@@ -68,3 +68,29 @@
     32px 32px,
     32px 32px;
 }
+
+/* Welcome-page walkthrough. Reduced motion is honoured by the base rule above. */
+@keyframes demo-scan {
+  from {
+    transform: translateY(-2rem);
+  }
+  to {
+    transform: translateY(11rem);
+  }
+}
+.demo-scan {
+  animation: demo-scan 1.6s ease-in-out infinite alternate;
+}
+@keyframes demo-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.demo-rise {
+  animation: demo-rise 0.4s ease-out both;
+}
