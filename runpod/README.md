@@ -20,15 +20,17 @@ official vLLM worker, so there is no custom image to build.
 Sizing: 8.8B parameters at FP8 (1 byte each) is about 9 GB of weights plus the vision encoder,
 which leaves room for the KV cache of 8192 tokens on a 24 GB card.
 
-Cost: it bills only while a worker runs. A cold start (pull, download, load) takes a few minutes
-the first time; after 30 s idle the worker stops. A warm worker for the demo window costs
+Cost: it bills only while a worker runs. A cold start (pull, download, load) took 2.5 minutes on an
+RTX A5000 (job delay 148 s; the read itself took 1.8 s); after 30 s idle the worker stops. A warm worker for the demo window costs
 $0.69 per hour (`workers.min = 1`); set it back to 0 afterwards.
 
 ## Contract
 
-The backend (`src/backend/app/extraction.py`) posts an OpenAI chat request with the photo as a
-`data:` URL to `https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/openai/v1/chat/completions`. The
-prompt asks for `{"lines": [{"name": "...", "quantity": 2, "unit": "bdl"}]}`. The backend strips
+The backend (`src/backend/app/extraction.py`) queues an OpenAI chat request, with the photo as a
+`data:` URL, on `https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/run` (`openai_route` and
+`openai_input`), then polls `/status/<job>` every 2 s for up to 5 minutes. A job it gives up on is
+cancelled. The queue is used instead of the synchronous `/openai/v1` route because a cold start
+outlasts a synchronous request. The prompt asks for `{"lines": [{"name": "...", "quantity": 2, "unit": "bdl"}]}`. The backend strips
 code fences and prose, then validates each line. One invalid line rejects the whole reply, and
 staff enter the lines by hand.
 
