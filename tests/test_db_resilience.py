@@ -33,3 +33,21 @@ def test_an_unexpected_error_gives_a_plain_message(client, monkeypatch):
     assert resp.status_code == 500
     assert resp.json() == {"detail": "Something went wrong on our side. Please try again."}
     assert "internal detail" not in resp.text
+
+
+def test_the_migrate_command_brings_a_database_up_to_date(_database, capsys, monkeypatch):
+    import psycopg
+
+    from app import migrate
+
+    # Run as the database owner, as on Replit. (The tests' app role may not change tables.)
+    monkeypatch.setenv("DATABASE_URL", _database)
+    with psycopg.connect(_database, autocommit=True) as admin:
+        admin.execute("ALTER TABLE products DROP COLUMN archived")  # a database from before archiving
+    migrate.main()
+    assert "up to date" in capsys.readouterr().out
+    with psycopg.connect(_database, autocommit=True) as admin:
+        found = admin.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'archived'"
+        ).fetchone()
+    assert found

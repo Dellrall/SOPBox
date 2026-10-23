@@ -152,7 +152,21 @@ Replit is mandatory for the challenge. The deployed filesystem is not persistent
    Leave `COOKIE_SECURE` unset on Replit: the app then sends the session cookie over HTTPS only.
 5. **Deploy.** The `.replit` file builds the frontend and starts the app on port 8000 (Autoscale). Open the deployment URL and choose **Create a workspace**: that first account is the owner.
 
-`.replit` has not been run on a live Replit deployment yet. If the build fails, the likely fixes are the Python or Node module versions and the `pip install` step.
+The app is published at https://sopbox.replit.app.
+
+### Every time you publish an update
+
+The app creates and updates its own tables when it starts. Replit's Publish separately compares
+the **development** database (used by Run) with **production** and plans to make production
+match. If development is behind the code, Publish proposes dropping production tables and
+columns, and with them real data.
+
+1. Pull the latest code (Git pane: refresh, then Pull).
+2. Bring the development database up to date: press **Run** and wait for the app, or run the
+   **Update dev database** workflow, or in the Shell `cd src/backend && python -m app.migrate`.
+3. Publish. The database step should show no changes, or only additions.
+4. If it lists any `DROP`, cancel the deployment and repeat step 2. Never choose "Copy your
+   development database schema & data to production": it replaces live data.
 
 ## Configuration
 
