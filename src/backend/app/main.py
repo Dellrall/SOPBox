@@ -23,6 +23,7 @@ from app.errors import (
 )
 from app.extraction import extract_lines
 from app.models import (
+    ArchiveIn,
     AuditEntry,
     Category,
     CategoryIn,
@@ -103,7 +104,7 @@ _CONFLICTS = {
     "categories_name_key": "there is already a category with that name",
     "products_name_key": "there is already a product with that name",
     "products_category_id_fkey": "this category still has products: move or delete them first",
-    "delivery_lines_product_id_fkey": "this product is on recorded deliveries, so it cannot be deleted",
+    "delivery_lines_product_id_fkey": "this product is on recorded deliveries, so it cannot be deleted: archive it instead",
 }
 
 
@@ -252,6 +253,12 @@ def update_product(product_id: int, body: ProductIn, user: ManagerUp, conn: Conn
     return catalogue.update_product(conn, user.workspace_id, product_id, body)
 
 
+@app.patch("/api/products/{product_id}", response_model=Product)
+def archive_product(product_id: int, body: ArchiveIn, user: ManagerUp, conn: Conn):
+    """Archive (or restore) a product: it leaves receiving but keeps its delivery history."""
+    return catalogue.set_archived(conn, user.workspace_id, product_id, body.archived)
+
+
 @app.delete("/api/products/{product_id}", status_code=204)
 def delete_product(product_id: int, user: ManagerUp, conn: Conn) -> None:
     catalogue.delete_product(conn, user.workspace_id, product_id)
@@ -268,7 +275,7 @@ class ExtractRequest(BaseModel):
 @app.post("/api/extract", response_model=list[ExtractedLineOut])
 def extract(body: ExtractRequest, user: User, conn: Conn):
     """Read an order photo. Staff must confirm every line before submitting the delivery."""
-    products = catalogue.list_products(conn, user.workspace_id)
+    products = catalogue.list_products(conn, user.workspace_id, active_only=True)
     return [
         ExtractedLineOut(**line.model_dump(), product_id=catalogue.match_product(line.name, products))
         for line in extract_lines(body.image_b64)

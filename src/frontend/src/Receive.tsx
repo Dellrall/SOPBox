@@ -66,7 +66,7 @@ export default function Receive({ active }: { active: boolean }) {
     api
       .products()
       .then((found) => {
-        setProducts(found);
+        setProducts(found.filter((p) => !p.archived)); // archived products are not received
         setError("");
       })
       .catch((e: Error) => setError(`Could not load the catalogue: ${e.message}`))

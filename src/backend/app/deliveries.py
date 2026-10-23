@@ -71,10 +71,11 @@ def create_delivery(
     conn: psycopg.Connection, ws: int, received_by: str, data: DeliveryIn
 ) -> Delivery:
     """Run the rules on every line. All pass: accepted and stocked. Any fail: wait for a manager."""
-    products = {p.id: p for p in catalogue.list_products(conn, ws)}
+    # Archived products cannot be received; their old deliveries still show them.
+    products = {p.id: p for p in catalogue.list_products(conn, ws, active_only=True)}
     for line in data.lines:
         if line.product_id is not None and line.product_id not in products:
-            raise InvalidRequestError(f"unknown product_id {line.product_id}")
+            raise InvalidRequestError(f"product {line.product_id} is unknown or archived")
 
     checks = [rules.check_line(products.get(line.product_id), line) for line in data.lines]
     failed = sum(1 for c in checks if not c.passed)

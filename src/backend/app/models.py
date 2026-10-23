@@ -77,6 +77,11 @@ class Product(BaseModel):
     sop: str
     pack_units: list[PackUnit]
     low_stock: bool
+    archived: bool = False
+
+
+class ArchiveIn(_In):
+    archived: bool
 
 
 class ExtractedLine(BaseModel):

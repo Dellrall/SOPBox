@@ -79,6 +79,7 @@ export type Product = {
   sop: string;
   pack_units: PackUnit[];
   low_stock: boolean;
+  archived: boolean; // left out of receiving; history kept
 };
 
 export type ProductIn = {

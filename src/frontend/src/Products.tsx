@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "./api";
+import { ApiError, api } from "./api";
 import Categories from "./Categories";
 import ProductForm from "./ProductForm";
 import type { Category, Product } from "./types";
@@ -45,13 +45,28 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
       await api.deleteProduct(p.id);
       reload();
     } catch (e) {
-      setError(
-        (e as Error).message.includes("in use")
-          ? `${p.name} is on past deliveries, so it cannot be deleted.`
-          : (e as Error).message,
-      );
+      // Products on past deliveries keep their history: offer to archive instead.
+      if (e instanceof ApiError && e.status === 409) {
+        if (window.confirm(`${p.name} is on past deliveries, so it cannot be deleted. Archive it instead? It will no longer be offered when receiving.`)) {
+          await setArchived(p, true);
+        }
+        return;
+      }
+      setError((e as Error).message);
     }
   }
+
+  async function setArchived(p: Product, archived: boolean) {
+    try {
+      await api.setArchived(p.id, archived);
+      reload();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  const active = products?.filter((p) => !p.archived) ?? null;
+  const archived = products?.filter((p) => p.archived) ?? [];
 
   return (
     <div className="space-y-4">
@@ -95,10 +110,10 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
         <input id="sop-search" type="search" className={inputClass} placeholder="For example: frozen, bundle, leaking" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       <ErrorNote message={error} />
-      {products?.length === 0 && !error && (
+      {active?.length === 0 && !error && (
         <Empty>{q ? "No products match." : canEdit ? "No products yet. Add your first one." : "No products have been added yet."}</Empty>
       )}
-      {products?.map((p) => (
+      {active?.map((p) => (
         <article key={p.id} className={`${cardClass} space-y-2`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-semibold">{p.name}</h2>
@@ -124,6 +139,9 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
               <button className={secondaryButton} onClick={() => setEditing(p)}>
                 Edit
               </button>
+              <button className={secondaryButton} onClick={() => void setArchived(p, true)}>
+                Archive
+              </button>
               <button className={dangerButton} onClick={() => void remove(p)}>
                 Delete
               </button>
@@ -131,6 +149,27 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
           )}
         </article>
       ))}
+      {archived.length > 0 && (
+        <details className={cardClass}>
+          <summary className="cursor-pointer font-semibold text-brand-950">Archived products ({archived.length})</summary>
+          <p className="mt-2 text-sm text-muted">Not offered when receiving. Their past deliveries are kept.</p>
+          <ul className="mt-3 divide-y divide-line">
+            {archived.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                <span>
+                  <span className="font-semibold">{p.name}</span>
+                  <span className="block text-sm text-muted">{p.category}</span>
+                </span>
+                {canEdit && (
+                  <button className={secondaryButton} onClick={() => void setArchived(p, false)}>
+                    Restore
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

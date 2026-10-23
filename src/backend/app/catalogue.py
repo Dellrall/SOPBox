@@ -109,14 +109,20 @@ def _load(conn: psycopg.Connection, ws: int, where: str = "", params: tuple = ()
                 stock=r["stock"],
                 sop=r["sop"],
                 pack_units=packs.get(r["id"], []),
-                low_stock=r["stock"] < r["min_stock"],
+                # An archived product is not reordered, so it is never "low".
+                low_stock=not r["archived"] and r["stock"] < r["min_stock"],
+                archived=r["archived"],
             )
         )
     return products
 
 
-def list_products(conn: psycopg.Connection, ws: int, q: str | None = None) -> list[Product]:
+def list_products(
+    conn: psycopg.Connection, ws: int, q: str | None = None, *, active_only: bool = False
+) -> list[Product]:
     """All products, or those whose name, category or SOP text contains `q`."""
+    if active_only:
+        return _load(conn, ws, "AND NOT p.archived")
     if q and q.strip():
         like = f"%{_escape_like(q.strip())}%"
         where = (
@@ -195,6 +201,16 @@ def update_product(conn: psycopg.Connection, ws: int, product_id: int, data: Pro
         if cur.rowcount == 0:
             raise NotFoundError(f"product {product_id} not found")
         _replace_packs(conn, product_id, data.pack_units)
+    return get_product(conn, ws, product_id)
+
+
+def set_archived(conn: psycopg.Connection, ws: int, product_id: int, archived: bool) -> Product:
+    cur = conn.execute(
+        "UPDATE products SET archived = %s WHERE id = %s AND workspace_id = %s",
+        (archived, product_id, ws),
+    )
+    if cur.rowcount == 0:
+        raise NotFoundError(f"product {product_id} not found")
     return get_product(conn, ws, product_id)
 
 

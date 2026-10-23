@@ -64,6 +64,8 @@ CREATE TABLE IF NOT EXISTS products (
     sop TEXT NOT NULL DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS products_name_key ON products (workspace_id, lower(name));
+-- Archived products keep their delivery history but are left out of receiving.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE TABLE IF NOT EXISTS pack_units (
     product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     unit TEXT NOT NULL,

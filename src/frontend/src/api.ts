@@ -93,6 +93,7 @@ export const api = {
   createProduct: (body: ProductIn) => post<Product>("/products", body),
   updateProduct: (id: number, body: ProductIn) => put<Product>(`/products/${id}`, body),
   deleteProduct: (id: number) => del(`/products/${id}`),
+  setArchived: (id: number, archived: boolean) => patch<Product>(`/products/${id}`, { archived }),
 
   // receiving
   extract: (image_b64: string) => post<ExtractedLine[]>("/extract", { image_b64 }),
