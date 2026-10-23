@@ -24,6 +24,7 @@ type Draft = {
   unit: string;
   temp: string;
   expected: string; // expected quantity in base units, optional
+  note: string; // what the AI flagged on this line, for staff to check
 };
 
 let nextKey = 1;
@@ -35,6 +36,7 @@ const blankLine = (): Draft => ({
   unit: "",
   temp: "",
   expected: "",
+  note: "",
 });
 
 const unitsFor = (p?: Product): string[] => (p ? [p.base_unit, ...p.pack_units.map((u) => u.unit)] : []);
@@ -98,12 +100,24 @@ export default function Receive({ active }: { active: boolean }) {
             ...blankLine(),
             productId: l.product_id,
             name: l.name,
-            quantity: String(l.quantity),
-            unit: product ? matchUnit(product, l.unit) : l.unit,
+            quantity: l.quantity === null ? "" : String(l.quantity),
+            unit: l.unit === null ? "" : product ? matchUnit(product, l.unit) : l.unit,
+            note: [
+              l.warning,
+              l.quantity === null ? "quantity could not be read" : null,
+              l.unit === null ? "unit could not be read" : null,
+            ]
+              .filter(Boolean)
+              .join("; "),
           };
         }),
       );
-      setNotice("Read from the photo. Check every line before you submit.");
+      const flagged = extracted.filter((l) => l.warning || l.quantity === null || l.unit === null).length;
+      setNotice(
+        flagged
+          ? `Read from the photo. ${flagged} ${flagged === 1 ? "line needs" : "lines need"} your attention (marked below). Check every line before you submit.`
+          : "Read from the photo. Check every line before you submit.",
+      );
     } catch (e) {
       setError(`${(e as Error).message}. Add the lines by hand.`);
     } finally {
@@ -250,6 +264,11 @@ export default function Receive({ active }: { active: boolean }) {
           return (
             <fieldset key={line.key} className={`${cardClass} space-y-3`}>
               <legend className="px-1 text-sm font-semibold text-slate-700">Line {i + 1}</legend>
+              {line.note && (
+                <p role="note" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  <strong>Check this line:</strong> {line.note}
+                </p>
+              )}
               <div>
                 <label className={labelClass} htmlFor={`product-${line.key}`}>
                   Product

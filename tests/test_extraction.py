@@ -41,7 +41,6 @@ def test_parse_accepts_an_order_with_no_lines():
         '{"lines": [{"name": "Fries tray", "quantity": 0, "unit": "bdl"}]}',
         '{"lines": [{"name": "Fries tray", "quantity": "two", "unit": "bdl"}]}',
         '{"lines": [{"name": "Fries tray", "quantity": 2.5, "unit": "bdl"}]}',
-        '{"lines": [{"name": "Fries tray", "unit": "bdl"}]}',
         # One good line does not rescue a bad one: staff would not notice the missing line.
         '{"lines": [{"name": "A", "quantity": 1, "unit": "pcs"}, {"name": "B", "quantity": -1, "unit": "pcs"}]}',
     ],
@@ -123,6 +122,28 @@ def no_sleep(_seconds):
     pass
 
 
+def test_an_unread_quantity_or_unit_stays_as_a_line_with_a_warning():
+    reply = (
+        '{"lines": [{"name": "Fries tray", "quantity": null, "unit": "bdl", "warning": "quantity crossed out"},'
+        ' {"name": "Coke", "quantity": 3, "unit": "", "warning": ""}]}'
+    )
+    fries, coke = extraction.parse_model_output(reply)
+    assert (fries.quantity, fries.unit, fries.warning) == (None, "bdl", "quantity crossed out")
+    assert (coke.quantity, coke.unit, coke.warning) == (3, None, None)
+
+
+def test_a_zero_quantity_is_still_rejected():
+    with pytest.raises(ExtractionError):
+        extraction.parse_model_output('{"lines": [{"name": "Coke", "quantity": 0, "unit": "ctn"}]}')
+
+
+def test_a_reply_cut_off_by_the_token_limit_is_refused(runpod, monkeypatch):
+    cut = {"status": "COMPLETED", "output": [{"choices": [{"finish_reason": "length", "message": {"content": '{"lines": []}'}}]}]}
+    FakeRunPod(monkeypatch, cut)
+    with pytest.raises(ExtractionError, match="cut off"):
+        extraction.extract_lines("img", sleep=no_sleep)
+
+
 def test_runpod_mode_queues_the_image_waits_and_parses_the_reply(runpod, monkeypatch):
     fake = FakeRunPod(
         monkeypatch,
@@ -139,7 +160,9 @@ def test_runpod_mode_queues_the_image_waits_and_parses_the_reply(runpod, monkeyp
     assert run["json"]["input"]["openai_route"] == "/v1/chat/completions"
     request = run["json"]["input"]["openai_input"]
     assert request["model"] == extraction.MODEL
-    content = request["messages"][0]["content"]
+    # The document is data: the instruction not to obey it comes first, as a system message.
+    assert request["messages"][0] == {"role": "system", "content": extraction.SYSTEM}
+    content = request["messages"][1]["content"]
     assert content[0] == {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,aW1n"}}
     assert content[1] == {"type": "text", "text": extraction.PROMPT}
     assert fake.gets == ["https://api.runpod.ai/v2/abc123xyz/status/job-1"] * 3

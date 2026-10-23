@@ -94,8 +94,9 @@ export type ProductIn = {
 
 export type ExtractedLine = {
   name: string;
-  quantity: number;
-  unit: string;
+  quantity: number | null; // null: the model could not read it, staff fill it in
+  unit: string | null;
+  warning: string | null;
   product_id: number | null;
 };
 

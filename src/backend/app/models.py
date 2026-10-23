@@ -1,7 +1,7 @@
 import re
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 DeliveryStatus = Literal["accepted", "pending_approval", "rejected", "returned"]
 
@@ -80,11 +80,20 @@ class Product(BaseModel):
 
 
 class ExtractedLine(BaseModel):
-    """One line read from an order photo. Untrusted: the model produced it."""
+    """One line read from an order photo. Untrusted: the model produced it.
+
+    A quantity or unit the model could not read is None, so staff see the line and fill it in,
+    rather than the line being dropped or a number guessed."""
 
     name: str = Field(min_length=1, max_length=120)
-    quantity: int = Field(gt=0)
-    unit: str = Field(min_length=1, max_length=20)
+    quantity: int | None = Field(default=None, gt=0)
+    unit: str | None = Field(default=None, min_length=1, max_length=20)
+    warning: str | None = Field(default=None, max_length=200)
+
+    @field_validator("unit", "warning", mode="before")
+    @classmethod
+    def _blank_is_none(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 class ExtractedLineOut(ExtractedLine):
