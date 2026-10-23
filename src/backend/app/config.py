@@ -8,7 +8,7 @@ class Settings:
     database_url: str
     # Send the session cookie over HTTPS only. Turn off (COOKIE_SECURE=0) for plain-http local runs.
     cookie_secure: bool
-    runpod_endpoint_url: str
+    runpod_endpoint_id: str
     runpod_api_key: str
     # One bot for the whole app. Each workspace sets its own chat ids in Settings.
     telegram_bot_token: str
@@ -20,7 +20,7 @@ def get_settings() -> Settings:
     return Settings(
         database_url=env("DATABASE_URL", ""),
         cookie_secure=(env("COOKIE_SECURE") or "1") != "0",
-        runpod_endpoint_url=env("RUNPOD_ENDPOINT_URL", ""),
+        runpod_endpoint_id=env("RUNPOD_ENDPOINT_ID", ""),
         runpod_api_key=env("RUNPOD_API_KEY", ""),
         telegram_bot_token=env("TELEGRAM_BOT_TOKEN", ""),
     )

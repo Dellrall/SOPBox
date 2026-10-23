@@ -69,12 +69,12 @@ class FakeResponse:
 
 @pytest.fixture
 def runpod(monkeypatch):
-    monkeypatch.setenv("RUNPOD_ENDPOINT_URL", "https://api.runpod.ai/v2/abc/runsync")
+    monkeypatch.setenv("RUNPOD_ENDPOINT_ID", "abc123xyz")
     monkeypatch.setenv("RUNPOD_API_KEY", "secret-key")
 
 
 def completed(text):
-    return FakeResponse({"status": "COMPLETED", "output": {"text": text}})
+    return FakeResponse({"choices": [{"message": {"role": "assistant", "content": text}}]})
 
 
 def test_runpod_mode_sends_the_image_with_the_key_and_parses_the_reply(runpod, monkeypatch):
@@ -88,18 +88,28 @@ def test_runpod_mode_sends_the_image_with_the_key_and_parses_the_reply(runpod, m
     lines = extraction.extract_lines("aW1n")
 
     assert [(l.name, l.quantity, l.unit) for l in lines] == [("Fries tray", 2, "bdl")]
-    assert sent["url"] == "https://api.runpod.ai/v2/abc/runsync"
+    assert sent["url"] == "https://api.runpod.ai/v2/abc123xyz/openai/v1/chat/completions"
     assert sent["headers"] == {"Authorization": "Bearer secret-key"}
-    assert sent["json"] == {"input": {"image": "aW1n"}}
+    assert sent["json"]["model"] == extraction.MODEL
+    content = sent["json"]["messages"][0]["content"]
+    assert content[0] == {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,aW1n"}}
+    assert content[1] == {"type": "text", "text": extraction.PROMPT}
+
+
+def test_an_endpoint_id_that_is_not_an_id_is_refused(runpod, monkeypatch):
+    monkeypatch.setenv("RUNPOD_ENDPOINT_ID", "evil.example/x")
+    monkeypatch.setattr(extraction.httpx, "post", lambda *a, **k: pytest.fail("must not call out"))
+    with pytest.raises(ExtractionError):
+        extraction.extract_lines("img")
 
 
 @pytest.mark.parametrize(
     "response",
     [
-        FakeResponse({"status": "IN_QUEUE"}),
-        FakeResponse({"status": "FAILED", "error": "CUDA out of memory"}),
-        FakeResponse({"status": "COMPLETED", "output": {}}),
-        FakeResponse({"status": "COMPLETED", "output": None}),
+        FakeResponse({"error": "worker failed"}),
+        FakeResponse({"choices": []}),
+        FakeResponse({"choices": [{"message": {"content": None}}]}),
+        FakeResponse({"error": "boom"}, status_code=500),
         completed("not json"),
     ],
 )

@@ -1,8 +1,7 @@
 """Read an order photo into lines. The model runs on RunPod; this module only calls it.
 
-Contract with runpod/worker/handler.py:
-  request  {"input": {"image": "<base64 JPEG>"}}
-  response {"status": "COMPLETED", "output": {"text": "<model reply>"}}
+The endpoint runs RunPod's vLLM worker, which serves an OpenAI-compatible chat API at
+https://api.runpod.ai/v2/<endpoint-id>/openai/v1. See runpod/README.md for its settings.
 The reply text is untrusted. It is parsed and validated here before anything else sees it.
 """
 
@@ -27,6 +26,15 @@ logger = logging.getLogger(__name__)
 EXTRACTION_MAX_PER_HOUR = 60
 _calls: deque[float] = deque()
 _calls_lock = threading.Lock()
+
+# The worker serves the model under this name (OPENAI_SERVED_MODEL_NAME_OVERRIDE), so swapping in
+# fine-tuned weights only changes the endpoint, not the app.
+MODEL = "sopbox-reader"
+PROMPT = """You read photos of delivery orders for a food and beverage outlet.
+Return only JSON in this exact shape, with one entry per order line:
+{"lines": [{"name": "<item as written>", "quantity": <whole number>, "unit": "<unit as written, e.g. bdl, box, pcs>"}]}
+If you cannot read a quantity, leave that line out. Do not guess. Write nothing outside the JSON."""
+_ENDPOINT_ID = re.compile(r"^[a-z0-9]{6,32}$")
 
 _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 
@@ -75,16 +83,32 @@ def parse_model_output(text: str) -> list[ExtractedLine]:
 
 def extract_lines(image_b64: str) -> list[ExtractedLine]:
     settings = get_settings()
-    if not (settings.runpod_endpoint_url and settings.runpod_api_key):
+    if not (settings.runpod_endpoint_id and settings.runpod_api_key):
         raise ExtractionError("reading photos is not set up; enter the lines by hand")
+    if not _ENDPOINT_ID.match(settings.runpod_endpoint_id):
+        raise ExtractionError("RUNPOD_ENDPOINT_ID is not a valid endpoint id")
 
     _take_budget()
     try:
         resp = httpx.post(
-            settings.runpod_endpoint_url,
+            f"https://api.runpod.ai/v2/{settings.runpod_endpoint_id}/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {settings.runpod_api_key}"},
-            json={"input": {"image": image_b64}},
-            timeout=120,
+            json={
+                "model": MODEL,
+                "temperature": 0,
+                "max_tokens": 1024,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                            {"type": "text", "text": PROMPT},
+                        ],
+                    }
+                ],
+            },
+            # A cold worker pulls the image and loads the model before it answers.
+            timeout=180,
         )
         resp.raise_for_status()
         body = resp.json()
@@ -92,9 +116,10 @@ def extract_lines(image_b64: str) -> list[ExtractedLine]:
         logger.warning("runpod call failed: %s", type(err).__name__)
         raise ExtractionError("could not reach the model endpoint") from None
 
-    if body.get("status") != "COMPLETED":
-        raise ExtractionError(f"the model job did not finish (status {body.get('status')})")
-    text = (body.get("output") or {}).get("text")
+    try:
+        text = body["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        raise ExtractionError("the model reply has no message") from None
     if not isinstance(text, str):
-        raise ExtractionError("model output is missing 'text'")
+        raise ExtractionError("the model reply has no message")
     return parse_model_output(text)

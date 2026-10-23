@@ -93,8 +93,8 @@ The backend treats the model's reply as untrusted input: it parses and validates
 ```
 src/backend/       FastAPI app: accounts, rules, catalogue, deliveries, extraction client, Telegram alerts
 src/frontend/      React app (Vite). `npm run build` writes src/frontend/dist, which FastAPI serves
-runpod/worker/     RunPod serverless handler and Dockerfile. See runpod/README.md
-tests/             pytest suite for accounts, workspace isolation, the rules, API, extraction parsing, alerts and the worker
+runpod/           RunPod endpoint settings and how to swap in fine-tuned weights
+tests/             pytest suite for accounts, workspace isolation, the rules, API, extraction parsing and alerts
 .replit            Replit run and deploy settings
 submission/        Submission pack (slides, video, links), added at the end
 1st_proposal.md    Plan, timeline, budget and owners
@@ -142,7 +142,7 @@ Replit is mandatory for the challenge. The deployed filesystem is not persistent
 | Secret | Required | Value |
 |---|---|---|
 | `DATABASE_URL` | Yes | Set by the Replit database. Do not copy it into the repo |
-| `RUNPOD_ENDPOINT_URL`, `RUNPOD_API_KEY` | For photo reading | From your RunPod account (see `runpod/README.md`). Without them staff type lines by hand |
+| `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` | For photo reading | The endpoint id (for example `sriet0cftztbik`) and an API key from your RunPod account (see `runpod/README.md`). Without them staff type lines by hand |
 | `TELEGRAM_BOT_TOKEN` | For alerts | From @BotFather in Telegram |
 
    Leave `COOKIE_SECURE` unset on Replit: the app then sends the session cookie over HTTPS only.
@@ -158,7 +158,7 @@ The backend reads environment variables (Replit Secrets in production). See `src
 |---|---|---|
 | `DATABASE_URL` | PostgreSQL connection string. Required | none |
 | `COOKIE_SECURE` | `0` allows the session cookie over plain http, for local runs only | `1` |
-| `RUNPOD_ENDPOINT_URL`, `RUNPOD_API_KEY` | RunPod `runsync` URL and key. Without both, photo reading is off | none |
+| `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` | RunPod endpoint id and API key. Without both, photo reading is off | none |
 | `TELEGRAM_BOT_TOKEN` | Bot token. Each workspace owner sets chat ids under Settings. With no token or chat id, alerts are skipped | none |
 
 Never commit keys. `.env` is git-ignored.
@@ -196,7 +196,7 @@ The suite starts an embedded PostgreSQL, so it needs no install, network, GPU or
 
 ## Known limits
 
-- Photo reading needs the RunPod endpoint, which is still a stub (`runpod/worker/handler.py`). Until then staff type the lines.
+- The first photo after the endpoint has been idle waits for a cold start (a few minutes). Staff can type the lines instead.
 - Anyone can create a workspace. An address can create 10 an hour. There is no email, so a forgotten owner password cannot be reset by the app: it takes a database change.
 - The sign-in lockout counter is in memory, so it is per server process.
 - The order photo is not stored. The audit log records readings and decisions, not the image.
