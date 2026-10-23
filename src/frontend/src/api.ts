@@ -11,6 +11,7 @@ import type {
   Product,
   ProductIn,
   ProfileUpdateIn,
+  ProductSuggestion,
   PurchaseOrder,
   PurchaseOrderIn,
   PurchaseOrderStatus,
@@ -99,6 +100,8 @@ export const api = {
   updateProduct: (id: number, body: ProductIn) => put<Product>(`/products/${id}`, body),
   deleteProduct: (id: number) => del(`/products/${id}`),
   setArchived: (id: number, archived: boolean) => patch<Product>(`/products/${id}`, { archived }),
+  createProducts: (products: ProductIn[]) => post<Product[]>("/products/bulk", { products }),
+  readProductSheet: (image_b64: string) => post<ProductSuggestion[]>("/products/read-sheet", { image_b64 }),
 
   // receiving
   extract: (image_b64: string) => post<ExtractedLine[]>("/extract", { image_b64 }),

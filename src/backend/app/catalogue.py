@@ -180,6 +180,12 @@ def create_product(conn: psycopg.Connection, ws: int, data: ProductIn) -> Produc
     return get_product(conn, ws, row["id"])
 
 
+def create_products(conn: psycopg.Connection, ws: int, items: list[ProductIn]) -> list[Product]:
+    """Create several products in one transaction: if any is refused, none are kept."""
+    with conn.transaction():
+        return [create_product(conn, ws, item) for item in items]
+
+
 def update_product(conn: psycopg.Connection, ws: int, product_id: int, data: ProductIn) -> Product:
     _require_category(conn, ws, data.category_id)
     with conn.transaction():

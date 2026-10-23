@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+import { ScanText } from "lucide-react";
 import { ApiError, api } from "./api";
 import Categories from "./Categories";
+import ImportSheet from "./ImportSheet";
 import ProductForm from "./ProductForm";
 import type { Category, Product } from "./types";
-import { Empty, ErrorNote, PageTitle, cardClass, dangerButton, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
+import { Empty, ErrorNote, PageTitle, SuccessNote, cardClass, dangerButton, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 const rangeText = (p: Product): string =>
   p.effective_temp_min_c === null
@@ -17,6 +19,8 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [editing, setEditing] = useState<Product | "new" | null>(null);
   const [showCategories, setShowCategories] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
@@ -76,12 +80,33 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
             <button className={secondaryButton} onClick={() => setShowCategories((s) => !s)} aria-expanded={showCategories}>
               Categories
             </button>
+            <button className={secondaryButton} onClick={() => setImporting((s) => !s)} aria-expanded={importing}>
+              <ScanText aria-hidden className="h-4 w-4" /> Import from a sheet
+            </button>
             <button className={primaryButton} onClick={() => setEditing("new")}>
               Add product
             </button>
           </div>
         )}
       </PageTitle>
+
+      {notice && <SuccessNote>{notice}</SuccessNote>}
+      {canEdit && importing && (
+        <ImportSheet
+          categories={categories}
+          onCategoryAdded={async () => {
+            const fresh = await api.categories();
+            setCategories(fresh);
+            return fresh;
+          }}
+          onDone={(count) => {
+            setImporting(false);
+            setNotice(`${count} ${count === 1 ? "product" : "products"} added from the sheet. Set each one's low-stock level and SOP with Edit.`);
+            reload();
+          }}
+          onClose={() => setImporting(false)}
+        />
+      )}
 
       {canEdit && showCategories && (
         <Categories

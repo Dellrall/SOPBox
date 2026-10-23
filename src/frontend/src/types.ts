@@ -93,6 +93,19 @@ export type ProductIn = {
   pack_units: PackUnit[];
 };
 
+export type ProductSuggestion = {
+  name: string;
+  category: string | null;
+  category_id: number | null; // an existing category with that name
+  base_unit: string | null;
+  pack_unit: string | null;
+  units_per_pack: number | null;
+  temp_min_c: number | null;
+  temp_max_c: number | null;
+  warning: string | null;
+  exists: boolean; // already in the catalogue
+};
+
 export type ExtractedLine = {
   name: string;
   quantity: number | null; // null: the model could not read it, staff fill it in

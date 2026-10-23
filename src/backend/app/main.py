@@ -21,7 +21,7 @@ from app.errors import (
     NotFoundError,
     RateLimitError,
 )
-from app.extraction import extract_lines
+from app.extraction import extract_lines, extract_products
 from app.models import (
     ArchiveIn,
     CancelIn,
@@ -44,6 +44,8 @@ from app.models import (
     ProfileUpdateIn,
     Product,
     ProductIn,
+    ProductsBulkIn,
+    ProductSuggestionOut,
     RegisterIn,
     UserCreateIn,
     UserOut,
@@ -84,6 +86,11 @@ async def add_response_headers(request: Request, call_next):
 
 
 Conn = Annotated[psycopg.Connection, Depends(get_db)]
+
+
+class ExtractRequest(BaseModel):
+    # About 10 MB of image once base64 encoded. The frontend downsizes photos before sending.
+    image_b64: str = Field(min_length=1, max_length=14_000_000)
 
 
 def _error_handler(status_code: int, fixed_detail: str | None = None):
@@ -261,6 +268,27 @@ def update_product(product_id: int, body: ProductIn, user: ManagerUp, conn: Conn
     return catalogue.update_product(conn, user.workspace_id, product_id, body)
 
 
+@app.post("/api/products/bulk", response_model=list[Product], status_code=201)
+def create_products(body: ProductsBulkIn, user: ManagerUp, conn: Conn):
+    """Add several reviewed products together: all of them, or none if one is not valid."""
+    return catalogue.create_products(conn, user.workspace_id, body.products)
+
+
+@app.post("/api/products/read-sheet", response_model=list[ProductSuggestionOut])
+def read_product_sheet(body: ExtractRequest, user: ManagerUp, conn: Conn):
+    """Read a supplier's product list or SOP sheet into suggestions. Nothing is saved here."""
+    categories = {c.name.lower(): c.id for c in catalogue.list_categories(conn, user.workspace_id)}
+    names = {p.name.lower() for p in catalogue.list_products(conn, user.workspace_id)}
+    return [
+        ProductSuggestionOut(
+            **s.model_dump(),
+            category_id=categories.get((s.category or "").lower()),
+            exists=s.name.lower() in names,
+        )
+        for s in extract_products(body.image_b64)
+    ]
+
+
 @app.patch("/api/products/{product_id}", response_model=Product)
 def archive_product(product_id: int, body: ArchiveIn, user: ManagerUp, conn: Conn):
     """Archive (or restore) a product: it leaves receiving but keeps its delivery history."""
@@ -334,11 +362,6 @@ def cancel_purchase_order(order_id: int, body: CancelIn, user: ManagerUp, conn: 
 
 
 # ---- receiving journey ------------------------------------------------------------------------
-
-
-class ExtractRequest(BaseModel):
-    # About 10 MB of image once base64 encoded. The frontend downsizes photos before sending.
-    image_b64: str = Field(min_length=1, max_length=14_000_000)
 
 
 @app.post("/api/extract", response_model=list[ExtractedLineOut])

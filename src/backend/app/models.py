@@ -102,6 +102,43 @@ class ExtractedLine(BaseModel):
         return None if isinstance(value, str) and not value.strip() else value
 
 
+class ProductSuggestion(BaseModel):
+    """A product read from a supplier sheet. Untrusted: a manager reviews it before it is saved."""
+
+    name: str = Field(min_length=1, max_length=120)
+    category: str | None = Field(default=None, max_length=80)
+    base_unit: str | None = Field(default=None, max_length=20)
+    pack_unit: str | None = Field(default=None, max_length=20)
+    units_per_pack: int | None = Field(default=None, gt=0, le=100_000)
+    temp_min_c: float | None = Field(default=None, ge=-60, le=100)
+    temp_max_c: float | None = Field(default=None, ge=-60, le=100)
+    warning: str | None = Field(default=None, max_length=200)
+
+    @field_validator("category", "base_unit", "pack_unit", "warning", mode="before")
+    @classmethod
+    def _blank_is_none(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
+    @model_validator(mode="after")
+    def _one_sided_range_is_dropped(self) -> "ProductSuggestion":
+        # Half a range cannot be saved; keep the reading as a note for the manager instead.
+        if (self.temp_min_c is None) != (self.temp_max_c is None):
+            known = self.temp_min_c if self.temp_min_c is not None else self.temp_max_c
+            note = f"only one temperature was printed ({known} C)"
+            self.warning = f"{self.warning}; {note}" if self.warning else note
+            self.temp_min_c = self.temp_max_c = None
+        return self
+
+
+class ProductSuggestionOut(ProductSuggestion):
+    category_id: int | None  # an existing category with that name, if any
+    exists: bool  # a product with this name is already in the catalogue
+
+
+class ProductsBulkIn(_In):
+    products: list[ProductIn] = Field(min_length=1, max_length=200)
+
+
 class ExtractedLineOut(ExtractedLine):
     product_id: int | None
 
