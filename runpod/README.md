@@ -42,7 +42,7 @@ A warm worker costs about $16.56 a day at $0.69 per hour. Keep minimum workers a
 2. Swap the Dockerfile base for a CUDA or PyTorch image that suits the model.
 3. Build and push: `docker build -t <registry>/sopbox-worker:0.1 runpod/worker && docker push <registry>/sopbox-worker:0.1`
 4. Create the serverless endpoint from that image with the settings above.
-5. Put the endpoint's `runsync` URL and your API key in Replit Secrets as `RUNPOD_ENDPOINT_URL` and `RUNPOD_API_KEY`, and set `EXTRACTION_MODE=runpod`.
+5. Put the endpoint's `runsync` URL and your API key in Replit Secrets as `RUNPOD_ENDPOINT_URL` and `RUNPOD_API_KEY`. With both set, the app reads photos with the model; without them staff type the lines.
 
 Test an endpoint directly:
 
@@ -59,5 +59,5 @@ The first request after idle is a cold start and can take minutes.
 
 - The backend allows at most 60 model calls an hour (`EXTRACTION_MAX_PER_HOUR` in `extraction.py`). Beyond that, staff type the lines.
 - The frontend shrinks photos to 1600 px before sending.
-- Everything except the real extraction path runs against the mock, so development costs nothing.
+- Without the two secrets the app never calls RunPod, so local development costs nothing.
 - Stop or delete test endpoints when a session ends, and check the balance after each one.

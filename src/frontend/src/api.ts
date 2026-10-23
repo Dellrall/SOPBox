@@ -1,11 +1,20 @@
 import type {
   AuditEntry,
+  Category,
+  CategoryIn,
   DecisionIn,
   Delivery,
   DeliveryIn,
   DeliveryStatus,
   ExtractedLine,
+  Me,
   Product,
+  ProductIn,
+  RegisterIn,
+  UserCreateIn,
+  UserOut,
+  UserUpdateIn,
+  WorkspaceSettings,
 } from "./types";
 
 export class ApiError extends Error {
@@ -23,7 +32,7 @@ async function errorMessage(res: Response): Promise<string> {
     if (typeof body.detail === "string") return body.detail;
     // FastAPI validation errors arrive as a list of { msg } objects.
     if (Array.isArray(body.detail)) {
-      return body.detail.map((d: { msg: string }) => d.msg).join("; ");
+      return body.detail.map((d: { msg: string }) => d.msg.replace(/^Value error, /, "")).join("; ");
     }
   } catch {
     // Not JSON: fall through to the status line.
@@ -31,25 +40,62 @@ async function errorMessage(res: Response): Promise<string> {
   return `HTTP ${res.status}`;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, init);
-  if (!res.ok) throw new ApiError(res.status, await errorMessage(res));
-  return (await res.json()) as T;
+// Called when the server says the session has ended, so the app can show the sign-in page.
+let onSignedOut: () => void = () => undefined;
+export const setSignedOutHandler = (fn: () => void) => {
+  onSignedOut = fn;
+};
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    method,
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    // A wrong password is also a 401, but that is not a lost session.
+    if (res.status === 401 && !path.startsWith("/auth/login")) onSignedOut();
+    throw new ApiError(res.status, await errorMessage(res));
+  }
+  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 
-const postJson = (body: unknown, headers: Record<string, string> = {}): RequestInit => ({
-  method: "POST",
-  headers: { "Content-Type": "application/json", ...headers },
-  body: JSON.stringify(body),
-});
+const get = <T>(path: string) => request<T>("GET", path);
+const post = <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {});
+const put = <T>(path: string, body: unknown) => request<T>("PUT", path, body);
+const patch = <T>(path: string, body: unknown) => request<T>("PATCH", path, body);
+const del = (path: string) => request<void>("DELETE", path);
 
 export const api = {
-  products: (q = "") => request<Product[]>(`/products${q ? `?q=${encodeURIComponent(q)}` : ""}`),
-  extract: (image_b64: string) => request<ExtractedLine[]>("/extract", postJson({ image_b64 })),
-  createDelivery: (body: DeliveryIn) => request<Delivery>("/deliveries", postJson(body)),
-  deliveries: (status?: DeliveryStatus) =>
-    request<Delivery[]>(`/deliveries${status ? `?status=${status}` : ""}`),
-  decide: (id: number, body: DecisionIn, pin: string) =>
-    request<Delivery>(`/deliveries/${id}/decision`, postJson(body, { "X-Manager-Pin": pin })),
-  audit: (limit = 10) => request<AuditEntry[]>(`/audit?limit=${limit}`),
+  // accounts
+  me: () => get<Me>("/auth/me"),
+  login: (username: string, password: string) => post<Me>("/auth/login", { username, password }),
+  register: (body: RegisterIn) => post<Me>("/auth/register", body),
+  logout: () => post<void>("/auth/logout"),
+  changePassword: (current_password: string, new_password: string) =>
+    post<void>("/auth/password", { current_password, new_password }),
+  users: () => get<UserOut[]>("/users"),
+  createUser: (body: UserCreateIn) => post<UserOut>("/users", body),
+  updateUser: (id: number, body: UserUpdateIn) => patch<UserOut>(`/users/${id}`, body),
+  workspace: () => get<WorkspaceSettings>("/workspace"),
+  updateWorkspace: (body: Partial<Omit<WorkspaceSettings, "id">>) =>
+    patch<WorkspaceSettings>("/workspace", body),
+
+  // catalogue
+  categories: () => get<Category[]>("/categories"),
+  createCategory: (body: CategoryIn) => post<Category>("/categories", body),
+  updateCategory: (id: number, body: CategoryIn) => put<Category>(`/categories/${id}`, body),
+  deleteCategory: (id: number) => del(`/categories/${id}`),
+  products: (q = "") => get<Product[]>(`/products${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  createProduct: (body: ProductIn) => post<Product>("/products", body),
+  updateProduct: (id: number, body: ProductIn) => put<Product>(`/products/${id}`, body),
+  deleteProduct: (id: number) => del(`/products/${id}`),
+
+  // receiving
+  extract: (image_b64: string) => post<ExtractedLine[]>("/extract", { image_b64 }),
+  createDelivery: (body: DeliveryIn) => post<Delivery>("/deliveries", body),
+  deliveries: (status?: DeliveryStatus, limit = 50) =>
+    get<Delivery[]>(`/deliveries?limit=${limit}${status ? `&status=${status}` : ""}`),
+  decide: (id: number, body: DecisionIn) => post<Delivery>(`/deliveries/${id}/decision`, body),
+  audit: (limit = 50) => get<AuditEntry[]>(`/audit?limit=${limit}`),
 };

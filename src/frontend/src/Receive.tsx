@@ -4,6 +4,7 @@ import DeliveryLines from "./DeliveryLines";
 import { imageToJpegBase64 } from "./image";
 import type { Delivery, Product } from "./types";
 import {
+  Empty,
   ErrorNote,
   StatusBadge,
   cardClass,
@@ -43,9 +44,9 @@ const rangeHint = (p?: Product): string =>
     ? `Required: ${p.effective_temp_min_c} to ${p.effective_temp_max_c} °C`
     : "";
 
-export default function Receive() {
+export default function Receive({ active }: { active: boolean }) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [receivedBy, setReceivedBy] = useState("");
+  const [loaded, setLoaded] = useState(false);
   const [supplier, setSupplier] = useState("");
   const [lines, setLines] = useState<Draft[]>([blankLine()]);
   const [busy, setBusy] = useState<"" | "reading" | "submitting">("");
@@ -54,12 +55,19 @@ export default function Receive() {
   const [result, setResult] = useState<Delivery | null>(null);
   const photoInput = useRef<HTMLInputElement>(null);
 
+  // Receive stays mounted while you look at other pages, so reload the catalogue each time it is
+  // opened: a manager may have added products or a delivery may have changed the stock.
   useEffect(() => {
+    if (!active) return;
     api
       .products()
-      .then(setProducts)
-      .catch((e: Error) => setError(`Could not load the catalogue: ${e.message}`));
-  }, []);
+      .then((found) => {
+        setProducts(found);
+        setError("");
+      })
+      .catch((e: Error) => setError(`Could not load the catalogue: ${e.message}`))
+      .finally(() => setLoaded(true));
+  }, [active]);
 
   const update = (key: number, patch: Partial<Draft>) =>
     setLines((all) => all.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -104,7 +112,6 @@ export default function Receive() {
 
   async function submit() {
     setError("");
-    if (!receivedBy.trim()) return setError("Enter your name.");
 
     const payload = [];
     for (const [i, l] of lines.entries()) {
@@ -133,7 +140,7 @@ export default function Receive() {
     setBusy("submitting");
     try {
       setResult(
-        await api.createDelivery({ supplier: supplier.trim(), received_by: receivedBy.trim(), lines: payload }),
+        await api.createDelivery({ supplier: supplier.trim(), lines: payload }),
       );
     } catch (e) {
       setError((e as Error).message);
@@ -148,8 +155,6 @@ export default function Receive() {
     setSupplier("");
     setNotice("");
     setError("");
-    // Stock changed, so reload it for the unit and range hints.
-    api.products().then(setProducts).catch(() => undefined);
   }
 
   if (result) {
@@ -172,6 +177,15 @@ export default function Receive() {
     );
   }
 
+  if (loaded && products.length === 0 && !error) {
+    return (
+      <Empty>
+        There are no products yet, so deliveries cannot be checked. A manager needs to add products
+        under Products &amp; SOP first.
+      </Empty>
+    );
+  }
+
   return (
     <form
       className="space-y-4"
@@ -180,19 +194,11 @@ export default function Receive() {
         void submit();
       }}
     >
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className={labelClass} htmlFor="received-by">
-            Your name
-          </label>
-          <input id="received-by" className={inputClass} value={receivedBy} onChange={(e) => setReceivedBy(e.target.value)} />
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="supplier">
-            Supplier (optional)
-          </label>
-          <input id="supplier" className={inputClass} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
-        </div>
+      <div>
+        <label className={labelClass} htmlFor="supplier">
+          Supplier (optional)
+        </label>
+        <input id="supplier" className={inputClass} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
       </div>
 
       <div className={`${cardClass} space-y-2`}>
@@ -214,7 +220,7 @@ export default function Receive() {
         >
           {busy === "reading" ? "Reading the order…" : "Photograph the order"}
         </label>
-        {notice && <p className="text-sm text-teal-900">{notice}</p>}
+        {notice && <p className="text-sm text-brand-900">{notice}</p>}
       </div>
 
       {lines.map((line, i) => {
