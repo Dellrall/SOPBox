@@ -46,6 +46,16 @@ waitForPort = 5000
 [workflows.workflow.metadata]
 outputType = "webview"
 
+# Run this (or Run) before Publish. Publish makes production's tables match development's, so a
+# development database behind the code would make it propose dropping production data.
+[[workflows.workflow]]
+name = "Update dev database"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd src/backend && python -m pip install -q -r requirements.txt && python -m app.migrate"
+
 [userenv]
 
 [userenv.shared]
