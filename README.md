@@ -33,13 +33,17 @@ One automated journey, with a person in control at the decision point.
 | Step | What happens | Who |
 |---|---|---|
 | Trigger | Staff open **Receiving check** and photograph the delivery order | Staff |
-| Data | A model on RunPod reads the lines. Staff confirm each line and enter a probe temperature | AI, then staff |
+| Data | A model on RunPod reads the lines. Anything it cannot read is left blank and flagged, never guessed. Staff confirm each line and enter a probe temperature | AI, then staff |
 | Logic | Rules check temperature range, pack-to-base-unit conversion and ordered quantity | Code, no AI |
 | Approval | Any failed line holds the whole delivery. A manager accepts, rejects or returns it, with a reason | Manager |
 | Notify | Telegram alerts the manager when approval is needed, and staff with the decision (chats set per workspace) | Telegram bot |
 | Logged outcome | Every step is written to the audit log. Accepting a delivery updates stock on hand | System |
 
-Around the journey: a product catalogue with categories (create, edit, delete), a temperature range per category that a product can override, pack sizes, minimum stock thresholds, and an SOP card per product with search.
+Around the journey:
+
+- A product catalogue with categories, a temperature range per category that a product can override, pack sizes, minimum stock thresholds, and an SOP card per product with search. Products on past deliveries are archived rather than deleted.
+- **Import from a supplier sheet:** photograph a product list or SOP sheet, the model suggests products, and a manager corrects and ticks them before they are added.
+- **Purchase orders (quantity only):** suppliers, draft, issue, cancel and print orders, and draft one from low stock. A delivery received against an issued order is checked against what is still outstanding on it; a product not on the order goes to a manager.
 
 **SDG link:** 12.3 (less food waste: bad deliveries are stopped at the door) and 8 (SOP cards help new staff learn correct handling).
 
@@ -179,9 +183,15 @@ Every route except `/api/health` and the two sign-in routes needs a signed-in se
 | `GET/PATCH /api/workspace` | owner | Workspace name and Telegram chat ids |
 | `GET /api/products?q=` | any | Products with stock. `q` searches name, category and SOP text |
 | `POST /api/products`, `PUT/DELETE /api/products/{id}` | manager | Edit products |
+| `PATCH /api/products/{id}` | manager | Archive or restore a product (`{"archived": true}`) |
+| `POST /api/products/read-sheet`, `POST /api/products/bulk` | manager | Suggest products from a sheet photo (saves nothing); add reviewed products together, all or none |
 | `GET /api/categories`; `POST`, `PUT/DELETE /api/categories/{id}` | any; manager | Categories and their default temperature range |
 | `POST /api/extract` | any | Read an order photo into lines, matched to products |
-| `POST /api/deliveries` | any | Check a delivery. Passing lines are stocked. Any failure holds it for a manager |
+| `POST /api/deliveries` | any | Check a delivery. Passing lines are stocked. Any failure holds it for a manager. With `purchase_order_id`, lines are checked against that issued order |
+| `GET /api/suppliers`; `POST`, `PUT/PATCH /api/suppliers/{id}` | any; manager | Suppliers; `PATCH` archives or restores |
+| `GET /api/purchase-orders?status=`, `GET /api/purchase-orders/{id}` | any | Orders with ordered, received, pending and outstanding quantities per line |
+| `POST /api/purchase-orders`, `PUT /api/purchase-orders/{id}` | manager | Create or edit a draft |
+| `POST /api/purchase-orders/{id}/issue`, `.../cancel`, `POST /api/purchase-orders/low-stock-draft` | manager | Issue, cancel (only with no deliveries), or draft from low stock |
 | `GET /api/deliveries?status=`, `GET /api/deliveries/{id}` | any | Read deliveries |
 | `POST /api/deliveries/{id}/decision` | manager | Accept, reject or return a held delivery |
 | `GET /api/audit` | manager | Audit log, newest first |
