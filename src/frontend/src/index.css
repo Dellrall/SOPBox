@@ -1,22 +1,70 @@
 @import "tailwindcss";
+/* Self-hosted, so the strict CSP (font-src 'self') holds and no third party sees our users. */
+@import "@fontsource-variable/plus-jakarta-sans";
 
 /* SOPBox green, from the Orbyte-style design. */
 @theme {
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
   --color-brand-50: #f1f6ee;
   --color-brand-100: #e7f3ea;
   --color-brand-200: #d3eada;
+  --color-brand-300: #a9d6b8;
   --color-brand-500: #2e9b60;
   --color-brand-600: #16804a;
   --color-brand-700: #116a3d;
   --color-brand-800: #0b5130;
   --color-brand-900: #004225;
+  --color-brand-950: #002816;
   --color-leaf: #78b82a;
   --color-sand: #f4c88b;
-  --color-surface: #f7faf5;
-  --color-line: #e2ebdd;
+  --color-sand-50: #fdf6ea;
+  --color-surface: #f6f8f3;
+  --color-line: #e3eadf;
+  --color-ink: #17261d;
+  --color-muted: #5b6b60;
 }
 
-body {
-  background: var(--color-surface);
-  color: #243b2d;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* The sign-in hero: a soft grid on deep green. */
+.hero-pattern {
+  background-color: var(--color-brand-900);
+  background-image:
+    radial-gradient(circle at 15% 20%, rgb(120 184 42 / 0.28), transparent 45%),
+    radial-gradient(circle at 85% 90%, rgb(244 200 139 / 0.22), transparent 40%),
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  background-size:
+    auto,
+    auto,
+    32px 32px,
+    32px 32px;
 }

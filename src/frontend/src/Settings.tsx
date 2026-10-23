@@ -1,7 +1,57 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 import type { Me, WorkspaceSettings } from "./types";
-import { ErrorNote, PageTitle, cardClass, inputClass, labelClass, primaryButton } from "./ui";
+import { ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton } from "./ui";
+
+function Profile({ me, onChanged }: { me: Me; onChanged: (me: Me) => void }) {
+  const [name, setName] = useState(me.display_name);
+  const [email, setEmail] = useState(me.email ?? "");
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    setDone(false);
+    try {
+      onChanged(await api.updateProfile({ display_name: name, email: email.trim() }));
+      setDone(true);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  return (
+    <form onSubmit={(e) => void submit(e)} className={`${cardClass} space-y-4`}>
+      <div>
+        <SectionTitle>Your profile</SectionTitle>
+        <p className="mt-1 text-sm text-muted">
+          {ROLE_LABEL[me.role]} at {me.workspace.name} · username <strong className="text-ink">{me.username}</strong>
+        </p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelClass} htmlFor="me-name">
+            Name
+          </label>
+          <input id="me-name" required maxLength={80} autoComplete="name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="me-email">
+            Email
+          </label>
+          <input id="me-email" type="email" maxLength={254} autoComplete="email" autoCapitalize="none" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} />
+          <p className="mt-1 text-xs text-muted">You can sign in with it instead of your username.</p>
+        </div>
+      </div>
+      <ErrorNote message={error} />
+      {done && <SuccessNote>Profile saved.</SuccessNote>}
+      <button type="submit" className={primaryButton}>
+        Save profile
+      </button>
+    </form>
+  );
+}
 
 function Password() {
   const [current, setCurrent] = useState("");
@@ -25,7 +75,7 @@ function Password() {
 
   return (
     <form onSubmit={(e) => void submit(e)} className={`${cardClass} space-y-3`}>
-      <h2 className="text-lg font-semibold text-brand-900">Change your password</h2>
+      <SectionTitle>Change your password</SectionTitle>
       <div>
         <label className={labelClass} htmlFor="pw-current">
           Current password
@@ -40,7 +90,7 @@ function Password() {
         <p className="mt-1 text-xs text-slate-600">At least 8 characters. Other devices are signed out.</p>
       </div>
       <ErrorNote message={error} />
-      {done && <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900">Password changed.</p>}
+      {done && <SuccessNote>Password changed.</SuccessNote>}
       <button type="submit" className={primaryButton}>
         Change password
       </button>
@@ -79,7 +129,7 @@ function Workspace() {
   const set = (patch: Partial<WorkspaceSettings>) => setWs({ ...ws, ...patch });
   return (
     <form onSubmit={(e) => void submit(e)} className={`${cardClass} space-y-3`}>
-      <h2 className="text-lg font-semibold text-brand-900">Workspace</h2>
+      <SectionTitle>Workspace</SectionTitle>
       <div>
         <label className={labelClass} htmlFor="ws-name">
           Business name
@@ -106,7 +156,7 @@ function Workspace() {
         Add the SopBox bot to each chat, then paste the chat id. Leave empty to turn alerts off.
       </p>
       <ErrorNote message={error} />
-      {done && <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900">Saved.</p>}
+      {done && <SuccessNote>Saved.</SuccessNote>}
       <button type="submit" className={primaryButton}>
         Save
       </button>
@@ -114,15 +164,11 @@ function Workspace() {
   );
 }
 
-export default function Settings({ me }: { me: Me }) {
+export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me: Me) => void }) {
   return (
-    <div className="space-y-4">
-      <PageTitle title="Settings" />
-      <section className={cardClass}>
-        <p className="text-sm text-slate-700">
-          Signed in as <strong>{me.display_name}</strong> ({me.username}) at {me.workspace.name}.
-        </p>
-      </section>
+    <div className="space-y-5">
+      <PageTitle title="Settings" subtitle="Your profile, your password and, for owners, the workspace." />
+      <Profile me={me} onChanged={onMeChanged} />
       <Password />
       {me.role === "owner" && <Workspace />}
     </div>

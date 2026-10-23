@@ -1,8 +1,39 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Circle, Clock, PackageX, ScanLine, ThumbsUp, type LucideIcon } from "lucide-react";
 import { api } from "./api";
 import type { PageId } from "./App";
 import type { Delivery, Me, Product } from "./types";
-import { Empty, ErrorNote, PageTitle, StatusBadge, cardClass, primaryButton, secondaryButton, when } from "./ui";
+import { Empty, ErrorNote, PageTitle, SectionTitle, StatusBadge, cardClass, panelClass, primaryButton, secondaryButton, when } from "./ui";
+
+function Stat({ label, value, icon: Icon, tone }: { label: string; value: number; icon: LucideIcon; tone: string }) {
+  return (
+    <div className={`${cardClass} flex items-start justify-between gap-3`}>
+      <div>
+        <p className="text-sm font-medium text-muted">{label}</p>
+        <p className="mt-1 text-3xl font-bold tabular-nums text-brand-950">{value}</p>
+      </div>
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+        <Icon aria-hidden className="h-5 w-5" />
+      </span>
+    </div>
+  );
+}
+
+function Step({ done, title, children }: { done: boolean; title: string; children?: ReactNode }) {
+  const Icon = done ? CheckCircle2 : Circle;
+  return (
+    <li className="flex gap-3 py-3">
+      <Icon aria-hidden className={`mt-0.5 h-5 w-5 shrink-0 ${done ? "text-brand-600" : "text-slate-300"}`} />
+      <div className="flex-1">
+        <p className={`font-semibold ${done ? "text-muted line-through" : "text-ink"}`}>
+          {title}
+          <span className="sr-only">{done ? " (done)" : " (to do)"}</span>
+        </p>
+        {!done && children}
+      </div>
+    </li>
+  );
+}
 
 export default function Dashboard({ me, go }: { me: Me; go: (page: PageId) => void }) {
   const [products, setProducts] = useState<Product[] | null>(null);
@@ -19,108 +50,125 @@ export default function Dashboard({ me, go }: { me: Me; go: (page: PageId) => vo
   }, []);
 
   if (error) return <ErrorNote message={error} />;
-  if (!products) return <p className="text-slate-600">Loading…</p>;
+  if (!products) return <p className="text-muted">Loading…</p>;
 
   const count = (s: Delivery["status"]) => deliveries.filter((d) => d.status === s).length;
   const low = products.filter((p) => p.low_stock);
   const canEdit = me.role !== "staff";
+  const firstName = me.display_name.split(/\s+/)[0];
 
-  if (products.length === 0) {
+  if (products.length === 0 || deliveries.length === 0) {
     return (
-      <div className="space-y-4">
-        <PageTitle title={`Welcome, ${me.display_name}`} />
-        <section className={`${cardClass} space-y-3`}>
-          <h2 className="text-lg font-semibold">Set up your products</h2>
-          {canEdit ? (
-            <>
-              <p className="text-sm text-slate-700">
-                Receiving checks run against your own rules, so start by adding what you buy: categories
-                (with the temperature they should arrive at), then products with their pack sizes and SOP.
+      <div>
+        <PageTitle title={`Welcome, ${firstName}`} subtitle={`Let's get ${me.workspace.name} ready for its first receiving check.`} />
+        <section className={`${cardClass} max-w-2xl`}>
+          <SectionTitle>Getting started</SectionTitle>
+          <ol className="mt-2 divide-y divide-line">
+            <Step done={products.length > 0} title="Add your products and their rules">
+              <p className="mt-1 text-sm text-muted">
+                {canEdit
+                  ? "Categories carry the temperature they should arrive at; products carry pack sizes and the SOP."
+                  : "Ask a manager to add the products you receive."}
               </p>
-              <button className={primaryButton} onClick={() => go("products")}>
-                Add products
-              </button>
-            </>
-          ) : (
-            <p className="text-sm text-slate-700">No products have been added yet. Ask a manager to add them.</p>
-          )}
-          {me.role === "owner" && (
-            <p className="text-sm text-slate-700">
-              Then create accounts for your team under{" "}
-              <button className="underline" onClick={() => go("team")}>
-                Team
-              </button>
-              .
-            </p>
-          )}
+              {canEdit && (
+                <button className={`${primaryButton} mt-3`} onClick={() => go("products")}>
+                  Add products <ArrowRight aria-hidden className="h-4 w-4" />
+                </button>
+              )}
+            </Step>
+            {me.role === "owner" && (
+              <Step done={false} title="Create accounts for your team">
+                <p className="mt-1 text-sm text-muted">Staff receive deliveries; managers also approve failures.</p>
+                <button className={`${secondaryButton} mt-3`} onClick={() => go("team")}>
+                  Open Team
+                </button>
+              </Step>
+            )}
+            <Step done={deliveries.length > 0} title="Record your first delivery">
+              <p className="mt-1 text-sm text-muted">Photograph the supplier's order or type the lines, then check them.</p>
+              {products.length > 0 && (
+                <button className={`${primaryButton} mt-3`} onClick={() => go("receive")}>
+                  <ScanLine aria-hidden className="h-4 w-4" /> Start a receiving check
+                </button>
+              )}
+            </Step>
+          </ol>
         </section>
       </div>
     );
   }
 
-  const stat = (label: string, value: number, tone = "text-brand-900") => (
-    <div className={cardClass}>
-      <p className="text-sm text-slate-600">{label}</p>
-      <p className={`text-3xl font-semibold ${tone}`}>{value}</p>
-    </div>
-  );
+  const pending = count("pending_approval");
 
   return (
-    <div className="space-y-6">
-      <PageTitle title="Dashboard">
+    <div className="space-y-8">
+      <PageTitle title={`Good to see you, ${firstName}`} subtitle={`Today at ${me.workspace.name}.`}>
         <button className={primaryButton} onClick={() => go("receive")}>
-          Start a receiving check
+          <ScanLine aria-hidden className="h-4 w-4" /> Start a receiving check
         </button>
       </PageTitle>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {stat("Waiting for a manager", count("pending_approval"), "text-amber-800")}
-        {stat("Accepted", count("accepted"))}
-        {stat("Rejected or returned", count("rejected") + count("returned"), "text-red-800")}
-        {stat("Low-stock products", low.length, low.length ? "text-amber-800" : "text-brand-900")}
-      </div>
-
-      {canEdit && count("pending_approval") > 0 && (
-        <button className={secondaryButton} onClick={() => go("approvals")}>
-          Review {count("pending_approval")} waiting
+      {canEdit && pending > 0 && (
+        <button
+          onClick={() => go("approvals")}
+          className="flex w-full items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-amber-900 transition hover:bg-amber-100"
+        >
+          <AlertTriangle aria-hidden className="h-5 w-5 shrink-0" />
+          <span className="flex-1 text-sm font-semibold">
+            {pending} {pending === 1 ? "delivery is" : "deliveries are"} waiting for your decision
+          </span>
+          <ArrowRight aria-hidden className="h-4 w-4" />
         </button>
       )}
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold text-brand-900">Low stock</h2>
-        {low.length === 0 ? (
-          <Empty>Nothing is below its minimum.</Empty>
-        ) : (
-          <ul className={`${cardClass} divide-y divide-line text-sm`}>
-            {low.map((p) => (
-              <li key={p.id} className="flex justify-between py-1.5">
-                <span>{p.name}</span>
-                <span className="text-amber-900">
-                  {p.stock} of {p.min_stock} {p.base_unit}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Waiting for a manager" value={pending} icon={Clock} tone="bg-amber-50 text-amber-700" />
+        <Stat label="Accepted" value={count("accepted")} icon={ThumbsUp} tone="bg-emerald-50 text-emerald-700" />
+        <Stat label="Rejected or returned" value={count("rejected") + count("returned")} icon={PackageX} tone="bg-red-50 text-red-700" />
+        <Stat label="Low-stock products" value={low.length} icon={AlertTriangle} tone={low.length ? "bg-amber-50 text-amber-700" : "bg-brand-50 text-brand-700"} />
+      </div>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold text-brand-900">Recent deliveries</h2>
-        {deliveries.length === 0 ? (
-          <Empty>No deliveries yet. Start a receiving check when the next one arrives.</Empty>
-        ) : (
-          <ul className={`${cardClass} divide-y divide-line text-sm`}>
-            {deliveries.slice(0, 5).map((d) => (
-              <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span>
-                  #{d.id} {d.supplier || "Unknown supplier"} · {when(d.created_at)}
+      <div className="grid gap-6 lg:grid-cols-5">
+        <section className="space-y-3 lg:col-span-3">
+          <div className="flex items-center justify-between">
+            <SectionTitle>Recent deliveries</SectionTitle>
+            <button className="text-sm font-semibold text-brand-700 hover:underline" onClick={() => go("records")}>
+              View all
+            </button>
+          </div>
+          <ul className={`${panelClass} divide-y divide-line`}>
+            {deliveries.slice(0, 6).map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
+                <span className="min-w-0">
+                  <span className="font-semibold text-ink">{d.supplier || "Unknown supplier"}</span>
+                  <span className="block text-xs text-muted">
+                    #{d.id} · {when(d.created_at)}
+                  </span>
                 </span>
                 <StatusBadge status={d.status} />
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+
+        <section className="space-y-3 lg:col-span-2">
+          <SectionTitle>Low stock</SectionTitle>
+          {low.length === 0 ? (
+            <Empty>Nothing is below its minimum.</Empty>
+          ) : (
+            <ul className={`${panelClass} divide-y divide-line text-sm`}>
+              {low.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-2 px-5 py-3">
+                  <span className="font-semibold">{p.name}</span>
+                  <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-600/20">
+                    {p.stock} / {p.min_stock} {p.base_unit}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import type {
   Me,
   Product,
   ProductIn,
+  ProfileUpdateIn,
   RegisterIn,
   UserCreateIn,
   UserOut,
@@ -69,9 +70,11 @@ const del = (path: string) => request<void>("DELETE", path);
 export const api = {
   // accounts
   me: () => get<Me>("/auth/me"),
+  session: () => get<Me | null>("/auth/session"),
   login: (username: string, password: string) => post<Me>("/auth/login", { username, password }),
   register: (body: RegisterIn) => post<Me>("/auth/register", body),
   logout: () => post<void>("/auth/logout"),
+  updateProfile: (body: ProfileUpdateIn) => patch<Me>("/auth/me", body),
   changePassword: (current_password: string, new_password: string) =>
     post<void>("/auth/password", { current_password, new_password }),
   users: () => get<UserOut[]>("/users"),

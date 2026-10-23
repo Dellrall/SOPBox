@@ -5,6 +5,7 @@ export type Role = "owner" | "manager" | "staff";
 export type Me = {
   id: number;
   username: string;
+  email: string | null;
   display_name: string;
   role: Role;
   workspace: { id: number; name: string };
@@ -13,6 +14,7 @@ export type Me = {
 export type UserOut = {
   id: number;
   username: string;
+  email: string | null;
   display_name: string;
   role: Role;
   active: boolean;
@@ -22,12 +24,14 @@ export type UserOut = {
 export type UserCreateIn = {
   username: string;
   display_name: string;
+  email?: string;
   role: "manager" | "staff";
   password: string;
 };
 
 export type UserUpdateIn = {
   display_name?: string;
+  email?: string;
   role?: "manager" | "staff";
   active?: boolean;
   password?: string;
@@ -36,9 +40,12 @@ export type UserUpdateIn = {
 export type RegisterIn = {
   workspace_name: string;
   display_name: string;
+  email: string;
   username: string;
   password: string;
 };
+
+export type ProfileUpdateIn = { display_name?: string; email?: string };
 
 export type WorkspaceSettings = {
   id: number;

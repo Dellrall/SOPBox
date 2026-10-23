@@ -55,7 +55,7 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Products & SOP">
+      <PageTitle title="Products & SOP" subtitle="What you buy, the rules each delivery is checked against, and how to handle it.">
         {canEdit && (
           <div className="flex gap-2">
             <button className={secondaryButton} onClick={() => setShowCategories((s) => !s)} aria-expanded={showCategories}>

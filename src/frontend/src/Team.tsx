@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 import type { UserOut } from "./types";
-import { Empty, ErrorNote, PageTitle, ROLE_LABEL, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
+import { Empty, ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 function CreateForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState<"manager" | "staff">("staff");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -18,10 +19,11 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
     setError("");
     setDone("");
     try {
-      const made = await api.createUser({ username, display_name: name, role, password });
+      const made = await api.createUser({ username, display_name: name, role, password, ...(email.trim() ? { email } : {}) });
       setDone(`Account created. Give ${made.display_name} the username "${made.username}" and the password you just set.`);
       setName("");
       setUsername("");
+      setEmail("");
       setPassword("");
       onCreated();
     } catch (err) {
@@ -33,7 +35,7 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <form onSubmit={(e) => void submit(e)} className={`${cardClass} space-y-3`}>
-      <h2 className="text-lg font-semibold text-brand-900">Create an account</h2>
+      <SectionTitle>Create an account</SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className={labelClass} htmlFor="u-name">
@@ -46,6 +48,13 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
             Username
           </label>
           <input id="u-username" required autoCapitalize="none" className={inputClass} value={username} onChange={(e) => setUsername(e.target.value)} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="u-email">
+            Email <span className="font-normal text-muted">(optional)</span>
+          </label>
+          <input id="u-email" type="email" maxLength={254} autoCapitalize="none" autoComplete="off" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} />
+          <p className="mt-1 text-xs text-muted">They can sign in with it instead of the username.</p>
         </div>
         <div>
           <label className={labelClass} htmlFor="u-role">
@@ -65,7 +74,7 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
         </div>
       </div>
       <ErrorNote message={error} />
-      {done && <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900">{done}</p>}
+      {done && <SuccessNote>{done}</SuccessNote>}
       <button type="submit" disabled={busy} className={primaryButton}>
         Create account
       </button>
@@ -76,6 +85,8 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
 function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
   const [resetting, setResetting] = useState(false);
   const [password, setPassword] = useState("");
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [email, setEmail] = useState(user.email ?? "");
   const [error, setError] = useState("");
   const isOwner = user.role === "owner";
 
@@ -84,6 +95,7 @@ function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
     try {
       await api.updateUser(user.id, body);
       setResetting(false);
+      setEditingEmail(false);
       setPassword("");
       onChanged();
     } catch (e) {
@@ -99,8 +111,9 @@ function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
             {user.display_name}
             {!user.active && <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-xs">Disabled</span>}
           </p>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted">
             {user.username} · {ROLE_LABEL[user.role]}
+            {user.email && <> · {user.email}</>}
           </p>
         </div>
         {!isOwner && (
@@ -110,13 +123,16 @@ function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
             </label>
             <select
               id={`role-${user.id}`}
-              className={`${inputClass} w-auto`}
+              className={`${inputClass} w-auto!`}
               value={user.role}
               onChange={(e) => void change({ role: e.target.value as "manager" | "staff" })}
             >
               <option value="staff">Staff</option>
               <option value="manager">Manager</option>
             </select>
+            <button className={secondaryButton} onClick={() => setEditingEmail((r) => !r)}>
+              {user.email ? "Change email" : "Add email"}
+            </button>
             <button className={secondaryButton} onClick={() => setResetting((r) => !r)}>
               Reset password
             </button>
@@ -126,6 +142,24 @@ function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
           </div>
         )}
       </div>
+      {editingEmail && (
+        <form
+          className="flex flex-wrap items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void change({ email: email.trim() });
+          }}
+        >
+          <label className="sr-only" htmlFor={`email-${user.id}`}>
+            Email for {user.display_name}
+          </label>
+          <input id={`email-${user.id}`} type="email" maxLength={254} placeholder="name@example.com" className={`${inputClass} sm:w-72`} value={email} onChange={(e) => setEmail(e.target.value)} />
+          <button type="submit" className={primaryButton}>
+            Save email
+          </button>
+          <span className="text-xs text-muted">Leave empty to remove it.</span>
+        </form>
+      )}
       {resetting && (
         <div className="flex flex-wrap items-center gap-2">
           <label className="sr-only" htmlFor={`pw-${user.id}`}>
@@ -161,11 +195,10 @@ export default function Team() {
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Team" />
-      <p className="text-sm text-slate-600">
-        You are the owner. Staff can receive deliveries. Managers can also edit products and approve
-        failed deliveries. Only you manage accounts.
-      </p>
+      <PageTitle
+        title="Team"
+        subtitle="Staff receive deliveries. Managers can also edit products and approve failed deliveries. Only you, the owner, manage accounts."
+      />
       <CreateForm onCreated={load} />
       <ErrorNote message={error} />
       {users?.length === 0 && <Empty>No accounts yet.</Empty>}

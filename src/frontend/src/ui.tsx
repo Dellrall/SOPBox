@@ -1,53 +1,81 @@
 import type { ReactNode } from "react";
+import { Inbox } from "lucide-react";
 import type { DeliveryStatus } from "./types";
 
 // Shared Tailwind class strings, so every screen looks the same.
 export const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base focus:border-brand-600 focus:outline-2 focus:outline-brand-600";
-export const labelClass = "block text-sm font-medium text-slate-700";
-export const primaryButton =
-  "rounded-lg bg-brand-600 px-4 py-2.5 font-medium text-white shadow-sm hover:bg-brand-900 disabled:opacity-50";
-export const secondaryButton =
-  "rounded-lg border border-slate-300 bg-white px-4 py-2.5 font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50";
-export const dangerButton =
-  "rounded-lg border border-red-300 bg-white px-4 py-2.5 font-medium text-red-800 hover:bg-red-50 disabled:opacity-50";
-export const cardClass = "rounded-xl border border-line bg-white p-4 shadow-sm";
+  "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-ink shadow-xs transition placeholder:text-slate-400 hover:border-slate-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15";
+export const labelClass = "mb-1 block text-sm font-semibold text-slate-700";
+const button =
+  "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
+export const primaryButton = `${button} bg-brand-600 text-white shadow-sm shadow-brand-900/20 hover:bg-brand-700`;
+export const secondaryButton = `${button} border border-slate-300 bg-white text-slate-800 shadow-xs hover:border-slate-400 hover:bg-slate-50`;
+export const dangerButton = `${button} border border-red-200 bg-white text-red-700 hover:border-red-300 hover:bg-red-50`;
+/** A white panel without padding, for lists whose rows set their own. */
+export const panelClass = "rounded-2xl border border-line bg-white shadow-sm shadow-brand-950/[0.03]";
+export const cardClass = `${panelClass} p-5`;
 
-const STATUS: Record<DeliveryStatus, { label: string; style: string }> = {
-  accepted: { label: "Accepted", style: "bg-emerald-100 text-emerald-900" },
-  pending_approval: { label: "Waiting for a manager", style: "bg-amber-100 text-amber-900" },
-  rejected: { label: "Rejected", style: "bg-red-100 text-red-900" },
-  returned: { label: "Returned to supplier", style: "bg-red-100 text-red-900" },
+const STATUS: Record<DeliveryStatus, { label: string; style: string; dot: string }> = {
+  accepted: { label: "Accepted", style: "bg-emerald-50 text-emerald-800 ring-emerald-600/20", dot: "bg-emerald-500" },
+  pending_approval: { label: "Waiting for a manager", style: "bg-amber-50 text-amber-800 ring-amber-600/20", dot: "bg-amber-500" },
+  rejected: { label: "Rejected", style: "bg-red-50 text-red-800 ring-red-600/20", dot: "bg-red-500" },
+  returned: { label: "Returned to supplier", style: "bg-red-50 text-red-800 ring-red-600/20", dot: "bg-red-500" },
 };
 
 /** Status is always written out, never colour alone. */
 export function StatusBadge({ status }: { status: DeliveryStatus }) {
-  const { label, style } = STATUS[status];
-  return <span className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${style}`}>{label}</span>;
+  const { label, style, dot } = STATUS[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${style}`}>
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+      {label}
+    </span>
+  );
 }
 
 export function ErrorNote({ message }: { message: string }) {
   if (!message) return null;
   return (
-    <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">
+    <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-800">
       {message}
     </p>
   );
 }
 
-export function PageTitle({ title, children }: { title: string; children?: ReactNode }) {
+export function SuccessNote({ children }: { children: ReactNode }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-      <h1 className="text-xl font-semibold text-brand-900">{title}</h1>
+    <p role="status" className="rounded-xl border border-brand-200 bg-brand-50 px-3.5 py-2.5 text-sm text-brand-900">
+      {children}
+    </p>
+  );
+}
+
+export function PageTitle({ title, subtitle, children }: { title: string; subtitle?: string; children?: ReactNode }) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 className="text-2xl font-bold text-brand-950 sm:text-[1.7rem]">{title}</h1>
+        {subtitle && <p className="mt-1 max-w-2xl text-sm text-muted">{subtitle}</p>}
+      </div>
       {children}
     </div>
   );
 }
 
-export function Empty({ children }: { children: ReactNode }) {
-  return <p className="rounded-xl border border-dashed border-line bg-white p-6 text-center text-sm text-slate-600">{children}</p>;
+export function SectionTitle({ children }: { children: ReactNode }) {
+  return <h2 className="text-base font-bold text-brand-950">{children}</h2>;
 }
 
-export const when = (iso: string) => new Date(iso).toLocaleString();
+export function Empty({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-8 text-center text-sm text-muted">
+      <Inbox aria-hidden className="h-6 w-6 text-slate-400" />
+      <p>{children}</p>
+    </div>
+  );
+}
+
+export const when = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 export const ROLE_LABEL = { owner: "Owner", manager: "Manager", staff: "Staff" } as const;

@@ -82,7 +82,7 @@ export default function ProductForm({
         void save();
       }}
     >
-      <h2 className="text-lg font-semibold text-brand-900">{product ? `Edit ${product.name}` : "Add a product"}</h2>
+      <h2 className="text-base font-bold text-brand-950">{product ? `Edit ${product.name}` : "Add a product"}</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className={labelClass} htmlFor="p-name">

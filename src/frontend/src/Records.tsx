@@ -22,7 +22,7 @@ export default function Records() {
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Delivery records">
+      <PageTitle title="Delivery records" subtitle="Every delivery received, its readings and the outcome.">
         <div>
           <label className={`${labelClass} sr-only`} htmlFor="status-filter">
             Show

@@ -1,4 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
+import {
+  ClipboardCheck,
+  History,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  PackageSearch,
+  ScanLine,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Truck,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { api, setSignedOutHandler } from "./api";
 import Activity from "./Activity";
 import Approvals from "./Approvals";
@@ -22,16 +37,24 @@ export type PageId =
   | "team"
   | "settings";
 
-const NAV: { id: PageId; label: string; icon: string; roles: Role[] }[] = [
-  { id: "dashboard", label: "Dashboard", icon: "▦", roles: ["owner", "manager", "staff"] },
-  { id: "receive", label: "Receiving check", icon: "▣", roles: ["owner", "manager", "staff"] },
-  { id: "records", label: "Delivery records", icon: "▤", roles: ["owner", "manager", "staff"] },
-  { id: "products", label: "Products & SOP", icon: "▧", roles: ["owner", "manager", "staff"] },
-  { id: "approvals", label: "Approvals", icon: "✓", roles: ["owner", "manager"] },
-  { id: "activity", label: "Activity log", icon: "◷", roles: ["owner", "manager"] },
-  { id: "team", label: "Team", icon: "♙", roles: ["owner"] },
-  { id: "settings", label: "Settings", icon: "⚙", roles: ["owner", "manager", "staff"] },
+const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[] }[] = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "manager", "staff"] },
+  { id: "receive", label: "Receiving check", icon: ScanLine, roles: ["owner", "manager", "staff"] },
+  { id: "records", label: "Delivery records", icon: Truck, roles: ["owner", "manager", "staff"] },
+  { id: "products", label: "Products & SOP", icon: PackageSearch, roles: ["owner", "manager", "staff"] },
+  { id: "approvals", label: "Approvals", icon: ClipboardCheck, roles: ["owner", "manager"] },
+  { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager"] },
+  { id: "team", label: "Team", icon: Users, roles: ["owner"] },
+  { id: "settings", label: "Settings", icon: SettingsIcon, roles: ["owner", "manager", "staff"] },
 ];
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("");
 
 export default function App() {
   // undefined while we ask the server whether there is a session, null when signed out.
@@ -40,17 +63,23 @@ export default function App() {
   useEffect(() => {
     setSignedOutHandler(() => setMe(null));
     api
-      .me()
+      .session()
       .then(setMe)
       .catch(() => setMe(null));
   }, []);
 
-  if (me === undefined) return <p className="p-6 text-slate-600">Loading…</p>;
+  if (me === undefined)
+    return (
+      <div className="flex min-h-screen items-center justify-center" role="status">
+        <span className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
+        <span className="sr-only">Loading</span>
+      </div>
+    );
   if (me === null) return <AuthPage onSignedIn={setMe} />;
-  return <Shell me={me} onSignedOut={() => setMe(null)} />;
+  return <Shell me={me} onMeChanged={setMe} onSignedOut={() => setMe(null)} />;
 }
 
-function Shell({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
+function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me) => void; onSignedOut: () => void }) {
   const [page, setPage] = useState<PageId>("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [pending, setPending] = useState(0);
@@ -66,6 +95,12 @@ function Shell({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
 
   useEffect(refreshPending, [refreshPending, page]);
 
+  // Keep the tab title in step with the page, for history and screen readers.
+  useEffect(() => {
+    const label = NAV.find((n) => n.id === page)?.label ?? "SOPBox";
+    document.title = `${label} · ${me.workspace.name} · SOPBox`;
+  }, [page, me.workspace.name]);
+
   const go = (id: PageId) => {
     setPage(id);
     setMenuOpen(false);
@@ -79,70 +114,94 @@ function Shell({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   const nav = NAV.filter((n) => n.roles.includes(me.role));
 
   return (
-    <div className="min-h-screen bg-surface text-slate-900 lg:flex">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-white px-4 py-3 lg:hidden">
+    <div className="min-h-screen bg-surface text-ink lg:flex">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:shadow">
+        Skip to content
+      </a>
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-white/85 px-4 py-3 backdrop-blur lg:hidden">
         <button
           aria-label="Open the menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen(true)}
-          className="rounded-lg border border-slate-300 px-3 py-1.5"
+          className="rounded-xl border border-slate-300 p-2 text-slate-700 hover:bg-slate-50"
         >
-          ☰
+          <Menu aria-hidden className="h-5 w-5" />
         </button>
-        <span className="font-semibold text-brand-900">SOPBox</span>
-        {pending > 0 && <span className="ml-auto rounded-full bg-amber-100 px-2.5 py-0.5 text-sm text-amber-900">{pending} waiting</span>}
+        <img src="/logo-128.webp" alt="" className="h-8 w-8 rounded-lg object-cover" />
+        <span className="font-bold text-brand-950">SOPBox</span>
+        {pending > 0 && (
+          <button
+            onClick={() => go("approvals")}
+            className="ml-auto rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 ring-1 ring-amber-600/20"
+          >
+            {pending} waiting
+          </button>
+        )}
       </header>
 
-      {menuOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMenuOpen(false)} />}
+      {menuOpen && <div className="fixed inset-0 z-30 bg-brand-950/50 backdrop-blur-sm lg:hidden" onClick={() => setMenuOpen(false)} />}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-brand-900 text-white transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-brand-950 text-white shadow-2xl transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:translate-x-0 lg:shadow-none ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center gap-3 px-4 py-4">
-          <img src="/SOPBox_Logo.jpeg" alt="" className="h-10 w-10 rounded-lg object-cover" />
-          <span className="text-lg font-semibold">SOPBox</span>
-          <button aria-label="Close the menu" onClick={() => setMenuOpen(false)} className="ml-auto text-xl lg:hidden">
-            ✕
+        <div className="flex items-center gap-3 px-5 pb-4 pt-5">
+          <img src="/logo-128.webp" alt="" className="h-10 w-10 rounded-xl object-cover ring-2 ring-white/10" />
+          <div className="leading-tight">
+            <span className="block text-lg font-bold">SOPBox</span>
+            <span className="text-xs text-white/60">Receiving checks</span>
+          </div>
+          <button aria-label="Close the menu" onClick={() => setMenuOpen(false)} className="ml-auto rounded-lg p-1.5 hover:bg-white/10 lg:hidden">
+            <X aria-hidden className="h-5 w-5" />
           </button>
         </div>
-        <div className="mx-3 rounded-lg bg-white/10 px-3 py-2">
-          <p className="text-xs text-white/70">Workspace</p>
-          <p className="truncate font-medium">{me.workspace.name}</p>
+        <div className="mx-4 flex items-center gap-2.5 rounded-xl bg-white/[0.07] px-3 py-2.5 ring-1 ring-white/10">
+          <ShieldCheck aria-hidden className="h-4 w-4 shrink-0 text-leaf" />
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/50">Workspace</p>
+            <p className="truncate text-sm font-semibold">{me.workspace.name}</p>
+          </div>
         </div>
-        <nav aria-label="Main" className="mt-4 flex-1 space-y-1 overflow-y-auto px-3">
-          {nav.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => go(n.id)}
-              aria-current={page === n.id ? "page" : undefined}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm ${
-                page === n.id ? "bg-white text-brand-900" : "text-white/90 hover:bg-white/10"
-              }`}
-            >
-              <span aria-hidden className="w-5 text-center">
-                {n.icon}
-              </span>
-              <span className="flex-1">{n.label}</span>
-              {n.id === "approvals" && pending > 0 && (
-                <span className="rounded-full bg-sand px-2 text-xs font-semibold text-brand-900">{pending}</span>
-              )}
-            </button>
-          ))}
+        <nav aria-label="Main" className="mt-5 flex-1 space-y-1 overflow-y-auto px-3">
+          {nav.map((n) => {
+            const active = page === n.id;
+            const Icon = n.icon;
+            return (
+              <button
+                key={n.id}
+                onClick={() => go(n.id)}
+                aria-current={active ? "page" : undefined}
+                className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+                  active ? "bg-white text-brand-950 shadow-sm" : "text-white/75 hover:bg-white/[0.08] hover:text-white"
+                }`}
+              >
+                <Icon aria-hidden className={`h-[18px] w-[18px] ${active ? "text-brand-600" : "text-white/55 group-hover:text-white"}`} />
+                <span className="flex-1">{n.label}</span>
+                {n.id === "approvals" && pending > 0 && (
+                  <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-bold text-brand-950">{pending}</span>
+                )}
+              </button>
+            );
+          })}
         </nav>
-        <div className="border-t border-white/15 p-3">
-          <p className="truncate text-sm font-medium">{me.display_name}</p>
-          <p className="mb-2 text-xs text-white/70">
-            {ROLE_LABEL[me.role]} · {me.username}
-          </p>
-          <button onClick={() => void signOut()} className="w-full rounded-lg border border-white/30 px-3 py-2 text-sm hover:bg-white/10">
-            Sign out
+        <div className="m-3 flex items-center gap-3 rounded-xl bg-white/[0.06] p-3 ring-1 ring-white/10">
+          <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-leaf text-sm font-bold text-brand-950">
+            {initials(me.display_name)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{me.display_name}</p>
+            <p className="truncate text-xs text-white/60">
+              {ROLE_LABEL[me.role]} · {me.username}
+            </p>
+          </div>
+          <button onClick={() => void signOut()} aria-label="Sign out" title="Sign out" className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white">
+            <LogOut aria-hidden className="h-4 w-4" />
           </button>
         </div>
       </aside>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 p-4 lg:p-8">
+      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
         {/* Receive stays mounted so a half-filled delivery survives a look at another page. */}
         <div hidden={page !== "receive"}>
           <Receive active={page === "receive"} />
@@ -153,7 +212,7 @@ function Shell({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
         {page === "approvals" && canDecide && <Approvals onChanged={refreshPending} />}
         {page === "activity" && canDecide && <Activity />}
         {page === "team" && me.role === "owner" && <Team />}
-        {page === "settings" && <Settings me={me} />}
+        {page === "settings" && <Settings me={me} onMeChanged={onMeChanged} />}
       </main>
     </div>
   );
