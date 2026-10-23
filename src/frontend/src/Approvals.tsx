@@ -38,6 +38,7 @@ function PendingCard({ delivery, onDone }: { delivery: Delivery; onDone: () => v
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold">
           Delivery #{delivery.id} {delivery.supplier && `from ${delivery.supplier}`}
+          {delivery.purchase_order && ` · ${delivery.purchase_order}`}
         </h3>
         <StatusBadge status={delivery.status} />
       </div>

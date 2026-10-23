@@ -194,3 +194,38 @@ def test_extract_matches_lines_to_catalogue_products(client, catalogue_ids, monk
         None,  # nothing close
         None,  # shares a word with a product but is not that product
     ]
+
+
+# ---- archiving ----------------------------------------------------------------------------------
+
+
+def test_an_archived_product_keeps_its_history_but_cannot_be_received(client, catalogue_ids):
+    sausage_id = catalogue_ids["sausage"]
+    line = {"product_id": sausage_id, "name": "Frozen sausage", "quantity": 5, "unit": "pcs", "temp_c": -15}
+    assert client.post("/api/deliveries", json={"lines": [line]}).status_code == 201
+
+    resp = client.patch(f"/api/products/{sausage_id}", json={"archived": True})
+    assert resp.status_code == 200
+    assert resp.json()["archived"] is True
+    assert client.get(f"/api/products/{sausage_id}").json()["archived"] is True
+
+    refused = client.post("/api/deliveries", json={"lines": [line]})
+    assert refused.status_code == 422
+    assert "archived" in refused.json()["detail"]
+    # The earlier delivery still names it.
+    assert client.get("/api/deliveries").json()[0]["lines"][0]["name"] == "Frozen sausage"
+
+
+def test_an_archived_product_is_never_low_stock_and_can_be_restored(client, catalogue_ids):
+    sausage_id = catalogue_ids["sausage"]  # stock 0, minimum 50
+    assert client.get(f"/api/products/{sausage_id}").json()["low_stock"] is True
+    client.patch(f"/api/products/{sausage_id}", json={"archived": True})
+    assert client.get(f"/api/products/{sausage_id}").json()["low_stock"] is False
+    restored = client.patch(f"/api/products/{sausage_id}", json={"archived": False}).json()
+    assert restored["archived"] is False and restored["low_stock"] is True
+
+
+def test_staff_cannot_archive(client, catalogue_ids, make_user):
+    staff = make_user("staff")
+    resp = staff.patch(f"/api/products/{catalogue_ids['sausage']}", json={"archived": True})
+    assert resp.status_code == 403

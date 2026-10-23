@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 
 import psycopg
 
-from app import auth, deliveries
+from app import auth
+from app.auditlog import audit
 from app.auth import CurrentUser
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.models import (
@@ -134,7 +135,7 @@ def create_user(conn: psycopg.Connection, owner: CurrentUser, data: UserCreateIn
         conn, owner.workspace_id, data.username, data.display_name, data.role, data.password,
         data.email,
     )
-    deliveries.audit(
+    audit(
         conn, owner.workspace_id, owner.display_name, "user.created", None,
         f"{data.username} ({data.role})",
     )
@@ -187,7 +188,7 @@ def _apply_user_changes(
         # A new password, a new role or a disabled account all end the person's current sessions.
         if changes.keys() & {"password", "role", "active"}:
             conn.execute("DELETE FROM sessions WHERE user_id = %s", (user_id,))
-        deliveries.audit(
+        audit(
             conn, owner.workspace_id, owner.display_name, "user.updated", None,
             f"{target.username}: {', '.join(sorted(changes))}",
         )
@@ -215,7 +216,7 @@ def update_workspace(
             f"UPDATE workspaces SET {assignments} WHERE id = %s",
             (*changes.values(), owner.workspace_id),
         )
-        deliveries.audit(
+        audit(
             conn, owner.workspace_id, owner.display_name, "workspace.updated", None,
             ", ".join(sorted(changes)),
         )

@@ -79,6 +79,7 @@ export type Product = {
   sop: string;
   pack_units: PackUnit[];
   low_stock: boolean;
+  archived: boolean; // left out of receiving; history kept
 };
 
 export type ProductIn = {
@@ -92,10 +93,24 @@ export type ProductIn = {
   pack_units: PackUnit[];
 };
 
+export type ProductSuggestion = {
+  name: string;
+  category: string | null;
+  category_id: number | null; // an existing category with that name
+  base_unit: string | null;
+  pack_unit: string | null;
+  units_per_pack: number | null;
+  temp_min_c: number | null;
+  temp_max_c: number | null;
+  warning: string | null;
+  exists: boolean; // already in the catalogue
+};
+
 export type ExtractedLine = {
   name: string;
-  quantity: number;
-  unit: string;
+  quantity: number | null; // null: the model could not read it, staff fill it in
+  unit: string | null;
+  warning: string | null;
   product_id: number | null;
 };
 
@@ -113,6 +128,7 @@ export type DeliveryLineIn = {
 // The server records who received it from the signed-in user.
 export type DeliveryIn = {
   supplier: string;
+  purchase_order_id?: number | null;
   lines: DeliveryLineIn[];
 };
 
@@ -132,6 +148,8 @@ export type Delivery = {
   decided_by: string | null;
   decided_at: string | null;
   decision_reason: string | null;
+  purchase_order_id: number | null;
+  purchase_order: string | null; // e.g. PO-0007
   lines: DeliveryLine[];
 };
 
@@ -147,4 +165,60 @@ export type AuditEntry = {
   action: string;
   delivery_id: number | null;
   detail: string;
+};
+
+// ---- purchasing ----
+
+export type Supplier = {
+  id: number;
+  name: string;
+  contact: string;
+  phone: string;
+  email: string;
+  archived: boolean;
+};
+export type SupplierIn = Omit<Supplier, "id" | "archived">;
+
+export type PurchaseOrderStatus = "draft" | "issued" | "cancelled";
+export type ReceivingStatus = "not_received" | "partially_received" | "fully_received";
+
+export type PurchaseOrderLine = {
+  id: number;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  unit: string;
+  base_unit: string;
+  ordered_base_qty: number;
+  received_base_qty: number; // on accepted deliveries
+  pending_base_qty: number; // waiting for a manager
+  outstanding_base_qty: number;
+};
+
+export type PurchaseOrder = {
+  id: number;
+  reference: string;
+  supplier_id: number;
+  supplier: string;
+  status: PurchaseOrderStatus;
+  receiving_status: ReceivingStatus;
+  order_date: string;
+  expected_date: string | null;
+  notes: string;
+  created_by: string;
+  created_at: string;
+  issued_by: string | null;
+  issued_at: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
+  lines: PurchaseOrderLine[];
+  delivery_ids: number[];
+};
+
+export type PurchaseOrderIn = {
+  supplier_id: number;
+  order_date: string;
+  expected_date: string | null;
+  notes: string;
+  lines: { product_id: number; quantity: number; unit: string }[];
 };

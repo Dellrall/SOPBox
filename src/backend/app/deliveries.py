@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 
 import psycopg
 
-from app import catalogue, rules
+from app import catalogue, purchasing, rules
+from app.auditlog import audit
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.models import (
     AuditEntry,
@@ -35,21 +36,6 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def audit(
-    conn: psycopg.Connection,
-    ws: int,
-    actor: str,
-    action: str,
-    delivery_id: int | None,
-    detail: str = "",
-) -> None:
-    conn.execute(
-        "INSERT INTO audit_log (workspace_id, at, actor, action, delivery_id, detail) "
-        "VALUES (%s, %s, %s, %s, %s, %s)",
-        (ws, _now(), actor, action, delivery_id, detail),
-    )
-
-
 def _add_stock(conn: psycopg.Connection, delivery_id: int) -> None:
     """Add what actually arrived to stock. Lines with no base quantity add nothing."""
     conn.execute(
@@ -71,22 +57,45 @@ def create_delivery(
     conn: psycopg.Connection, ws: int, received_by: str, data: DeliveryIn
 ) -> Delivery:
     """Run the rules on every line. All pass: accepted and stocked. Any fail: wait for a manager."""
-    products = {p.id: p for p in catalogue.list_products(conn, ws)}
+    # Archived products cannot be received; their old deliveries still show them.
+    products = {p.id: p for p in catalogue.list_products(conn, ws, active_only=True)}
     for line in data.lines:
         if line.product_id is not None and line.product_id not in products:
-            raise InvalidRequestError(f"unknown product_id {line.product_id}")
-
-    checks = [rules.check_line(products.get(line.product_id), line) for line in data.lines]
-    failed = sum(1 for c in checks if not c.passed)
-    status = ACCEPTED if failed == 0 else PENDING
+            raise InvalidRequestError(f"product {line.product_id} is unknown or archived")
 
     with conn.transaction():
+        lines = list(data.lines)
+        po_issues: list[list[str]] = [[] for _ in lines]
+        supplier = data.supplier
+        if data.purchase_order_id is not None:
+            order = purchasing.outstanding_for_receiving(conn, ws, data.purchase_order_id)
+            supplier = supplier or order.supplier
+            outstanding = {line.product_id: line.outstanding_base_qty for line in order.lines}
+            for i, line in enumerate(lines):
+                left = outstanding.get(line.product_id) if line.product_id is not None else None
+                if left is None:
+                    po_issues[i].append(f"not on {order.reference}")
+                elif left == 0:
+                    po_issues[i].append(f"nothing left to receive for this product on {order.reference}")
+                else:
+                    # The order, not the person receiving, says how much is expected.
+                    lines[i] = line.model_copy(update={"expected_base_qty": left})
+
+        checks = []
+        for line, extra in zip(lines, po_issues):
+            check = rules.check_line(products.get(line.product_id), line)
+            if extra:
+                check = check.model_copy(update={"passed": False, "issues": [*check.issues, *extra]})
+            checks.append(check)
+        failed = sum(1 for c in checks if not c.passed)
+        status = ACCEPTED if failed == 0 else PENDING
+
         delivery_id = conn.execute(
-            "INSERT INTO deliveries (workspace_id, supplier, received_by, status, created_at) "
-            "VALUES (%s, %s, %s, %s, %s) RETURNING id",
-            (ws, data.supplier, received_by, status, _now()),
+            "INSERT INTO deliveries (workspace_id, supplier, received_by, status, created_at, "
+            "purchase_order_id) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+            (ws, supplier, received_by, status, _now(), data.purchase_order_id),
         ).fetchone()["id"]
-        for line, check in zip(data.lines, checks):
+        for line, check in zip(lines, checks):
             conn.execute(
                 "INSERT INTO delivery_lines (delivery_id, product_id, name, quantity, unit, temp_c, "
                 "expected_base_qty, received_base_qty, passed, issues) "
@@ -110,7 +119,7 @@ def create_delivery(
             received_by,
             "delivery.received",
             delivery_id,
-            f"{len(data.lines)} line(s), {failed} failed",
+            f"{len(lines)} line(s), {failed} failed",
         )
         if status == ACCEPTED:
             _add_stock(conn, delivery_id)
@@ -150,8 +159,14 @@ def _delivery(conn: psycopg.Connection, row: dict) -> Delivery:
     lines = conn.execute(
         "SELECT * FROM delivery_lines WHERE delivery_id = %s ORDER BY id", (row["id"],)
     ).fetchall()
+    number = None
+    if row.get("purchase_order_id"):
+        number = conn.execute(
+            "SELECT number FROM purchase_orders WHERE id = %s", (row["purchase_order_id"],)
+        ).fetchone()["number"]
     return Delivery(
         **row,
+        purchase_order=purchasing.reference(number) if number else None,
         lines=[DeliveryLine(**{**r, "issues": json.loads(r["issues"])}) for r in lines],
     )
 

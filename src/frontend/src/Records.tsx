@@ -44,6 +44,7 @@ export default function Records() {
           <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
             <span className="font-medium">
               #{d.id} {d.supplier || "Unknown supplier"}
+              {d.purchase_order && ` · ${d.purchase_order}`}
               <span className="ml-2 text-sm font-normal text-slate-600">{when(d.created_at)}</span>
             </span>
             <StatusBadge status={d.status} />
