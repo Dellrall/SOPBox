@@ -5,6 +5,7 @@ run = ["sh", "-c", "cd src/frontend && npm ci && npm run build && cd ../backend 
 
 [nix]
 channel = "stable-25_05"
+packages = ["libxcrypt", "postgresql"]
 
 [agent]
 expertMode = true
