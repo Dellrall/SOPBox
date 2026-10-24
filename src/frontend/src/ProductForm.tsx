@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "./api";
-import type { Category, PackUnit, Product } from "./types";
+import SopWriter from "./SopWriter";
+import type { Category, PackUnit, Product, ProductIn } from "./types";
 import { ErrorNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 const num = (text: string): number | null => (text.trim() === "" ? null : Number(text));
@@ -35,35 +36,42 @@ export default function ProductForm({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function save() {
+  /** The product as typed, checked; or what to fix. Saving and the SOP writer both use it. */
+  function checked(): Omit<ProductIn, "sop"> | string {
     const low = num(tempMin);
     const high = num(tempMax);
     const stockMin = Number(minStock);
-    if (!selectedCategory) return setError("Choose a category. Add one first if the list is empty.");
-    if ((low === null) !== (high === null)) return setError("Fill in both temperatures, or leave both empty.");
-    if ((low !== null && Number.isNaN(low)) || (high !== null && Number.isNaN(high)))
-      return setError("Temperatures must be numbers.");
-    if (!Number.isInteger(stockMin) || stockMin < 0) return setError("Minimum stock must be a whole number, 0 or more.");
+    if (!name.trim()) return "Enter the product name.";
+    if (!baseUnit.trim()) return "Enter the unit it is counted in.";
+    if (!selectedCategory) return "Choose a category. Add one first if the list is empty.";
+    if ((low === null) !== (high === null)) return "Fill in both temperatures, or leave both empty.";
+    if ((low !== null && Number.isNaN(low)) || (high !== null && Number.isNaN(high))) return "Temperatures must be numbers.";
+    if (!Number.isInteger(stockMin) || stockMin < 0) return "Minimum stock must be a whole number, 0 or more.";
     const packUnits: PackUnit[] = [];
     for (const p of packs) {
       if (!p.unit.trim() && !p.qty.trim()) continue; // a blank row the user added but did not fill
       const qty = Number(p.qty);
       if (!p.unit.trim() || !Number.isInteger(qty) || qty <= 0)
-        return setError("Each pack size needs a unit name and a whole number of base units above 0.");
+        return "Each pack size needs a unit name and a whole number of base units above 0.";
       packUnits.push({ unit: p.unit.trim(), base_qty: qty });
     }
-    setBusy(true);
-    setError("");
-    const body = {
+    return {
       name: name.trim(),
       category_id: Number(selectedCategory),
       base_unit: baseUnit.trim(),
       temp_min_c: low,
       temp_max_c: high,
       min_stock: stockMin,
-      sop: sop.trim(),
       pack_units: packUnits,
     };
+  }
+
+  async function save() {
+    const rules = checked();
+    if (typeof rules === "string") return setError(rules);
+    setBusy(true);
+    setError("");
+    const body = { ...rules, sop: sop.trim() };
     try {
       if (product) await api.updateProduct(product.id, body);
       else await api.createProduct(body);
@@ -149,7 +157,8 @@ export default function ProductForm({
         <label className={labelClass} htmlFor="p-sop">
           SOP (how to receive, store and handle it)
         </label>
-        <textarea id="p-sop" rows={4} maxLength={4000} className={inputClass} value={sop} onChange={(e) => setSop(e.target.value)} />
+        <textarea id="p-sop" rows={sop.split("\n").length > 4 ? 8 : 4} maxLength={4000} className={inputClass} value={sop} onChange={(e) => setSop(e.target.value)} />
+        <SopWriter rules={checked} onUse={setSop} />
       </div>
 
       <ErrorNote message={error} />
