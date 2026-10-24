@@ -3,6 +3,7 @@ import { Camera, ChevronDown, ClipboardCopy, Download, Search, Truck, X } from "
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
 import DeliveryPhotos from "./DeliveryPhotos";
+import { DeliveryTags } from "./Tags";
 import { CountCalendar, dayTitle, keyOf } from "./StocktakeHistory";
 import type { Delivery, DeliveryStatus } from "./types";
 import { Empty, ErrorNote, PageTitle, StatusBadge, STATUS_LABEL, inputClass, labelClass, panelClass, secondaryButton } from "./ui";
@@ -346,6 +347,7 @@ export default function Records() {
                                 </p>
                               )}
                               <DeliveryPhotos delivery={d} onChanged={replace} />
+                              <DeliveryTags delivery={d} onChanged={replace} />
                               <div className="flex flex-wrap items-center gap-2 pt-1">
                                 <button type="button" className={secondaryButton} onClick={() => void copyComplaint(d)}>
                                   <ClipboardCopy aria-hidden className="h-4 w-4" /> Copy complaint for supplier

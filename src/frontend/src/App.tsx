@@ -22,6 +22,7 @@ import Approvals from "./Approvals";
 import AuthPage from "./AuthPage";
 import Landing from "./Landing";
 import Dashboard from "./Dashboard";
+import { InboxBell, useInboxRefresh } from "./Inbox";
 import Products from "./Products";
 import PurchaseOrders from "./PurchaseOrders";
 import Receive from "./Receive";
@@ -31,7 +32,7 @@ import Stocktake from "./Stocktake";
 import Team from "./Team";
 import { MascotDock, type Scene } from "./Mascot";
 import { SdgFooter } from "./Sdg";
-import type { Me, Role, SectionKey } from "./types";
+import type { Me, Notification, Role, SectionKey } from "./types";
 import { ROLE_LABEL } from "./ui";
 
 export type PageId =
@@ -211,6 +212,15 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
     setMenuOpen(false);
   };
 
+  useInboxRefresh(page);
+  const canViewRecords = sectionAllowed(me, "records");
+  // A notification is always about a delivery: open the list where it can be seen.
+  const openNotification = (n: Notification) => {
+    if (n.kind === "approval_needed" && canViewApprovals) go("approvals");
+    else if (canViewRecords) go("records");
+    else if (canViewApprovals) go("approvals");
+  };
+
   async function signOut() {
     await api.logout().catch(() => undefined);
     onSignedOut();
@@ -241,14 +251,17 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
         </button>
         <img src="/logo-128.webp" alt="" className="h-8 w-8 rounded-lg object-cover" />
         <span className="font-bold text-brand-950">SOPBox</span>
-        {pending > 0 && (
-          <button
-            onClick={() => go("approvals")}
-            className="ml-auto rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 ring-1 ring-amber-600/20"
-          >
-            {pending} waiting
-          </button>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {pending > 0 && (
+            <button
+              onClick={() => go("approvals")}
+              className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 ring-1 ring-amber-600/20"
+            >
+              {pending} waiting
+            </button>
+          )}
+          <InboxBell onOpen={openNotification} />
+        </div>
       </header>
 
       {menuOpen && <div className="fixed inset-0 z-30 bg-brand-950/50 backdrop-blur-sm lg:hidden" onClick={() => setMenuOpen(false)} {...swipe} />}
@@ -265,6 +278,10 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
           <div className="leading-tight">
             <span className="block text-lg font-bold">SOPBox</span>
             <span className="text-xs text-white/60">Receiving checks</span>
+          </div>
+          {/* On phones the bell is in the top bar instead. */}
+          <div className="ml-auto hidden lg:block">
+            <InboxBell onOpen={openNotification} tone="dark" />
           </div>
           <button aria-label="Close the menu" onClick={() => setMenuOpen(false)} className="ml-auto rounded-lg p-1.5 hover:bg-white/10 lg:hidden">
             <X aria-hidden className="h-5 w-5" />
@@ -332,8 +349,9 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
             go={go}
             canStartReceive={sectionAllowed(me, "receive")}
             canEditProducts={sectionAllowed(me, "products", true)}
-            canViewRecords={sectionAllowed(me, "records")}
+            canViewRecords={canViewRecords}
             canViewApprovals={canViewApprovals}
+            onOpenNotification={openNotification}
             canViewPurchasing={sectionAllowed(me, "purchasing")}
           />
         )}

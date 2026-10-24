@@ -176,6 +176,8 @@ export type DeliveryIn = {
   lines: DeliveryLineIn[];
   /** JPEG base64 of the stock as it arrived, with what the photo shows. Up to 4. */
   photos?: { data: string; caption: string }[];
+  /** Teammates to tag; each one is told in their inbox. */
+  tagged_user_ids?: number[];
 };
 
 export type PhotoComment = { id: number; author: string; body: string; created_at: string };
@@ -203,7 +205,10 @@ export type Delivery = {
   purchase_order: string | null; // e.g. PO-0007
   lines: DeliveryLine[];
   photos: DeliveryPhoto[];
+  tags: DeliveryTag[];
 };
+
+export type DeliveryTag = { user_id: number; username: string; display_name: string; tagged_by: string; created_at: string };
 
 // accept_passed: stock the lines that passed, send the failed ones back.
 /** A supplier that Draft from low stock would order from, and the low-stock products it would get. */
@@ -221,6 +226,8 @@ export type AuditEntry = {
   action: string;
   delivery_id: number | null;
   detail: string;
+  /** The account behind the action; null for "system" and entries from before accounts were logged. */
+  actor_id: number | null;
 };
 
 export type StocktakeLineIn = {
@@ -348,4 +355,35 @@ export type PurchaseOrderIn = {
   expected_date: string | null;
   notes: string;
   lines: { product_id: number; quantity: number; unit: string }[];
+};
+
+// ---- teammates, inbox and accountability --------------------------------------------------------
+
+export type TeamMember = { id: number; username: string; display_name: string; role: Role };
+
+export type NotificationKind = "tagged" | "approval_needed" | "decided" | "comment";
+export type Notification = {
+  id: number;
+  kind: NotificationKind;
+  delivery_id: number | null;
+  actor: string;
+  body: string;
+  created_at: string;
+  read: boolean;
+};
+export type Inbox = { unread: number; items: Notification[] };
+
+export type Accountability = {
+  user_id: number;
+  username: string;
+  display_name: string;
+  role: Role;
+  active: boolean;
+  received: number;
+  decided: number;
+  stock_counts: number;
+  purchase_orders: number;
+  comments: number;
+  tagged: number;
+  last_active: string | null;
 };

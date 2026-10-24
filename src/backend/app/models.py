@@ -246,6 +246,8 @@ class DeliveryIn(_In):
     purchase_order_id: int | None = None
     lines: list[DeliveryLineIn] = Field(min_length=1, max_length=100)
     photos: list["PhotoIn"] = Field(default_factory=list, max_length=4)
+    # Teammates to tag on the delivery; each gets an inbox notification.
+    tagged_user_ids: list[int] = Field(default_factory=list, max_length=20)
 
 
 class PhotoIn(_In):
@@ -267,7 +269,20 @@ class PhotoIn(_In):
 
 
 class PhotoCommentIn(_In):
+    # "@username" in the body tags that teammate on the delivery.
     body: str = Field(min_length=1, max_length=1000)
+
+
+class TagsIn(_In):
+    user_ids: list[int] = Field(min_length=1, max_length=20)
+
+
+class DeliveryTag(BaseModel):
+    user_id: int
+    username: str
+    display_name: str
+    tagged_by: str
+    created_at: str
 
 
 class PhotoComment(BaseModel):
@@ -316,6 +331,7 @@ class Delivery(BaseModel):
     purchase_order: str | None = None  # its reference, e.g. PO-0007
     lines: list[DeliveryLine]
     photos: list[DeliveryPhoto] = []
+    tags: list[DeliveryTag] = []
 
 
 class DecisionIn(_In):
@@ -337,6 +353,7 @@ class AuditEntry(BaseModel):
     action: str
     delivery_id: int | None
     detail: str
+    actor_id: int | None = None  # the account; None for "system" and older entries
 
 
 # ---- accounts ---------------------------------------------------------------------------------
@@ -738,3 +755,54 @@ class PurchaseOrder(BaseModel):
     cancelled_at: str | None
     lines: list[PurchaseOrderLine]
     delivery_ids: list[int]
+
+
+# ---- teammates, tags and the inbox --------------------------------------------------------------
+
+
+class TeamMember(BaseModel):
+    """An active teammate, for tagging and for filtering the activity log. Any signed-in user may see these."""
+
+    id: int
+    username: str
+    display_name: str
+    role: Role
+
+
+NotificationKind = Literal["tagged", "approval_needed", "decided", "comment"]
+
+
+class Notification(BaseModel):
+    id: int
+    kind: NotificationKind
+    delivery_id: int | None
+    actor: str
+    body: str
+    created_at: str
+    read: bool
+
+
+class Inbox(BaseModel):
+    unread: int
+    items: list[Notification]
+
+
+class NotificationsReadIn(_In):
+    ids: list[int] | None = Field(default=None, max_length=200)  # None marks everything read
+
+
+class Accountability(BaseModel):
+    """What one person has done, counted from the audit log by account."""
+
+    user_id: int
+    username: str
+    display_name: str
+    role: Role
+    active: bool
+    received: int
+    decided: int
+    stock_counts: int
+    purchase_orders: int
+    comments: int
+    tagged: int  # deliveries they are tagged on
+    last_active: str | None

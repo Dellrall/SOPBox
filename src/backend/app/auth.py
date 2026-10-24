@@ -18,7 +18,7 @@ import psycopg
 from fastapi import Depends, Request, Response
 
 from app.config import get_settings
-from app.db import get_db, scope_to_workspace
+from app.db import get_db, scope_to_user, scope_to_workspace
 from app.errors import AuthError, ForbiddenError, RateLimitError
 
 COOKIE = "sopbox_session"
@@ -175,6 +175,7 @@ def current_user(request: Request, conn: Conn) -> CurrentUser:
     if user is None:
         raise AuthError("sign in to continue")
     scope_to_workspace(conn, user.workspace_id)
+    scope_to_user(conn, user.id)
     return user
 
 

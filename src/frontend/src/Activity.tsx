@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import {
+  AtSign,
   Ban,
   CheckCircle2,
   ClipboardList,
+  MessageSquare,
   Pencil,
   Send,
   Settings,
@@ -15,8 +17,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { api } from "./api";
+import { useTeam } from "./Tags";
 import type { AuditEntry } from "./types";
-import { Empty, ErrorNote, PageTitle, panelClass } from "./ui";
+import { Empty, ErrorNote, PageTitle, inputClass, labelClass, panelClass } from "./ui";
 
 type Group = "deliveries" | "orders" | "stock" | "team";
 
@@ -26,6 +29,9 @@ const ACTIONS: Record<string, { label: string; group: Group; icon: LucideIcon; t
   "delivery.accepted": { label: "Delivery accepted", group: "deliveries", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" },
   "delivery.rejected": { label: "Delivery rejected", group: "deliveries", icon: XCircle, tone: "bg-red-50 text-red-700" },
   "delivery.returned": { label: "Delivery returned", group: "deliveries", icon: Undo2, tone: "bg-amber-50 text-amber-700" },
+  "delivery.photo_comment": { label: "Commented on a photo", group: "deliveries", icon: MessageSquare, tone: "bg-slate-100 text-slate-600" },
+  "delivery.tagged": { label: "Teammate tagged", group: "deliveries", icon: AtSign, tone: "bg-brand-50 text-brand-700" },
+  "delivery.untagged": { label: "Tag removed", group: "deliveries", icon: AtSign, tone: "bg-slate-100 text-slate-600" },
   "po.created": { label: "Order drafted", group: "orders", icon: ShoppingCart, tone: "bg-brand-50 text-brand-700" },
   "po.updated": { label: "Order edited", group: "orders", icon: Pencil, tone: "bg-slate-100 text-slate-600" },
   "po.issued": { label: "Order issued", group: "orders", icon: Send, tone: "bg-brand-50 text-brand-700" },
@@ -76,14 +82,22 @@ function fold(rows: AuditEntry[]): { entry: AuditEntry; times: number }[] {
 export default function Activity() {
   const [rows, setRows] = useState<AuditEntry[] | null>(null);
   const [filter, setFilter] = useState<Group | "all">("all");
+  // One person's actions, by account (so a name change does not split their record).
+  const [person, setPerson] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");
+  const team = useTeam();
 
   useEffect(() => {
+    let live = true;
+    setRows(null);
     api
-      .audit(200)
-      .then(setRows)
-      .catch((e: Error) => setError(e.message));
-  }, []);
+      .audit(200, person)
+      .then((r) => live && setRows(r))
+      .catch((e: Error) => live && setError(e.message));
+    return () => {
+      live = false;
+    };
+  }, [person]);
 
   const shown = fold((rows ?? []).filter((a) => filter === "all" || describe(a).group === filter));
   const days: { key: string; label: string; items: typeof shown }[] = [];
@@ -97,6 +111,25 @@ export default function Activity() {
     <div className="space-y-5">
       <PageTitle title="Activity log" subtitle="Every reading, decision, stock count and account change, newest first." />
       <ErrorNote message={error} />
+
+      <div className="max-w-xs">
+        <label className={labelClass} htmlFor="activity-person">
+          Person
+        </label>
+        <select
+          id="activity-person"
+          className={`${inputClass} py-2 text-sm`}
+          value={person ?? ""}
+          onChange={(e) => setPerson(e.target.value ? Number(e.target.value) : undefined)}
+        >
+          <option value="">Everyone</option>
+          {team.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.display_name} (@{m.username})
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div role="group" aria-label="Show" className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
@@ -113,7 +146,7 @@ export default function Activity() {
         ))}
       </div>
 
-      {rows && shown.length === 0 && <Empty>{rows.length === 0 ? "No activity yet." : "Nothing of this kind yet."}</Empty>}
+      {rows && shown.length === 0 && <Empty>{rows.length === 0 ? (person ? "No activity by this person yet." : "No activity yet.") : "Nothing of this kind yet."}</Empty>}
 
       {days.map((d) => (
         <section key={d.key} className="space-y-2">
