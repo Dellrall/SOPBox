@@ -12,6 +12,9 @@ class Settings:
     runpod_api_key: str
     # One bot for the whole app. Each workspace sets its own chat ids in Settings.
     telegram_bot_token: str
+    # "Continue with Google" appears only when both are set (Google Cloud console, OAuth client).
+    google_client_id: str
+    google_client_secret: str
 
 
 def get_settings() -> Settings:
@@ -23,4 +26,6 @@ def get_settings() -> Settings:
         runpod_endpoint_id=env("RUNPOD_ENDPOINT_ID", ""),
         runpod_api_key=env("RUNPOD_API_KEY", ""),
         telegram_bot_token=env("TELEGRAM_BOT_TOKEN", ""),
+        google_client_id=env("GOOGLE_CLIENT_ID", ""),
+        google_client_secret=env("GOOGLE_CLIENT_SECRET", ""),
     )

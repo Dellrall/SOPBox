@@ -39,5 +39,5 @@ def test_a_forged_host_cannot_inject_markup(anon, tmp_path, monkeypatch):
 def test_sign_in_and_register_addresses_serve_the_app(anon, tmp_path, monkeypatch):
     (tmp_path / "index.html").write_text("app")
     monkeypatch.setattr(main, "FRONTEND_DIST", tmp_path)
-    for path in ("/signin", "/register"):
+    for path in ("/signin", "/register", "/settings"):
         assert anon.get(path).text == "app"

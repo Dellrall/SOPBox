@@ -35,6 +35,8 @@ export const DEFAULT_STAFF_ACCESS: SectionAccess = {
   stocktake: "view",
 };
 
+export type SignIn = { id: number; at: string; method: string; device: string };
+
 export type Me = {
   id: number;
   username: string;
@@ -43,6 +45,8 @@ export type Me = {
   role: Role;
   section_access: SectionAccess;
   workspace: { id: number; name: string };
+  /** The sign-in before this session's, so a person notices one they did not make. */
+  previous_sign_in: SignIn | null;
 };
 
 export type UserOut = {
@@ -361,7 +365,7 @@ export type PurchaseOrderIn = {
 
 export type TeamMember = { id: number; username: string; display_name: string; role: Role };
 
-export type NotificationKind = "tagged" | "approval_needed" | "decided" | "comment";
+export type NotificationKind = "tagged" | "approval_needed" | "decided" | "comment" | "sign_in";
 export type Notification = {
   id: number;
   kind: NotificationKind;
@@ -386,4 +390,21 @@ export type Accountability = {
   comments: number;
   tagged: number;
   last_active: string | null;
+  last_sign_in: string | null;
 };
+
+// ---- other ways to sign in ----------------------------------------------------------------------
+
+export type SignInMethods = { google: boolean; telegram_bot_id: string | null };
+export type Passkey = { id: number; name: string; created_at: string; last_used_at: string | null };
+export type Security = {
+  google_linked: boolean;
+  telegram_linked: boolean;
+  pin_set: boolean;
+  passkeys: Passkey[];
+  recent_sign_ins: SignIn[];
+};
+export type KitchenDevice = { id: number; name: string; created_by: string; created_at: string; last_used_at: string | null; this_device: boolean };
+export type KitchenScreen = { device_name: string; workspace_name: string; people: { id: number; display_name: string }[] };
+/** What Telegram's login page hands back: the person's id, profile fields and Telegram's hash. */
+export type TelegramAuth = { id: number; auth_date: number; hash: string; [field: string]: string | number };

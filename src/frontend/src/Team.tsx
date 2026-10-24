@@ -305,7 +305,7 @@ function AccountabilityTable() {
       <ErrorNote message={error} />
       {rows && (
         <div className={`${cardClass} overflow-x-auto`}>
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-muted">
               <tr>
                 <th scope="col" className="px-4 py-2.5">Person</th>
@@ -313,6 +313,7 @@ function AccountabilityTable() {
                   <th key={c.key} scope="col" className="px-3 py-2.5 text-right">{c.label}</th>
                 ))}
                 <th scope="col" className="px-4 py-2.5 text-right">Last active</th>
+                <th scope="col" className="px-4 py-2.5 text-right">Last sign-in</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -329,6 +330,9 @@ function AccountabilityTable() {
                   ))}
                   <td className="px-4 py-2.5 text-right text-xs text-muted">
                     {r.last_active ? new Date(r.last_active).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "Never"}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-xs text-muted">
+                    {r.last_sign_in ? new Date(r.last_sign_in).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Never"}
                   </td>
                 </tr>
               ))}

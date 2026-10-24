@@ -8,18 +8,23 @@ leak does not hand out working sessions.
 import base64
 import hashlib
 import hmac
+import re
 import secrets
 import threading
 import time
 from dataclasses import dataclass
-from typing import Annotated
+from datetime import datetime, timezone
+from typing import Annotated, Any
 
 import psycopg
 from fastapi import Depends, Request, Response
+from psycopg.types.json import Jsonb
 
+from app import inbox
 from app.config import get_settings
 from app.db import get_db, scope_to_user, scope_to_workspace
 from app.errors import AuthError, ForbiddenError, RateLimitError
+from app.models import SignIn
 
 COOKIE = "sopbox_session"
 SESSION_DAYS = 7
@@ -99,23 +104,132 @@ def token_digest(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def start_session(conn: psycopg.Connection, response: Response, user_id: int) -> None:
+# How a person signed in, as shown to them.
+METHOD_LABEL = {
+    "password": "password",
+    "register": "creating the workspace",
+    "passkey": "a passkey",
+    "google": "Google",
+    "telegram": "Telegram",
+    "kitchen_pin": "kitchen tablet PIN",
+}
+
+
+def describe_device(user_agent: str) -> str:
+    """A rough "Chrome on Android" from the User-Agent, enough for a person to recognise it."""
+    ua = user_agent or ""
+    system = next(
+        (name for pattern, name in (
+            (r"iPhone", "iPhone"), (r"iPad", "iPad"), (r"Android", "Android"), (r"Windows", "Windows"),
+            (r"Mac OS X|Macintosh", "Mac"), (r"CrOS", "Chromebook"), (r"Linux", "Linux"),
+        ) if re.search(pattern, ua)),
+        "an unknown device",
+    )
+    browser = next(
+        (name for pattern, name in (
+            (r"Edg/", "Edge"), (r"SamsungBrowser", "Samsung Internet"), (r"OPR/|Opera", "Opera"),
+            (r"Firefox/|FxiOS", "Firefox"), (r"Chrome/|CriOS", "Chrome"), (r"Safari/", "Safari"),
+        ) if re.search(pattern, ua)),
+        "a browser",
+    )
+    return f"{browser} on {system}"
+
+
+def _record_sign_in(conn: psycopg.Connection, request: Request, user_id: int, method: str) -> int:
+    """Log the sign-in. A method and device this person has not used before goes to their inbox,
+    so a sign-in they did not make stands out."""
+    device = describe_device(request.headers.get("user-agent", ""))
+    seen = conn.execute(
+        "SELECT 1 FROM sign_ins WHERE user_id = %s AND method = %s AND device = %s LIMIT 1",
+        (user_id, method, device),
+    ).fetchone()
+    first_ever = conn.execute("SELECT 1 FROM sign_ins WHERE user_id = %s LIMIT 1", (user_id,)).fetchone() is None
+    sign_in_id = conn.execute(
+        "INSERT INTO sign_ins (user_id, at, method, device) VALUES (%s, %s, %s, %s) RETURNING id",
+        (user_id, datetime.now(timezone.utc).isoformat(timespec="seconds"), method, device),
+    ).fetchone()["id"]
+    if not seen and not first_ever:
+        ws = conn.execute("SELECT workspace_id FROM users WHERE id = %s", (user_id,)).fetchone()["workspace_id"]
+        # Signing in runs before any workspace is set; this person is now proven, so use theirs.
+        scope_to_workspace(conn, ws)
+        inbox.notify(
+            conn, ws, [user_id], "sign_in", None, "SOPBox",
+            f"New sign-in with {METHOD_LABEL.get(method, method)} on {device}. "
+            "If this wasn't you, change your password in Settings.",
+        )
+    return sign_in_id
+
+
+def start_session(
+    conn: psycopg.Connection, request: Request, response: Response, user_id: int, method: str, *, days: float = SESSION_DAYS
+) -> None:
+    """Every way of signing in ends here: one session cookie, one logged sign-in."""
     token = secrets.token_urlsafe(32)
     conn.execute("DELETE FROM sessions WHERE expires_at < now()")
+    sign_in_id = _record_sign_in(conn, request, user_id, method)
     conn.execute(
-        "INSERT INTO sessions (token_hash, user_id, expires_at) "
-        "VALUES (%s, %s, now() + make_interval(days => %s))",
-        (token_digest(token), user_id, SESSION_DAYS),
+        "INSERT INTO sessions (token_hash, user_id, expires_at, sign_in_id) "
+        "VALUES (%s, %s, now() + make_interval(secs => %s), %s)",
+        (token_digest(token), user_id, days * 86400, sign_in_id),
     )
     response.set_cookie(
         COOKIE,
         token,
-        max_age=SESSION_DAYS * 86400,
+        max_age=int(days * 86400),
         httponly=True,
         samesite="lax",
         secure=get_settings().cookie_secure,
         path="/",
     )
+
+
+def previous_sign_in(conn: psycopg.Connection, user_id: int, current: int | None) -> SignIn | None:
+    """The sign-in before this session's (or before the newest, when the session is not known)."""
+    row = conn.execute(
+        "SELECT id, at, method, device FROM sign_ins WHERE user_id = %s "
+        "AND id < COALESCE(%s, (SELECT max(id) FROM sign_ins WHERE user_id = %s)) ORDER BY id DESC LIMIT 1",
+        (user_id, current, user_id),
+    ).fetchone()
+    return SignIn(**row) if row else None
+
+
+# ---- two-step sign-ins ------------------------------------------------------------------------
+# A passkey challenge or a Google redirect spans two requests. The browser keeps a random token in
+# a short-lived cookie; the database keeps its hash with the step's data. Taking a flow deletes it,
+# so each one works once.
+
+FLOW_COOKIE = "sopbox_flow"
+FLOW_MINUTES = 10
+
+
+def start_flow(
+    conn: psycopg.Connection, response: Response, kind: str, data: dict[str, Any], user_id: int | None = None
+) -> None:
+    token = secrets.token_urlsafe(32)
+    conn.execute("DELETE FROM auth_flows WHERE expires_at < now()")
+    conn.execute(
+        "INSERT INTO auth_flows (token_hash, kind, user_id, data, expires_at) "
+        "VALUES (%s, %s, %s, %s, now() + make_interval(mins => %s))",
+        (token_digest(token), kind, user_id, Jsonb(data), FLOW_MINUTES),
+    )
+    response.set_cookie(
+        FLOW_COOKIE, token, max_age=FLOW_MINUTES * 60, httponly=True, samesite="lax",
+        secure=get_settings().cookie_secure, path="/api/auth",
+    )
+
+
+def take_flow(conn: psycopg.Connection, request: Request, response: Response, kind: str) -> dict[str, Any]:
+    """The flow this browser started, as {"user_id", **data}. Raises if it is missing, expired or another kind."""
+    token = request.cookies.get(FLOW_COOKIE)
+    response.delete_cookie(FLOW_COOKIE, path="/api/auth")
+    row = conn.execute(
+        "DELETE FROM auth_flows WHERE token_hash = %s AND kind = %s AND expires_at > now() "
+        "RETURNING user_id, data",
+        (token_digest(token or ""), kind),
+    ).fetchone() if token else None
+    if row is None:
+        raise AuthError("this sign-in took too long or was started elsewhere; please try again")
+    return {"user_id": row["user_id"], **row["data"]}
 
 
 def end_session(conn: psycopg.Connection, request: Request, response: Response) -> None:
@@ -135,12 +249,13 @@ class CurrentUser:
     display_name: str
     role: Role
     section_access: dict[str, str]
+    sign_in_id: int | None = None  # the sign-in that started this session
 
 
 def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
     row = conn.execute(
         "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, "
-        "u.role, u.section_access "
+        "u.role, u.section_access, s.sign_in_id "
         "FROM sessions s JOIN users u ON u.id = s.user_id JOIN workspaces w ON w.id = u.workspace_id "
         "WHERE s.token_hash = %s AND s.expires_at > now() AND u.active",
         (token_digest(token),),
@@ -174,9 +289,14 @@ def current_user(request: Request, conn: Conn) -> CurrentUser:
     user = _user_for_token(conn, token) if token else None
     if user is None:
         raise AuthError("sign in to continue")
+    act_as(conn, user)
+    return user
+
+
+def act_as(conn: psycopg.Connection, user: CurrentUser) -> None:
+    """Point the connection at this proven user's workspace, and log their actions as theirs."""
     scope_to_workspace(conn, user.workspace_id)
     scope_to_user(conn, user.id)
-    return user
 
 
 User = Annotated[CurrentUser, Depends(current_user)]

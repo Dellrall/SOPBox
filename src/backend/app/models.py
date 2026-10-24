@@ -2,7 +2,7 @@ import base64
 import re
 import unicodedata
 from datetime import date
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -557,6 +557,13 @@ class WorkspaceRef(BaseModel):
     name: str
 
 
+class SignIn(BaseModel):
+    id: int
+    at: str
+    method: str  # password, register, passkey, google, telegram or kitchen_pin
+    device: str  # e.g. "Chrome on Android"
+
+
 class Me(BaseModel):
     id: int
     username: str
@@ -565,6 +572,8 @@ class Me(BaseModel):
     role: Role
     section_access: SectionAccess
     workspace: WorkspaceRef
+    # The sign-in before this session's, so a person notices one they did not make.
+    previous_sign_in: SignIn | None = None
 
 
 class ProfileUpdateIn(_In):
@@ -769,7 +778,7 @@ class TeamMember(BaseModel):
     role: Role
 
 
-NotificationKind = Literal["tagged", "approval_needed", "decided", "comment"]
+NotificationKind = Literal["tagged", "approval_needed", "decided", "comment", "sign_in"]
 
 
 class Notification(BaseModel):
@@ -806,3 +815,82 @@ class Accountability(BaseModel):
     comments: int
     tagged: int  # deliveries they are tagged on
     last_active: str | None
+    last_sign_in: str | None = None
+
+
+# ---- other ways to sign in --------------------------------------------------------------------
+
+
+class SignInMethods(BaseModel):
+    """Which buttons the sign-in page shows. Passkeys always work; the others need setting up."""
+
+    google: bool
+    telegram_bot_id: str | None  # the public part of the bot token, for Telegram's login page
+
+
+class PasskeyOut(BaseModel):
+    id: int
+    name: str
+    created_at: str
+    last_used_at: str | None
+
+
+class PasskeyRegisterIn(_In):
+    credential: dict[str, Any]  # the browser's answer, passed through to the WebAuthn check
+    name: str = Field(default="Passkey", min_length=1, max_length=60)
+
+
+class PasskeyLoginIn(BaseModel):
+    credential: dict[str, Any]
+
+
+class TelegramAuthIn(BaseModel):
+    """What Telegram's login page returns: the person's id, profile and a hash over all of it."""
+
+    model_config = ConfigDict(extra="allow")
+    id: int
+    auth_date: int
+    hash: str = Field(max_length=128)
+
+
+class PinIn(_In):
+    pin: str | None = Field(default=None, pattern=r"^\d{4,8}$")  # None removes it
+
+
+class KitchenDeviceIn(_In):
+    name: str = Field(default="Kitchen tablet", min_length=1, max_length=60)
+
+
+class KitchenDeviceOut(BaseModel):
+    id: int
+    name: str
+    created_by: str
+    created_at: str
+    last_used_at: str | None
+    this_device: bool = False
+
+
+class KitchenPerson(BaseModel):
+    id: int
+    display_name: str
+
+
+class KitchenScreen(BaseModel):
+    device_name: str
+    workspace_name: str
+    people: list[KitchenPerson]
+
+
+class KitchenLoginIn(_In):
+    user_id: int
+    pin: str = Field(min_length=4, max_length=8)
+
+
+class SecurityOut(BaseModel):
+    """A person's own sign-in methods and recent sign-ins, for Settings."""
+
+    google_linked: bool
+    telegram_linked: bool
+    pin_set: bool
+    passkeys: list[PasskeyOut]
+    recent_sign_ins: list[SignIn]

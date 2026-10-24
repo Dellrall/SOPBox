@@ -8,12 +8,13 @@ from typing import Annotated, Literal
 import psycopg
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Query, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app import accounts, auth, catalogue, deliveries, inbox, purchasing
+from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso
 from app import stocktakes
+from app.auditlog import audit as audit_entry
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
 from app.db import close_pool, get_db, init_db
 from app.errors import (
@@ -28,6 +29,17 @@ from app.errors import (
 from app.extraction import extract_lines, extract_products, write_sop
 from app.models import (
     Accountability,
+    KitchenDeviceIn,
+    KitchenDeviceOut,
+    KitchenLoginIn,
+    KitchenScreen,
+    PasskeyLoginIn,
+    PasskeyOut,
+    PasskeyRegisterIn,
+    PinIn,
+    SecurityOut,
+    SignInMethods,
+    TelegramAuthIn,
     ArchiveIn,
     Inbox,
     NotificationsReadIn,
@@ -230,8 +242,9 @@ def health() -> dict[str, str]:
 # ---- sign in, sign up -------------------------------------------------------------------------
 
 
-def _me(user: CurrentUser) -> Me:
+def _me(conn: psycopg.Connection, user: CurrentUser) -> Me:
     return Me(
+        previous_sign_in=auth.previous_sign_in(conn, user.id, user.sign_in_id),
         id=user.id,
         username=user.username,
         email=user.email,
@@ -247,15 +260,20 @@ def register(body: RegisterIn, request: Request, response: Response, conn: Conn)
     """Create a workspace. Whoever does this becomes its owner, with every permission."""
     auth.check_register_allowed(request.client.host if request.client else "unknown")
     user_id = accounts.register_workspace(conn, body)
-    auth.start_session(conn, response, user_id)
-    return _me(auth.get_me(conn, user_id))
+    return _signed_in(conn, request, response, user_id, "register")
+
+
+def _signed_in(
+    conn: psycopg.Connection, request: Request, response: Response, user_id: int, method: str, **session
+) -> Me:
+    auth.start_session(conn, request, response, user_id, method, **session)
+    return _me(conn, auth.get_me(conn, user_id))
 
 
 @app.post("/api/auth/login", response_model=Me)
-def login(body: LoginIn, response: Response, conn: Conn):
+def login(body: LoginIn, request: Request, response: Response, conn: Conn):
     user_id = accounts.authenticate(conn, body.username, body.password)
-    auth.start_session(conn, response, user_id)
-    return _me(auth.get_me(conn, user_id))
+    return _signed_in(conn, request, response, user_id, "password")
 
 
 @app.post("/api/auth/logout", status_code=204)
@@ -264,21 +282,21 @@ def logout(request: Request, response: Response, conn: Conn) -> None:
 
 
 @app.get("/api/auth/me", response_model=Me)
-def me(user: User):
-    return _me(user)
+def me(user: User, conn: Conn):
+    return _me(conn, user)
 
 
 @app.get("/api/auth/session", response_model=Me | None)
 def session(request: Request, conn: Conn):
     """Who is signed in, or null. Unlike /me, a signed-out visitor is not an error."""
     user = auth.optional_user(request, conn)
-    return _me(user) if user else None
+    return _me(conn, user) if user else None
 
 
 @app.patch("/api/auth/me", response_model=Me)
 def update_me(body: ProfileUpdateIn, user: User, conn: Conn):
     accounts.update_profile(conn, user, body)
-    return _me(auth.get_me(conn, user.id))
+    return _me(conn, auth.get_me(conn, user.id))
 
 
 @app.post("/api/auth/password", status_code=204)
@@ -286,6 +304,158 @@ def change_password(body: PasswordChangeIn, request: Request, user: User, conn: 
     accounts.change_own_password(
         conn, user, body.current_password, body.new_password, request.cookies.get(auth.COOKIE)
     )
+
+
+# ---- other ways to sign in: passkeys, Google, Telegram, kitchen tablet PIN -------------------
+
+
+def _security_event(conn: psycopg.Connection, user: CurrentUser, detail: str) -> None:
+    """Changes to how someone signs in go in the activity log."""
+    audit_entry(conn, user.workspace_id, user.display_name, "user.sign_in_method", None, detail)
+
+
+@app.get("/api/auth/methods", response_model=SignInMethods)
+def sign_in_methods():
+    return SignInMethods(google=sso.google_enabled(), telegram_bot_id=sso.telegram_bot_id())
+
+
+@app.get("/api/auth/security", response_model=SecurityOut)
+def my_security(user: User, conn: Conn):
+    row = conn.execute(
+        "SELECT google_sub IS NOT NULL AS google_linked, telegram_id IS NOT NULL AS telegram_linked, "
+        "pin_hash IS NOT NULL AS pin_set FROM users WHERE id = %s",
+        (user.id,),
+    ).fetchone()
+    recent = conn.execute(
+        "SELECT id, at, method, device FROM sign_ins WHERE user_id = %s ORDER BY id DESC LIMIT 10", (user.id,)
+    ).fetchall()
+    return SecurityOut(**row, passkeys=passkeys.list_passkeys(conn, user.id), recent_sign_ins=recent)
+
+
+@app.post("/api/auth/passkeys/register-options")
+def passkey_register_options(request: Request, response: Response, user: User, conn: Conn) -> dict:
+    return passkeys.registration_options(conn, request, response, user)
+
+
+@app.post("/api/auth/passkeys", response_model=PasskeyOut, status_code=201)
+def add_passkey(body: PasskeyRegisterIn, request: Request, response: Response, user: User, conn: Conn):
+    added = passkeys.register(conn, request, response, user, body.credential, body.name)
+    _security_event(conn, user, f"added passkey {added.name}")
+    return added
+
+
+@app.delete("/api/auth/passkeys/{passkey_id}", status_code=204)
+def remove_passkey(passkey_id: int, user: User, conn: Conn) -> None:
+    passkeys.remove(conn, user.id, passkey_id)
+    _security_event(conn, user, "removed a passkey")
+
+
+@app.post("/api/auth/passkeys/login-options")
+def passkey_login_options(request: Request, response: Response, conn: Conn) -> dict:
+    return passkeys.login_options(conn, request, response)
+
+
+@app.post("/api/auth/passkeys/login", response_model=Me)
+def passkey_login(body: PasskeyLoginIn, request: Request, response: Response, conn: Conn):
+    user_id = passkeys.login(conn, request, response, body.credential)
+    return _signed_in(conn, request, response, user_id, "passkey")
+
+
+@app.get("/api/auth/google/start")
+def google_start(request: Request, conn: Conn, mode: Literal["login", "link"] = "login"):
+    """Send the browser to Google. Connecting ("link") needs the person to be signed in already."""
+    back = "/settings" if mode == "link" else "/signin"
+    user = auth.optional_user(request, conn)
+    if not sso.google_enabled() or (mode == "link" and user is None):
+        return RedirectResponse(f"{back}?auth_error=unavailable", status_code=303)
+    redirect = RedirectResponse("", status_code=303)
+    redirect.headers["location"] = sso.google_start(conn, request, redirect, mode, user)
+    return redirect
+
+
+@app.get("/api/auth/google/callback")
+def google_callback(request: Request, conn: Conn, code: str = "", state: str = ""):
+    """Google sends the browser back here. Errors go back to the page as a short code, never as text."""
+    redirect = RedirectResponse("/", status_code=303)
+    try:
+        flow = auth.take_flow(conn, request, redirect, "google")
+    except AuthError:
+        redirect.headers["location"] = "/signin?auth_error=google_expired"
+        return redirect
+    back = "/settings" if flow["mode"] == "link" else "/signin"
+    if not code:  # the person pressed Cancel at Google
+        redirect.headers["location"] = f"{back}?auth_error=google_cancelled"
+        return redirect
+    try:
+        mode, user_id = sso.google_finish(conn, request, flow, code, state)
+    except (ConflictError, AuthError) as err:
+        reason = "taken" if isinstance(err, ConflictError) else "not_linked" if isinstance(err, sso.NotLinkedError) else "failed"
+        redirect.headers["location"] = f"{back}?auth_error=google_{reason}"
+        return redirect
+    if mode == "link":
+        # A redirect from Google, not a normal signed-in request: act as the person who started it.
+        user = auth.get_me(conn, user_id)
+        auth.act_as(conn, user)
+        _security_event(conn, user, "connected Google")
+        redirect.headers["location"] = "/settings?linked=google"
+    else:
+        auth.start_session(conn, request, redirect, user_id, "google")
+    return redirect
+
+
+@app.post("/api/auth/telegram/login", response_model=Me)
+def telegram_login(body: TelegramAuthIn, request: Request, response: Response, conn: Conn):
+    user_id = sso.telegram_login(conn, body.model_dump())
+    return _signed_in(conn, request, response, user_id, "telegram")
+
+
+@app.post("/api/auth/telegram/link", status_code=204)
+def telegram_link(body: TelegramAuthIn, user: User, conn: Conn) -> None:
+    sso.telegram_link(conn, user, body.model_dump())
+    _security_event(conn, user, "connected Telegram")
+
+
+@app.delete("/api/auth/{provider}", status_code=204)
+def unlink_provider(provider: Literal["google", "telegram"], user: User, conn: Conn) -> None:
+    sso.unlink(conn, user, provider)
+    _security_event(conn, user, f"disconnected {provider.title()}")
+
+
+@app.put("/api/auth/pin", status_code=204)
+def set_pin(body: PinIn, user: User, conn: Conn) -> None:
+    kitchen.set_pin(conn, user, body.pin)
+    _security_event(conn, user, "set a kitchen PIN" if body.pin else "removed their kitchen PIN")
+
+
+@app.get("/api/auth/kitchen", response_model=KitchenScreen | None)
+def kitchen_screen(request: Request, conn: Conn):
+    """On a kitchen tablet: who can sign in with a PIN. Null on any other browser."""
+    return kitchen.screen(conn, request)
+
+
+@app.post("/api/auth/kitchen/login", response_model=Me)
+def kitchen_login(body: KitchenLoginIn, request: Request, response: Response, conn: Conn):
+    user_id = kitchen.login(conn, request, body.user_id, body.pin)
+    return _signed_in(conn, request, response, user_id, "kitchen_pin", days=kitchen.SESSION_DAYS)
+
+
+@app.get("/api/kitchen-devices", response_model=list[KitchenDeviceOut])
+def list_kitchen_devices(request: Request, user: ManagerUp, conn: Conn):
+    return kitchen.list_devices(conn, request, user.workspace_id)
+
+
+@app.post("/api/kitchen-devices", response_model=KitchenDeviceOut, status_code=201)
+def add_kitchen_device(body: KitchenDeviceIn, response: Response, user: ManagerUp, conn: Conn):
+    """Mark this browser as a kitchen tablet for the workspace."""
+    device = kitchen.register_device(conn, response, user, body.name)
+    _security_event(conn, user, f"made {device.name} a kitchen tablet")
+    return device
+
+
+@app.delete("/api/kitchen-devices/{device_id}", status_code=204)
+def remove_kitchen_device(device_id: int, user: ManagerUp, conn: Conn) -> None:
+    kitchen.remove_device(conn, user.workspace_id, device_id)
+    _security_event(conn, user, "removed a kitchen tablet")
 
 
 # ---- owner: people and workspace settings -----------------------------------------------------
@@ -704,6 +874,7 @@ def _origin(request: Request) -> str:
 @app.get("/index.html", include_in_schema=False)
 @app.get("/signin", include_in_schema=False)
 @app.get("/register", include_in_schema=False)
+@app.get("/settings", include_in_schema=False)  # where connecting Google or Telegram comes back to
 def index(request: Request):
     """The app's single page, with absolute URLs filled in for link previews and the canonical link."""
     page = FRONTEND_DIST / "index.html"

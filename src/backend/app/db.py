@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires_at TIMESTAMPTZ NOT NULL
 );
+-- The sign-in that started the session (sign_ins is created further down, so no reference here).
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS sign_in_id BIGINT;
 CREATE TABLE IF NOT EXISTS categories (
     id {_ID},
     workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -219,6 +221,58 @@ CREATE TABLE IF NOT EXISTS notifications (
     read_at TEXT
 );
 CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, id DESC);
+-- New sign-ins from an unfamiliar device or method are announced in the inbox too.
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_kind_check;
+ALTER TABLE notifications ADD CONSTRAINT notifications_kind_check
+    CHECK (kind IN ('tagged', 'approval_needed', 'decided', 'comment', 'sign_in'));
+-- Other ways to sign in. Google and Telegram are linked by the person, from Settings, while
+-- signed in: an email typed into SOPBox is never trusted to prove who owns a Google account.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_key ON users (google_sub) WHERE google_sub IS NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_id BIGINT;
+CREATE UNIQUE INDEX IF NOT EXISTS users_telegram_id_key ON users (telegram_id) WHERE telegram_id IS NOT NULL;
+-- A short number for the kitchen tablet, hashed like a password.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_hash TEXT;
+CREATE TABLE IF NOT EXISTS passkeys (
+    id {_ID},
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    credential_id BYTEA NOT NULL UNIQUE,
+    public_key BYTEA NOT NULL,
+    sign_count BIGINT NOT NULL DEFAULT 0,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    last_used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS passkeys_user_idx ON passkeys (user_id);
+-- One step of a sign-in that spans two requests (a passkey challenge, a Google redirect). The
+-- browser holds a random token in a cookie; this row holds its hash. Used once, then deleted.
+CREATE TABLE IF NOT EXISTS auth_flows (
+    token_hash TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    data JSONB NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+-- Shared kitchen tablets: a manager marks a browser, then anyone with a PIN signs in by tapping
+-- their name. The browser holds a random token; this holds its hash.
+CREATE TABLE IF NOT EXISTS kitchen_devices (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    last_used_at TEXT
+);
+-- Every sign-in, so people can see their last one and owners can see who is still using the app.
+CREATE TABLE IF NOT EXISTS sign_ins (
+    id {_ID},
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    at TEXT NOT NULL,
+    method TEXT NOT NULL,
+    device TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sign_ins_user_idx ON sign_ins (user_id, id DESC);
 CREATE INDEX IF NOT EXISTS stocktakes_workspace_idx ON stocktakes (workspace_id, count_date DESC, id DESC);
 CREATE INDEX IF NOT EXISTS stocktake_lines_take_idx ON stocktake_lines (stocktake_id, id);
 """
