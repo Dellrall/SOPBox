@@ -57,7 +57,7 @@ Replit is mandatory for the challenge. The deployed filesystem is not persistent
 **Accounts and settings you need**
 
 1. **Replit account on a plan that includes Deployments.** Check the current plan and credit rules on replit.com/pricing. Deployments are billed from your plan's credits.
-2. **GitHub access for Replit.** Create a Repl by importing `Dellrall/SDCIdea26` from GitHub. Pick the branch you want to deploy. A private repository needs you to grant Replit access.
+2. **GitHub access for Replit.** Create a Repl by importing `Dellrall/SOPBox` from GitHub. Pick the branch you want to deploy. A private repository needs you to grant Replit access.
 3. **A Replit PostgreSQL database.** In the Repl, open Tools, then Database, and create a PostgreSQL database. Replit sets `DATABASE_URL`. Confirm the deployment has it too (Deployments, Secrets).
 4. **Secrets** (Tools, Secrets, and again on the deployment):
 
