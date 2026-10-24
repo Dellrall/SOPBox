@@ -37,14 +37,19 @@ def body(ids, **overrides):
 def test_the_writer_drafts_and_the_checker_flags(client, catalogue_ids, monkeypatch):
     ask, prompts = replies(
         '{"steps": ["1. Probe the core temperature.", "Reject the box if thawed or wet.", "Store at -25 C."]}',
-        '{"issues": [{"step": 3, "problem": "-25 C is not in the notes or the category range."}]}',
+        '{"checks": [{"step": 1, "ok": true, "problem": null}, {"step": 2, "ok": true},'
+        ' {"step": 3, "ok": false, "problem": "-25 C is not in the notes or the category range."}],'
+        ' "missing": ["check expiry"]}',
     )
     monkeypatch.setattr(extraction, "_ask_model", ask)
     resp = client.post("/api/products/sop-draft", json=body(catalogue_ids))
     assert resp.status_code == 200, resp.text
     assert resp.json() == {
         "sop": "1. Probe the core temperature.\n2. Reject the box if thawed or wet.\n3. Store at -25 C.",
-        "issues": [{"step": 3, "problem": "-25 C is not in the notes or the category range."}],
+        "issues": [
+            {"step": 3, "problem": "-25 C is not in the notes or the category range."},
+            {"step": None, "problem": "Not covered: check expiry"},
+        ],
         "checked": True,
     }
     # The writer got the product's real rules: the category range, since the product has none.
@@ -73,12 +78,20 @@ def test_a_writer_reply_without_steps_is_a_502(client, catalogue_ids, monkeypatc
 def test_steps_are_capped_and_issue_numbers_kept_in_range(monkeypatch):
     ask, _ = replies(
         '{"steps": [' + ", ".join(f'"Step {i}: do thing {i}."' for i in range(1, 15)) + "]}",
-        '{"issues": [{"step": 40, "problem": "No such step."}]}',
+        '{"checks": [{"step": 40, "ok": false, "problem": "No such step."}], "missing": []}',
     )
     monkeypatch.setattr(extraction, "_ask_model", ask)
     draft = extraction.write_sop({"name": "X"}, "notes")
     assert draft.sop.splitlines()[0] == "1. do thing 1." and len(draft.sop.splitlines()) == extraction.MAX_SOP_STEPS
     assert draft.issues[0].step is None
+
+
+@pytest.mark.parametrize("reply", ['{"issues": []}', '{"checks": "fine"}', "Looks good."])
+def test_a_checker_reply_in_the_wrong_shape_leaves_the_draft_unchecked(monkeypatch, reply):
+    ask, _ = replies('{"steps": ["Check the expiry date."]}', reply)
+    monkeypatch.setattr(extraction, "_ask_model", ask)
+    draft = extraction.write_sop({"name": "X"}, "notes")
+    assert draft.checked is False and draft.issues == []
 
 
 @pytest.mark.parametrize("change", [{"notes": ""}, {"notes": "x" * 2001}, {"temp_min_c": -20}])
