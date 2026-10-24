@@ -2,12 +2,36 @@
   <img src="src/frontend/public/SOPBox_Logo.jpeg" alt="SOPBox logo: a delivery box with vegetables and a fish" width="180">
 </p>
 
-# SOPBox
+<h1 align="center">📦 SOPBox</h1>
 
-> A phone app for small food and beverage outlets that checks every supplier delivery at the back door: AI reads the delivery order, rules decide pass or fail, and a manager approves every exception.
+<p align="center"><b>AI reads. Rules decide. Humans approve.</b></p>
+
+<p align="center">
+  <a href="https://github.com/Dellrall/SOPBox/actions/workflows/backend-tests.yml"><img src="https://github.com/Dellrall/SOPBox/actions/workflows/backend-tests.yml/badge.svg" alt="Backend tests"></a>
+  <a href="https://github.com/Dellrall/SOPBox/actions/workflows/ui-tests.yml"><img src="https://github.com/Dellrall/SOPBox/actions/workflows/ui-tests.yml/badge.svg" alt="Phone UI tests"></a>
+  <a href="https://sopbox.replit.app"><img src="https://img.shields.io/badge/live%20demo-sopbox.replit.app-2E7D32?logo=replit&logoColor=white" alt="Live demo"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white" alt="Python 3.11 | 3.12">
+  <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/React%2018-20232A?logo=react&logoColor=61DAFB" alt="React 18">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Tailwind%20v4-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind CSS v4">
+  <img src="https://img.shields.io/badge/PostgreSQL-Row%20Level%20Security-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL with Row Level Security">
+  <br>
+  <img src="https://img.shields.io/badge/RunPod-serverless%20GPU-673AB7" alt="RunPod serverless GPU">
+  <img src="https://img.shields.io/badge/vLLM-Qwen3--VL--8B%20FP8-FF6F00" alt="vLLM serving Qwen3-VL-8B FP8">
+  <img src="https://img.shields.io/badge/Telegram-Bot%20API-26A5E4?logo=telegram&logoColor=white" alt="Telegram Bot API">
+  <img src="https://img.shields.io/badge/tests-305%20pytest%20%C2%B7%2028%20Playwright-success" alt="305 pytest and 28 Playwright tests">
+  <img src="https://img.shields.io/badge/SDG-12.3%20%C2%B7%208-E5243B" alt="SDG 12.3 and 8">
+</p>
+
+> **SOPBox** is a phone-first receiving-control platform for small food and beverage outlets. A vision-language model on a serverless GPU reads every supplier delivery order, a deterministic rules engine decides pass or fail, and a human-in-the-loop approval flow puts a manager in charge of every exception, with a full audit trail and multi-tenant isolation enforced down to the database.
 
 ---
-## Team Information
+## 👥 Team Information
 
 | Field                  | Details                                     |
 | ---------------------- | ------------------------------------------- |
@@ -18,7 +42,7 @@
 | **University**         | Tunku Abdul Rahman University of Management and Technology                                       |
 | **Number of Members**  | 5                                           |
 
-## Links
+## 🔗 Links
 
 | Resource          | Link                                           |
 | ----------------- | ---------------------------------------------- |
@@ -29,17 +53,17 @@
 | Demo Video        | _TBC_                                          |
 ---
 
-## Overview
+## 🧭 Overview
 
-### Problem
+### 🔥 Problem
 
 Small F&B outlets lose stock and money when deliveries arrive. Frozen and chilled goods are accepted outside their safe temperature, pack quantities are miscounted (250 pcs per bundle, 12 packets per box) so stock and orders drift apart, and new staff don't know the receiving steps. Nothing is recorded, so the same mistakes repeat and spoiled food is thrown away later.
 
-### Solution
+### 💡 Solution
 
 SOPBox turns receiving into one guided check on a phone. Staff photograph the delivery order and an open-weight vision model on a RunPod GPU reads every line; anything unclear is flagged, never guessed. Staff confirm the lines and enter the probe temperature. Rules in code (not the AI) check temperature, pack conversion and the quantity still due on the purchase order. Any failed line holds the delivery until a manager accepts, rejects or returns it, and every step is logged. **AI reads. Rules decide. Humans approve.**
 
-### Key Features
+### ✨ Key Features
 
 - **Receiving check** — take or choose a photo of the delivery order; the AI fills in the lines for staff to confirm, with probe temperatures, stock photos and teammate tagging.
 - **Rules and approvals** — failed lines hold the delivery for a manager, who is notified in the app inbox and on Telegram.
@@ -50,7 +74,7 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 - **Easy sign-in** — password, passkey, Google, Telegram, or a PIN on a shared kitchen tablet.
 - **Built for phones** — every page is tested at 320px and 360px wide.
 
-### Tech Stack
+### 🛠️ Tech Stack
 
 | Layer         | Technology                   |
 | ------------- | ---------------------------- |
@@ -63,7 +87,7 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 
 ---
 
-## Project Structure
+## 🗂️ Project Structure
 
 ```
 .
@@ -81,30 +105,44 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 │       └── e2e/             # Playwright phone UI tests
 ├── submission/              # Required submission documents (PDFs)
 ├── tests/                   # pytest suite
-├── .github/workflows/       # Phone UI tests on every pull request
+├── .github/workflows/       # Backend and phone UI tests on every pull request
 ├── .replit                  # Replit run and deploy configuration
 ├── LICENSE
 └── README.md
 ```
 
-### Architecture
+### 🏗️ Architecture
 
+```mermaid
+flowchart LR
+  subgraph Client["📱 Phone / tablet"]
+    UI["React 18 + TypeScript<br/>Tailwind v4 · Vite"]
+  end
+  subgraph Replit["🟠 Replit Deployment (Autoscale)"]
+    API["FastAPI<br/>REST API + SPA"]
+    RULES["⚖️ Rules engine<br/>temperature · pack units · PO balance"]
+    DB[("🐘 PostgreSQL<br/>Row Level Security")]
+  end
+  subgraph RunPod["🟣 RunPod Serverless (scale to zero)"]
+    VLLM["vLLM worker"]
+    VLM["🧠 Qwen3-VL-8B FP8"]
+  end
+  TG["✈️ Telegram Bot API<br/>alerts · team group"]
+
+  UI -->|HTTPS, gzip| API
+  API --> RULES
+  API --> DB
+  API -->|photo + prompt| VLLM
+  VLLM --> VLM
+  VLLM -->|JSON reply, untrusted| API
+  API -->|alerts, join approvals| TG
 ```
-Phone / tablet (React)
-        │ HTTPS
-        ▼
-Replit: FastAPI app ──► PostgreSQL (Row Level Security)
-        │      │
-        │      └──► Telegram Bot API (alerts, team group)
-        ▼
-RunPod Serverless endpoint (vLLM + Qwen3-VL-8B, scales to zero)
-        │
-        └──► Reply text ──► validated, then confirmed by staff ──► rules decide
-```
+
+The model's reply is treated as untrusted input: parsed, validated, and confirmed line by line by staff before anything is saved. The pass/fail verdict comes from the rules engine, never from the model.
 
 ---
 
-## How to Run
+## 🚀 How to Run
 
 ### Option 1 — Run on Replit (Recommended)
 
@@ -146,10 +184,10 @@ uvicorn app.main:app --port 8000
 cd src/frontend && npm install && npm run dev
 ```
 
-### Run Tests
+### 🧪 Run Tests
 
 ```bash
-python -m pytest                       # 305 backend tests, from the repository root
+python -m pytest                       # 305 backend tests, from the repository root (runs in CI)
 
 cd src/frontend && npm ci && npx playwright install chromium
 npm run test:ui                        # 28 phone UI tests (320px and 360px screens)
@@ -157,7 +195,7 @@ npm run test:ui                        # 28 phone UI tests (320px and 360px scre
 
 ---
 
-## How We Use Replit *(Required)*
+## 🟠 How We Use Replit *(Required)*
 
 - **Development:** the team imports this GitHub repository into a shared Repl and runs it with **Run**.
 - **Hosting:** the app is published with **Replit Deployments (Autoscale)** at https://sopbox.replit.app. One FastAPI process serves the built React app and the API.
@@ -166,7 +204,7 @@ npm run test:ui                        # 28 phone UI tests (320px and 360px scre
 
 📄 Proof of use: [`submission/SDC2026_Hack into Google, No Mistake_Replit_POU.pdf`](submission/SDC2026_Hack%20into%20Google%2C%20No%20Mistake_Replit_POU.pdf)
 
-## How We Use RunPod *(Required)*
+## 🟣 How We Use RunPod *(Required)*
 
 - **Workload:** all AI runs on a RunPod GPU: reading delivery-order photos, reading supplier sheets, and writing and checking SOPs.
 - **Setup:** a **RunPod Serverless endpoint** (`sriet0cftztbik`) runs RunPod's official vLLM worker with **Qwen3-VL-8B-Instruct (FP8)** on a 24 GB GPU. It scales to zero, so it costs nothing when idle. Settings are in [`runpod/README.md`](runpod/README.md).
@@ -187,7 +225,7 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 
 ---
 
-## Challenges & Learnings
+## 🧗 Challenges & Learnings
 
 - **AI that guesses is dangerous.** Delivery orders have crossed-out, smudged and handwritten quantities, and a wrong guess means wrong stock. We ask the model to leave unclear values blank and flag them, keep the pass/fail decision in code, and have staff confirm every line.
 - **A small model as a checker.** An open "list the problems" prompt for the SOP checker invented problems and sometimes ran on forever. Asking for a yes/no verdict on each step fixed it.
@@ -196,7 +234,7 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 - **Publishing safely.** Replit's Publish once proposed dropping production tables because the development database was behind. We learned to update development first and never accept a `DROP`.
 - **Phones first.** Automated phone-size tests caught layout bugs (pages scrolling sideways, the inbox opening behind the page) that desktop testing missed.
 
-## Future Improvements
+## 🔭 Future Improvements
 
 - [ ] Light LoRA fine-tune on synthetic delivery orders, swapped in behind the same endpoint name
 - [ ] Barcode scanning to pick products
@@ -204,7 +242,7 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 - [ ] Chat assistant that answers SOP questions
 - [ ] Demand forecasting, POS integration and multi-outlet support
 
-## Team
+## 🤝 Team
 
 | Name        | Role                | GitHub                                   |
 | ----------- | ------------------- | ---------------------------------------- |
@@ -214,7 +252,7 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 | Puteri A'ina Auji Farzana | AI / RunPod|https://github.com/TheTN-G|
 | Siow Wei Yik|Design & QA|https://github.com/Weiyik88|
 
-### Third-party code, models and assets
+### 📚 Third-party code, models and assets
 
 - **Open source:** FastAPI, Uvicorn, Pydantic, httpx, psycopg, openpyxl, py_webauthn, React, Vite, TypeScript, Tailwind CSS, Lucide icons, SimpleWebAuthn, Plus Jakarta Sans (Fontsource), pytest, Playwright, vLLM (RunPod worker-v1-vllm).
 - **Pre-trained model:** Qwen3-VL-8B-Instruct by the Qwen team (Apache 2.0), used as released.
@@ -222,7 +260,7 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 
 ---
 
-## Submission Checklist
+## ✅ Submission Checklist
 
 - [x] Team name, domain (Domain 1 / Domain 2) and SDG track filled in
 - [x] Slide deck link added
@@ -235,6 +273,6 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 - [x] "How to Run" steps verified
 - [x] No API keys or secrets committed to the repository
 
-## License
+## 📄 License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
