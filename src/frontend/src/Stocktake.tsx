@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, FileUp, X } from "lucide-react";
+import { ChevronDown, Download, FileUp, X } from "lucide-react";
 import { api } from "./api";
 import StocktakeHistory from "./StocktakeHistory";
 import { useMascot } from "./Mascot";
@@ -102,6 +102,8 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  // Categories folded away so a long catalogue stays readable. A search shows every match.
+  const [folded, setFolded] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -329,6 +331,17 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
             </label>
           </div>
 
+          {sections.length > 1 && !search.trim() && (
+            <div className="flex flex-wrap justify-end gap-3 text-sm font-semibold text-brand-700">
+              <button type="button" className="hover:underline" onClick={() => setFolded(new Set(sections.map((x) => x.category)))}>
+                Collapse all
+              </button>
+              <button type="button" className="hover:underline" onClick={() => setFolded(new Set())}>
+                Expand all
+              </button>
+            </div>
+          )}
+
           {/* Phones get one card per product; wider screens line the same cells up as columns. */}
           <div className="overflow-hidden rounded-xl border border-line">
             <div className="hidden grid-cols-[minmax(0,1fr)_11rem_9rem_10rem] gap-3 bg-surface px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted md:grid">
@@ -337,9 +350,35 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
               <span>Loose</span>
               <span>In hand</span>
             </div>
-            {sections.map((section) => (
+            {sections.map((section) => {
+              const open = Boolean(search.trim()) || !folded.has(section.category);
+              const done = section.items.filter((p) => totalOf(p, counts[p.id]) !== null).length;
+              return (
               <section key={section.category} aria-label={section.category}>
-                <h3 className="bg-brand-700 px-3 py-1.5 text-center text-sm font-semibold text-white">{section.category}</h3>
+                <h3>
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() =>
+                      setFolded((f) => {
+                        const next = new Set(f);
+                        if (next.has(section.category)) next.delete(section.category);
+                        else next.add(section.category);
+                        return next;
+                      })
+                    }
+                    className="flex w-full items-center justify-between gap-2 border-t border-brand-800 bg-brand-700 px-3 py-2 text-left text-sm font-semibold text-white hover:bg-brand-800"
+                  >
+                    <span className="flex items-center gap-2">
+                      <ChevronDown aria-hidden className={`h-4 w-4 transition ${open ? "" : "-rotate-90"}`} />
+                      {section.category}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${done === section.items.length ? "bg-white text-brand-800" : "bg-white/15"}`}>
+                      {done}/{section.items.length} counted
+                    </span>
+                  </button>
+                </h3>
+                {open && (
                 <ul className="divide-y divide-line bg-white">
                   {section.items.map((product) => {
                     const count = counts[product.id];
@@ -389,8 +428,10 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
                     );
                   })}
                 </ul>
+                )}
               </section>
-            ))}
+              );
+            })}
             {visibleProducts.length === 0 && <p className="px-3 py-5 text-center text-muted">No products match this search.</p>}
           </div>
 
