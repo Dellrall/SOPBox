@@ -1,4 +1,5 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { MessageCircle, X } from "lucide-react";
 
 /**
  * The cabbage, carrot and fish from the logo, keeping the user company: whichever page is open
@@ -8,7 +9,8 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react
  */
 
 export type Who = "cabbage" | "carrot" | "fish" | "crew";
-export type Action = "wave" | "read" | "probe" | "carry" | "count" | "write" | "cheer" | "worry" | "sleep";
+/** "type", "pet" and "sad" are the dock's own reactions (typing, being clicked, an error on screen); pages use the rest. */
+export type Action = "wave" | "read" | "probe" | "carry" | "count" | "write" | "cheer" | "worry" | "sleep" | "type" | "pet" | "sad";
 export type Scene = { who: Who; action: Action; text?: string; progress?: number };
 
 let current: Scene | null = null;
@@ -17,6 +19,24 @@ const publish = (scene: Scene | null) => {
   current = scene;
   listeners.forEach((l) => l());
 };
+
+// Error messages on screen right now, newest last; while any is shown the helper is sad.
+let errors: { id: number; text: string }[] = [];
+let nextError = 0;
+const publishErrors = (next: typeof errors) => {
+  errors = next;
+  listeners.forEach((l) => l());
+};
+
+/** Make the helper sad while this error message is on screen (empty = no error). */
+export function useMascotSad(message: string) {
+  useEffect(() => {
+    if (!message) return;
+    const id = ++nextError;
+    publishErrors([...errors, { id, text: message }]);
+    return () => publishErrors(errors.filter((e) => e.id !== id));
+  }, [message]);
+}
 
 /** Show this scene while the calling component is on screen. */
 export function useMascot(scene: Scene | null) {
@@ -39,7 +59,7 @@ function Face({ x, y, action }: { x: number; y: number; action: Action }) {
         <path d={`M${x - 3} ${y + 9} h6`} />
       </g>
     );
-  const happy = action === "cheer" || action === "wave";
+  const happy = action === "cheer" || action === "wave" || action === "type" || action === "pet";
   return (
     <g>
       {happy ? (
@@ -50,7 +70,13 @@ function Face({ x, y, action }: { x: number; y: number; action: Action }) {
           <circle cx={x + 6} cy={y} r={2.6} fill={INK} />
         </>
       )}
-      {action === "worry" ? (
+      {action === "sad" ? (
+        <>
+          <path d={`M${x - 5} ${y + 11} q5 -5 10 0`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" fill="none" />
+          <path className="mascot-tear" d={`M${x - 7} ${y + 4} q-2.5 4 0 6 q2.5 -2 0 -6z`} fill="#7cc6f0" stroke={INK} strokeWidth={1} />
+          <path d={`M${x - 11} ${y - 6} l5 2 M${x + 11} ${y - 6} l-5 2`} stroke={INK} strokeWidth={2} strokeLinecap="round" />
+        </>
+      ) : action === "worry" ? (
         <>
           <path d={`M${x - 5} ${y + 11} q5 -4 10 0`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" fill="none" />
           <path d={`M${x + 14} ${y - 8} q-3 5 0 7 q3 -2 0 -7z`} fill="#7cc6f0" stroke={INK} strokeWidth={1.2} />
@@ -112,6 +138,13 @@ function Prop({ action, hx, hy }: { action: Action; hx: number; hy: number }) {
           <path d={`M${hx - 84} ${hy - 40} l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2z`} />
         </g>
       );
+    case "pet": // hearts
+      return (
+        <g className="mascot-zz" fill="#f472b6" stroke={INK} strokeWidth={1.2}>
+          <path d={`M${hx - 10} ${hy - 44} c-4 -6 -12 -2 -8 4 l8 7 l8 -7 c4 -6 -4 -10 -8 -4z`} />
+          <path d={`M${hx - 76} ${hy - 50} c-3 -4 -8 -1 -5 3 l5 5 l5 -5 c3 -4 -2 -7 -5 -3z`} />
+        </g>
+      );
     case "sleep":
       return (
         <text x={hx + 2} y={hy - 18} className="mascot-zz" fontSize={13} fontWeight={800} fill={INK}>
@@ -124,8 +157,19 @@ function Prop({ action, hx, hy }: { action: Action; hx: number; hy: number }) {
 }
 
 /** Arms: raised for cheer and wave, otherwise reaching to the prop. */
-function Arms({ lx, rx, y, action }: { lx: number; rx: number; y: number; action: Action }) {
+function Arms({ lx, rx, y, action, paw }: { lx: number; rx: number; y: number; action: Action; paw: number }) {
   const s = { stroke: INK, strokeWidth: 3, strokeLinecap: "round" as const, fill: "none" };
+  if (action === "type")
+    // Bongo-cat style: one paw slaps the desk per keystroke, alternating.
+    return (
+      <>
+        <rect x={lx - 14} y={y + 14} width={rx - lx + 28} height={7} rx={3.5} fill="#cbd5e1" stroke={INK} strokeWidth={2.5} />
+        {/* The raised paw lifts above the shoulder; the other one is down on the desk. */}
+        <path d={`M${lx} ${y} L${lx - 7} ${paw ? y - 9 : y + 11} M${rx} ${y} L${rx + 7} ${paw ? y + 11 : y - 9}`} {...s} />
+        <circle cx={lx - 7} cy={paw ? y - 9 : y + 11} r={4.5} fill="#fff" stroke={INK} strokeWidth={2.5} />
+        <circle cx={rx + 7} cy={paw ? y + 11 : y - 9} r={4.5} fill="#fff" stroke={INK} strokeWidth={2.5} />
+      </>
+    );
   if (action === "cheer") return <path d={`M${lx} ${y} l-9 -12 M${rx} ${y} l9 -12`} {...s} />;
   if (action === "wave")
     return (
@@ -134,11 +178,11 @@ function Arms({ lx, rx, y, action }: { lx: number; rx: number; y: number; action
         <path className="mascot-wave" style={{ transformOrigin: `${rx}px ${y}px` }} d={`M${rx} ${y} l9 -11`} {...s} />
       </>
     );
-  if (action === "sleep" || action === "worry") return <path d={`M${lx} ${y} l-6 9 M${rx} ${y} l6 9`} {...s} />;
+  if (action === "sleep" || action === "worry" || action === "sad") return <path d={`M${lx} ${y} l-6 9 M${rx} ${y} l6 9`} {...s} />;
   return <path d={`M${lx} ${y} l-6 9 M${rx} ${y} l8 2`} {...s} />;
 }
 
-function Cabbage({ action }: { action: Action }) {
+function Cabbage({ action, paw }: { action: Action; paw: number }) {
   return (
     <g>
       <path
@@ -150,13 +194,13 @@ function Cabbage({ action }: { action: Action }) {
       />
       <path d="M50 92 C50 75 50 60 54 42 M50 78 C42 72 34 70 28 72 M51 66 C58 60 66 58 72 60" stroke="#f0f7e8" strokeWidth={3} strokeLinecap="round" fill="none" />
       <Face x={49} y={58} action={action} />
-      <Arms lx={20} rx={82} y={72} action={action} />
+      <Arms lx={20} rx={82} y={72} action={action} paw={paw} />
       <Prop action={action} hx={88} hy={76} />
     </g>
   );
 }
 
-function Carrot({ action }: { action: Action }) {
+function Carrot({ action, paw }: { action: Action; paw: number }) {
   return (
     <g>
       <path d="M44 30 C40 18 42 10 47 8 M52 30 C54 16 60 10 64 12 M48 30 C46 22 50 14 56 18" stroke={INK} strokeWidth={9} strokeLinecap="round" fill="none" />
@@ -164,20 +208,20 @@ function Carrot({ action }: { action: Action }) {
       <path d="M30 40 C30 30 68 28 70 40 C70 60 58 86 50 104 C46 106 44 104 42 98 C34 78 30 58 30 40 Z" fill="#f98f1d" stroke={INK} strokeWidth={3.5} strokeLinejoin="round" />
       <path d="M36 70 h7 M55 80 h6 M40 88 h5" stroke={INK} strokeWidth={2.5} strokeLinecap="round" />
       <Face x={50} y={48} action={action} />
-      <Arms lx={32} rx={68} y={62} action={action} />
+      <Arms lx={32} rx={68} y={62} action={action} paw={paw} />
       <Prop action={action} hx={74} hy={66} />
     </g>
   );
 }
 
-function Fish({ action }: { action: Action }) {
+function Fish({ action, paw }: { action: Action; paw: number }) {
   return (
     <g>
       <path d="M78 66 L96 50 L94 84 Z" fill="#cfdcd5" stroke={INK} strokeWidth={3.5} strokeLinejoin="round" />
       <path d="M12 66 C18 40 44 34 62 42 C72 46 78 56 80 66 C78 76 72 86 62 90 C44 98 18 92 12 66 Z" fill="#f2f6f3" stroke={INK} strokeWidth={3.5} strokeLinejoin="round" />
       <path d="M44 58 C50 62 50 72 44 78" stroke="#b8c9bf" strokeWidth={3} strokeLinecap="round" fill="none" />
       <Face x={28} y={62} action={action} />
-      <Arms lx={34} rx={56} y={86} action={action} />
+      <Arms lx={34} rx={56} y={86} action={action} paw={paw} />
       <Prop action={action} hx={60} hy={94} />
     </g>
   );
@@ -194,10 +238,13 @@ const MOTION: Record<Action, string> = {
   cheer: "mascot-hop",
   worry: "mascot-shiver",
   sleep: "mascot-breathe",
+  type: "",
+  pet: "mascot-squish",
+  sad: "mascot-droop",
 };
 
 /** One character, or the whole crew side by side. No frame: it stands on the page. */
-export function MascotFigure({ who, action, size = 72 }: { who: Who; action: Action; size?: number }) {
+export function MascotFigure({ who, action, size = 72, paw = 0 }: { who: Who; action: Action; size?: number; paw?: number }) {
   const cast: Exclude<Who, "crew">[] = who === "crew" ? ["cabbage", "carrot", "fish"] : [who];
   return (
     <span style={{ display: "inline-flex", alignItems: "flex-end" }} aria-hidden>
@@ -214,7 +261,7 @@ export function MascotFigure({ who, action, size = 72 }: { who: Who; action: Act
             style={{ animationDelay: `${i * 0.15}s`, marginLeft: i ? -size * 0.12 : 0 }}
             overflow="visible"
           >
-            <Body action={action} />
+            <Body action={action} paw={paw} />
           </svg>
         );
       })}
@@ -230,7 +277,12 @@ function readTucked() {
   }
 }
 
-/** The corner dock: the current scene with a speech bubble and, when known, a progress bar. */
+const PET_LINES = ["Hehe, that tickles!", "Purr… thank you!", "More please!", "You're the best boss!", "Aww ♥"];
+
+/**
+ * The corner dock: the current scene with a speech bubble and, when known, a progress bar.
+ * Typing anywhere makes the helper drum along like Bongo Cat; clicking it pets it.
+ */
 export function MascotDock({ fallback }: { fallback: Scene }) {
   const scene = useSyncExternalStore(
     (l) => {
@@ -239,26 +291,77 @@ export function MascotDock({ fallback }: { fallback: Scene }) {
     },
     () => current,
   ) ?? fallback;
+  const error = useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => errors[errors.length - 1]?.text ?? "",
+  );
   const [tucked, setTucked] = useState(readTucked);
-  const toggle = () =>
-    setTucked((t) => {
-      try {
-        localStorage.setItem("sopbox-mascot-tucked", t ? "0" : "1");
-      } catch {
-        /* the choice just won't be remembered */
-      }
-      return !t;
+  const [paw, setPaw] = useState(0);
+  const [typing, setTyping] = useState(false);
+  const [petLine, setPetLine] = useState("");
+  const typingTimer = useRef(0);
+  const petTimer = useRef(0);
+
+  useEffect(() => {
+    // `input` fires for every edit in any field, including phone keyboards that send no key codes.
+    const onInput = () => {
+      setPaw((p) => 1 - p);
+      setTyping(true);
+      clearTimeout(typingTimer.current);
+      typingTimer.current = window.setTimeout(() => setTyping(false), 700);
+    };
+    document.addEventListener("input", onInput, true);
+    return () => {
+      document.removeEventListener("input", onInput, true);
+      clearTimeout(typingTimer.current);
+      clearTimeout(petTimer.current);
+    };
+  }, []);
+
+  const pet = () => {
+    setPetLine((last) => {
+      const others = PET_LINES.filter((l) => l !== last);
+      return others[Math.floor(Math.random() * others.length)];
     });
+    clearTimeout(petTimer.current);
+    petTimer.current = window.setTimeout(() => setPetLine(""), 1600);
+  };
+  const setTuck = (t: boolean) => {
+    setTucked(t);
+    try {
+      localStorage.setItem("sopbox-mascot-tucked", t ? "1" : "0");
+    } catch {
+      /* the choice just won't be remembered */
+    }
+  };
+
+  // Petting and typing cheer it up for a moment; otherwise an error on screen makes it sad.
+  const action: Action = petLine ? "pet" : typing ? "type" : error ? "sad" : scene.action;
+  const text = petLine || (tucked ? "" : error ? `Oh no… ${error}` : scene.text);
 
   let bubble: ReactNode = null;
-  if (scene.text && !tucked)
+  if (text)
     bubble = (
-      <div className="mascot-pop mb-10 max-w-52 rounded-2xl rounded-br-sm bg-white px-3 py-2 text-xs font-medium text-ink shadow-lg ring-1 ring-line sm:max-w-60 sm:text-sm">
-        <p aria-live="polite">{scene.text}</p>
-        {scene.progress !== undefined && (
+      <div className="mascot-pop pointer-events-auto relative mb-10 max-w-52 rounded-2xl rounded-br-sm bg-white py-2 pl-3 pr-7 text-xs font-medium text-ink shadow-lg ring-1 ring-line sm:max-w-60 sm:text-sm">
+        <p aria-live="polite" className="line-clamp-4">{text}</p>
+        {!petLine && !error && scene.progress !== undefined && (
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
             <div className="h-full rounded-full bg-brand-600 transition-all duration-500" style={{ width: `${Math.round(Math.min(1, Math.max(0, scene.progress)) * 100)}%` }} />
           </div>
+        )}
+        {!petLine && (
+          <button
+            type="button"
+            onClick={() => setTuck(true)}
+            className="absolute right-1 top-1 rounded-full p-1 text-muted hover:bg-slate-100 hover:text-ink"
+            aria-label="Hide the helper's messages"
+            title="Hide messages"
+          >
+            <X aria-hidden className="h-3.5 w-3.5" />
+          </button>
         )}
       </div>
     );
@@ -266,14 +369,25 @@ export function MascotDock({ fallback }: { fallback: Scene }) {
   return (
     <div className="pointer-events-none fixed bottom-2 right-2 z-20 flex items-end gap-1 print:hidden sm:bottom-4 sm:right-4">
       {bubble}
+      {tucked && !petLine && (scene.text || error) && (
+        <button
+          type="button"
+          onClick={() => setTuck(false)}
+          className="pointer-events-auto mb-1 rounded-full bg-white p-1.5 text-brand-700 shadow ring-1 ring-line hover:bg-brand-50"
+          aria-label="Show the helper's messages"
+          title="Show messages"
+        >
+          <MessageCircle aria-hidden className="h-4 w-4" />
+        </button>
+      )}
       <button
         type="button"
-        onClick={toggle}
-        className={`pointer-events-auto rounded-full transition-transform focus-visible:outline-2 focus-visible:outline-brand-600 ${tucked ? "translate-y-1/2 opacity-80" : ""}`}
-        aria-label={tucked ? "Show the helper's messages" : "Hide the helper's messages"}
-        title={tucked ? "Show messages" : "Hide messages"}
+        onClick={pet}
+        className="pointer-events-auto cursor-grab rounded-full focus-visible:outline-2 focus-visible:outline-brand-600 active:cursor-grabbing"
+        aria-label="Pet the helper"
+        title="Pet me!"
       >
-        <MascotFigure who={scene.who} action={scene.action} size={tucked ? 44 : 64} />
+        <MascotFigure who={scene.who} action={action} paw={paw} size={tucked ? 48 : 64} />
       </button>
     </div>
   );
