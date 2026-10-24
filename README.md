@@ -245,6 +245,16 @@ python -m pytest          # from the repository root
 
 The suite starts an embedded PostgreSQL, so it needs no install, network, GPU or Telegram account. The app connects as an ordinary database role, so Row Level Security applies to every test. It covers sign-up, sign-in, roles, workspace isolation (including a direct database check), the rules, catalogue and delivery flows, decisions that cannot be made twice, the model-reply parser, the hourly cap on model calls, alerts that never break a delivery, and the security headers.
 
+### Phone UI tests
+
+```bash
+cd src/frontend
+npm ci && npx playwright install chromium
+npm run test:ui           # PYTHON=path/to/python if the backend's packages aren't in python3
+```
+
+Playwright builds the frontend, starts the app on a throwaway database (`e2e/server.py`) and opens every page as owner, manager and staff on a 360px Android and a 320px iPhone SE. Each page must fit the screen with no sideways scrolling, and the phone flows are tapped through: password sign-in and the last sign-in notice, the menu and inbox, stock count categories, and kitchen tablet PIN sign-in. `npx playwright show-report` shows a screenshot of every page. GitHub Actions runs them on every pull request.
+
 ## Known limits
 
 - The first photo after the endpoint has been idle waits for a cold start (a few minutes). Staff can type the lines instead.
