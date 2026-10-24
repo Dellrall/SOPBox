@@ -340,14 +340,14 @@ def passkey_register_options(request: Request, response: Response, user: User, c
 @app.post("/api/auth/passkeys", response_model=PasskeyOut, status_code=201)
 def add_passkey(body: PasskeyRegisterIn, request: Request, response: Response, user: User, conn: Conn):
     added = passkeys.register(conn, request, response, user, body.credential, body.name)
-    _security_event(conn, user, f"added passkey {added.name}")
+    _security_event(conn, user, f"Added a passkey for {added.name}")
     return added
 
 
 @app.delete("/api/auth/passkeys/{passkey_id}", status_code=204)
 def remove_passkey(passkey_id: int, user: User, conn: Conn) -> None:
     passkeys.remove(conn, user.id, passkey_id)
-    _security_event(conn, user, "removed a passkey")
+    _security_event(conn, user, "Removed a passkey")
 
 
 @app.post("/api/auth/passkeys/login-options")
@@ -396,7 +396,7 @@ def google_callback(request: Request, conn: Conn, code: str = "", state: str = "
         # A redirect from Google, not a normal signed-in request: act as the person who started it.
         user = auth.get_me(conn, user_id)
         auth.act_as(conn, user)
-        _security_event(conn, user, "connected Google")
+        _security_event(conn, user, "Connected Google sign-in")
         redirect.headers["location"] = "/settings?linked=google"
     else:
         auth.start_session(conn, request, redirect, user_id, "google")
@@ -412,19 +412,19 @@ def telegram_login(body: TelegramAuthIn, request: Request, response: Response, c
 @app.post("/api/auth/telegram/link", status_code=204)
 def telegram_link(body: TelegramAuthIn, user: User, conn: Conn) -> None:
     sso.telegram_link(conn, user, body.model_dump())
-    _security_event(conn, user, "connected Telegram")
+    _security_event(conn, user, "Connected Telegram sign-in")
 
 
 @app.delete("/api/auth/{provider}", status_code=204)
 def unlink_provider(provider: Literal["google", "telegram"], user: User, conn: Conn) -> None:
     sso.unlink(conn, user, provider)
-    _security_event(conn, user, f"disconnected {provider.title()}")
+    _security_event(conn, user, f"Disconnected {provider.title()} sign-in")
 
 
 @app.put("/api/auth/pin", status_code=204)
 def set_pin(body: PinIn, user: User, conn: Conn) -> None:
     kitchen.set_pin(conn, user, body.pin)
-    _security_event(conn, user, "set a kitchen PIN" if body.pin else "removed their kitchen PIN")
+    _security_event(conn, user, "Set a kitchen tablet PIN" if body.pin else "Removed their kitchen tablet PIN")
 
 
 @app.get("/api/auth/kitchen", response_model=KitchenScreen | None)
@@ -448,14 +448,14 @@ def list_kitchen_devices(request: Request, user: ManagerUp, conn: Conn):
 def add_kitchen_device(body: KitchenDeviceIn, response: Response, user: ManagerUp, conn: Conn):
     """Mark this browser as a kitchen tablet for the workspace."""
     device = kitchen.register_device(conn, response, user, body.name)
-    _security_event(conn, user, f"made {device.name} a kitchen tablet")
+    _security_event(conn, user, f"Made {device.name} a kitchen tablet")
     return device
 
 
 @app.delete("/api/kitchen-devices/{device_id}", status_code=204)
 def remove_kitchen_device(device_id: int, user: ManagerUp, conn: Conn) -> None:
     kitchen.remove_device(conn, user.workspace_id, device_id)
-    _security_event(conn, user, "removed a kitchen tablet")
+    _security_event(conn, user, "Removed a kitchen tablet")
 
 
 # ---- owner: people and workspace settings -----------------------------------------------------

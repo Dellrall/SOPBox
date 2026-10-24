@@ -290,7 +290,7 @@ def test_sign_in_method_changes_are_in_the_activity_log(client, monkeypatch):
     client.put("/api/auth/pin", json={"pin": "2468"})
     add_passkey(client, monkeypatch)
     details = [e["detail"] for e in client.get("/api/audit").json() if e["action"] == "user.sign_in_method"]
-    assert details == ["added passkey Sam's phone", "set a kitchen PIN"]
+    assert details == ["Added a passkey for Sam's phone", "Set a kitchen tablet PIN"]
 
 
 def test_sign_in_still_works_with_a_password_after_all_this(client):

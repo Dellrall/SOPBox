@@ -85,11 +85,17 @@ export async function addPasskey(name: string) {
   return api.addPasskey(await startRegistration({ optionsJSON }), name);
 }
 
-/** "Chrome on Android" style name for the passkey this phone is about to make. */
+/** A name like "Android phone" for the passkey this device is about to make. */
 export function thisDeviceName() {
   const ua = navigator.userAgent;
-  const system = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android phone" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows PC" : "This device";
-  return system;
+  if (/iPhone/.test(ua)) return "iPhone";
+  if (/iPad/.test(ua)) return "iPad";
+  if (/Android/.test(ua)) return "Android phone";
+  if (/CrOS/.test(ua)) return "Chromebook";
+  if (/Mac/.test(ua)) return "Mac";
+  if (/Windows/.test(ua)) return "Windows PC";
+  if (/Linux/.test(ua)) return "Linux computer";
+  return "Computer";
 }
 
 /** Turn a browser's "the person closed the passkey prompt" into plain words. */
