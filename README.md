@@ -22,7 +22,7 @@
 
 | Resource          | Link                                           |
 | ----------------- | ---------------------------------------------- |
-| GitHub Repository | https://github.com/Dellrall/SDCIdea26          |
+| GitHub Repository | https://github.com/Dellrall/SOPBox          |
 | Live Demo         | https://sopbox.replit.app                      |
 | RunPod Endpoint   | https://api.runpod.ai/v2/sriet0cftztbik        |
 | Slide Deck        |https://docs.google.com/presentation/d/19grJuodMn0e-vGj9hfSoVCfKdqcKE-roTmU2JJK2dPU/edit?usp=sharing|
@@ -108,7 +108,7 @@ RunPod Serverless endpoint (vLLM + Qwen3-VL-8B, scales to zero)
 
 ### Option 1 — Run on Replit (Recommended)
 
-1. Import this repository via **Create Repl → Import from GitHub** (`Dellrall/SDCIdea26`).
+1. Import this repository via **Create Repl → Import from GitHub** (`Dellrall/SOPBox`).
 2. Create a PostgreSQL database (**Tools → Database**). Replit sets `DATABASE_URL`.
 3. Open the **Secrets** tab (🔒) and add the variables in `src/backend/.env.example`:
    - `RUNPOD_API_KEY`, `RUNPOD_ENDPOINT_ID` — photo reading and the SOP writer
@@ -125,8 +125,8 @@ Needs Python 3.11+ and Node 20+. An embedded PostgreSQL is included, so nothing 
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Dellrall/SDCIdea26.git
-cd SDCIdea26
+git clone https://github.com/Dellrall/SOPBox.git
+cd SOPBox
 
 # 2. Backend: virtual environment and dependencies
 cd src/backend
@@ -164,7 +164,7 @@ npm run test:ui                        # 28 phone UI tests (320px and 360px scre
 - **Database:** **Replit PostgreSQL** stores every workspace's data. Row Level Security keeps each business's data separate inside the database.
 - **Secrets:** the RunPod, Telegram and Google keys are kept in **Replit Secrets**, never in the code.
 
-📄 Proof of use: `submission/SDC2026_TeamName_Replit_POU.pdf`
+📄 Proof of use: [`submission/SDC2026__Hack into Google, No mistake__Replit_POU.pdf`](submission/SDC2026__Hack%20into%20Google%2C%20No%20mistake__Replit_POU.pdf)
 
 ## How We Use RunPod *(Required)*
 
@@ -183,7 +183,7 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
          "messages": [{"role": "user", "content": "Write 3 steps for receiving frozen chicken."}]}}}'
 ```
 
-📄 Proof of use: `submission/SDC2026_TeamName_Runpod_POU.pdf`
+📄 Proof of use: [`submission/SDC2026__Hack into Google, No mistake__Runpod_POU.pdf`](submission/SDC2026__Hack%20into%20Google%2C%20No%20mistake__Runpod_POU.pdf)
 
 ---
 
