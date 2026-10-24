@@ -118,13 +118,37 @@ export default function Dashboard({
 
   return (
     <div className="space-y-8">
-      <PageTitle title={`Good to see you, ${firstName}`} subtitle={`Today at ${me.workspace.name}.`}>
-        {canStartReceive && (
-          <button className={primaryButton} onClick={() => go("receive")}>
-            <ScanLine aria-hidden className="h-4 w-4" /> Start a receiving check
-          </button>
-        )}
-      </PageTitle>
+      {/* Photo: Yanhao Fang on Unsplash (Unsplash License). */}
+      <header className="relative overflow-hidden rounded-3xl bg-brand-950 text-white shadow-sm">
+        <img
+          src="/kitchen-1600.jpg"
+          srcSet="/kitchen-800.jpg 800w, /kitchen-1600.jpg 1600w"
+          sizes="(min-width: 1024px) 64rem, 100vw"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-center"
+        />
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-brand-950/95 via-brand-950/75 to-brand-950/20" />
+        <div className="relative flex min-h-48 flex-col justify-end gap-4 p-6 sm:min-h-52 sm:flex-row sm:items-end sm:justify-between sm:p-8">
+          <div>
+            <p className="text-sm font-medium text-brand-200">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
+            <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Good to see you, {firstName}</h1>
+            <p className="mt-1 text-sm text-white/80">Today at {me.workspace.name}.</p>
+          </div>
+          {canStartReceive && (
+            <button className={`${primaryButton} self-start bg-white! text-brand-800! hover:bg-brand-50! sm:self-auto`} onClick={() => go("receive")}>
+              <ScanLine aria-hidden className="h-4 w-4" /> Start a receiving check
+            </button>
+          )}
+        </div>
+        <a
+          href="https://unsplash.com/photos/chefs-working-in-a-busy-professional-kitchen-preparing-food-rHjzjwxDP2g"
+          target="_blank"
+          rel="noreferrer"
+          className="absolute right-3 top-2 text-[10px] text-white/60 hover:text-white"
+        >
+          Photo: Yanhao Fang / Unsplash
+        </a>
+      </header>
 
       {canViewApprovals && pending > 0 && (
         <button
