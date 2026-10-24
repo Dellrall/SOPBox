@@ -17,7 +17,7 @@ function SectionAccessFields({
       <p className="text-sm text-muted">Choose which sections this staff account can open and whether they can make changes.</p>
       <div className="grid gap-2 sm:grid-cols-2">
         {SECTION_ACCESS_AREAS.map(({ key, label }) => (
-          <div key={key} className="grid grid-cols-[minmax(0,1fr)_minmax(8.5rem,1.8fr)] items-center gap-3 rounded-xl border border-line bg-white px-3 py-2">
+          <div key={key} className="grid gap-1.5 rounded-xl border border-line bg-white px-3 py-2 min-[400px]:grid-cols-[minmax(0,1fr)_minmax(8.5rem,1.8fr)] min-[400px]:items-center min-[400px]:gap-3">
             <label className="text-sm font-medium text-ink" htmlFor={`access-${key}`}>
               {label}
             </label>

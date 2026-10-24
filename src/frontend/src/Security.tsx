@@ -15,7 +15,7 @@ function Method({ icon, title, status, children }: { icon: ReactNode; title: str
         <p className="font-semibold text-ink">{title}</p>
         <p className="text-sm text-muted">{status}</p>
       </div>
-      <div className="flex flex-wrap gap-2">{children}</div>
+      <div className="flex w-full flex-wrap gap-2 sm:w-auto">{children}</div>
     </li>
   );
 }
@@ -142,7 +142,7 @@ export function SignInSecurity() {
           title="Kitchen tablet PIN"
           status={state.pin_set ? "Set. Tap your name on the kitchen tablet, then type it." : "4 to 8 digits, for signing in on the shared kitchen tablet."}
         >
-          <form onSubmit={savePin} className="flex gap-2">
+          <form onSubmit={savePin} className="flex w-full flex-wrap gap-2 sm:w-auto">
             <label className="sr-only" htmlFor="new-pin">
               New PIN
             </label>
@@ -155,7 +155,7 @@ export function SignInSecurity() {
               minLength={4}
               maxLength={8}
               placeholder={state.pin_set ? "New PIN" : "PIN"}
-              className={`${inputClass} w-28 py-2`}
+              className={`${inputClass} min-w-24 flex-1 py-2 sm:w-28 sm:flex-none`}
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
             />
