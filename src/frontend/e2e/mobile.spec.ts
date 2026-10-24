@@ -133,6 +133,24 @@ test.describe("phone layout", () => {
     await expect(inbox).toBeHidden();
   });
 
+  test("photos can be taken with the camera or chosen from the gallery", async ({ page }) => {
+    await page.goto("/");
+    await openPage(page, "Receiving check");
+    const main = page.locator("main");
+    await expect(main.getByText("Take photo", { exact: true })).toBeVisible();
+    await expect(main.getByText("Choose photo", { exact: true })).toBeVisible();
+    // Only "Take photo" asks for the camera; "Choose photo" opens the gallery.
+    await expect(page.locator("#order-photo-camera")).toHaveAttribute("capture", "environment");
+    await expect(page.locator("#order-photo-files")).not.toHaveAttribute("capture", /.*/);
+    await expectFitsScreen(page);
+
+    // A 1x1 PNG chosen as a stock photo shows up in the list.
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+    await page.locator("#stock-photos-files").setInputFiles({ name: "stock.png", mimeType: "image/png", buffer: png });
+    await expect(page.getByLabel("What photo 1 shows")).toBeVisible();
+    await expect(main.getByText("Take another", { exact: true })).toBeVisible();
+  });
+
   test("stock count categories start minimised and open with a tap", async ({ page }) => {
     await page.goto("/");
     await openPage(page, "Stock Count");

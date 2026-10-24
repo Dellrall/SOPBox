@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
-import { Camera, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { PhotoPicker } from "./PhotoPicker";
 import { api } from "./api";
 import { imageToJpegBase64 } from "./image";
 import type { Category, ProductIn } from "./types";
@@ -41,7 +42,6 @@ export default function ImportSheet({
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState<"" | "reading" | "saving">("");
   const [error, setError] = useState("");
-  const input = useRef<HTMLInputElement>(null);
 
   const set = (key: number, patch: Partial<Row>) => setRows((all) => all.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
@@ -70,7 +70,6 @@ export default function ImportSheet({
       setError((e as Error).message);
     } finally {
       setBusy("");
-      if (input.current) input.current.value = "";
     }
   }
 
@@ -141,18 +140,23 @@ export default function ImportSheet({
         </button>
       </div>
 
-      <input ref={input} id="sheet-photo" type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => e.target.files?.[0] && void read(e.target.files[0])} />
-      <label htmlFor="sheet-photo" className={`${primaryButton} cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""}`}>
-        {busy === "reading" ? (
-          <>
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Reading the sheet… (up to 3 min if the reader was asleep)
-          </>
-        ) : (
-          <>
-            <Camera aria-hidden className="h-4 w-4" /> {rows.length ? "Read another photo" : "Photograph the sheet"}
-          </>
-        )}
-      </label>
+      <div>
+        <PhotoPicker
+          id="sheet-photo"
+          takeClass={primaryButton}
+          takeLabel={rows.length ? "Take another photo" : "Take photo"}
+          chooseLabel={rows.length ? "Choose another photo" : "Choose photo"}
+          disabled={busy !== ""}
+          onFiles={(files) => void read(files[0])}
+          busy={
+            busy === "reading" && (
+              <>
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Reading the sheet… (up to 3 min if the reader was asleep)
+              </>
+            )
+          }
+        />
+      </div>
 
       {rows.length > 0 && (
         <>
