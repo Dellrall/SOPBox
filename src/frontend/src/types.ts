@@ -247,6 +247,8 @@ export type StocktakeProduct = {
   category: string;
   base_unit: string;
   stock: number;
+  bundle_unit: string | null; // the largest pack size, counted as whole bundles
+  bundle_qty: number | null;
 };
 
 export type DashboardSummary = {
