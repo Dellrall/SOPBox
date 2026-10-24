@@ -1,278 +1,123 @@
-# SopBox: Smart Receiving Check for F&B SMEs
+<p align="center">
+  <img src="src/frontend/public/SOPBox_Logo.jpeg" alt="SOPBox logo: a delivery box with vegetables and a fish" width="180">
+</p>
 
-Orbyte Smart SME Challenge, Domain 2. Staff photograph a delivery order, the system checks every line against product rules, a manager approves any exception, and every outcome is logged.
+<h1 align="center">SOPBox</h1>
 
-It is a real multi-user app, not a demo: anyone can create a workspace and becomes its owner, and the owner creates accounts for their managers and staff. A new workspace starts empty.
+<p align="center">
+  <b>Smart receiving checks for small F&amp;B outlets.</b><br>
+  AI reads. Rules decide. Humans approve.
+</p>
 
-**AI reads. Rules decide. Humans approve.**
+<p align="center">
+  <a href="https://sopbox.replit.app"><b>Live app: sopbox.replit.app</b></a>
+  &nbsp;·&nbsp; Orbyte Smart SME Challenge, Domain 2
+  &nbsp;·&nbsp; SDG 12.3 and SDG 8
+</p>
 
-Full plan, timeline, budget and owners: [`1st_proposal.md`](1st_proposal.md).
+---
 
 ## The problem
 
-Small F&B outlets lose stock and money at the point of delivery:
+Small F&B outlets lose stock and money at the back door, when deliveries arrive:
 
-- Frozen goods arrive outside their safe temperature range and are accepted anyway.
-- Bundle and box quantities are miscounted (250 pcs per bundle, 12 packets per box), so stock and orders drift apart.
-- New staff are not trained on receiving steps, and nobody records what happened.
+- Frozen and chilled goods arrive outside their safe temperature and are accepted anyway.
+- Pack quantities are miscounted (250 pcs per bundle, 12 packets per box), so stock and orders drift apart.
+- New staff don't know the receiving steps, and nobody records what happened.
 
-## Accounts and roles
+## Our solution
 
-| Role | Can do |
-|---|---|
-| **Owner** | Everything. The person who creates a workspace. Creates, disables and resets accounts, sets the Telegram chats |
-| **Manager** | Edits categories and products (the rules), approves or rejects failed deliveries, reads the activity log |
-| **Staff** | Receives deliveries, reads products and SOPs, reads delivery records |
-
-Everyone has a username and password. From **Settings, Sign-in & security**, a person can add quicker ways in, each linked to their own account while signed in (an email typed into SOPBox is never trusted to prove who owns a Google account):
-
-- **Passkey:** fingerprint, face or screen lock on their phone. No username needed at sign-in.
-- **Google** and **Telegram:** shown only when configured (see Configuration).
-- **Kitchen tablet PIN:** a manager marks a shared tablet in Settings; on it, people tap their name and type a 4 to 8 digit PIN. A PIN works on no other browser, is throttled like a password, and its session lasts 12 hours.
-
-**Telegram team group.** The owner can connect one Telegram group per workspace (Settings, Telegram team group). A bot can't create groups, so the owner creates it, sets "Chat history for new members" to Visible (which makes it a supergroup), and adds the SOPBox bot as an admin with "Invite users via link" and "Ban users". SOPBox then makes one invite link that asks to join and sends it by Telegram message to everyone who has connected Telegram (and to each person when they connect later; it's also in their Settings). Telegram passes each join request to `/api/telegram/webhook`, and the bot approves only a Telegram account linked to an active person in that workspace who hasn't been removed, so a forwarded link lets nobody else in. On the Team page the owner can remove someone for 1 hour, 1 day, 1 week or until let back in. Disabling an account or disconnecting Telegram takes the person out too. The webhook is registered when the group is connected, at the address the owner is using, so connect it from the published site, not the development URL.
-
-Every sign-in is recorded. The app shows "your last sign-in was …" once per session, a sign-in from a new device or method lands in the person's inbox, Settings lists the last 10, and the owner's Team page shows each person's last sign-in. Changes to sign-in methods are in the activity log.
-
-Passwords are hashed with scrypt, sessions are random tokens in an HttpOnly cookie, and five wrong passwords lock an account for 15 minutes. Each workspace's data is separate: every query is scoped to the signed-in workspace, and PostgreSQL Row Level Security enforces the same rule inside the database. Names in the audit log come from the signed-in account, not from anything typed.
-
-## What v1 does
-
-One automated journey, with a person in control at the decision point.
+SOPBox turns receiving into one guided check on a phone, with a manager in control of every exception.
 
 | Step | What happens | Who |
 |---|---|---|
-| Trigger | Staff open **Receiving check** and photograph the delivery order | Staff |
-| Data | A model on RunPod reads the lines. Anything it cannot read is left blank and flagged, never guessed. Staff confirm each line and enter a probe temperature | AI, then staff |
-| Logic | Rules check temperature range, pack-to-base-unit conversion and ordered quantity | Code, no AI |
-| Approval | Any failed line holds the whole delivery. A manager accepts, rejects or returns it, with a reason | Manager |
-| Notify | Telegram alerts the manager when approval is needed, and staff with the decision (chats set per workspace) | Telegram bot |
-| Logged outcome | Every step is written to the audit log. Accepting a delivery updates stock on hand | System |
+| 1. Photograph | Staff take or choose a photo of the delivery order | Staff |
+| 2. Read | An AI vision model reads every line. Anything unclear is flagged, never guessed. Staff confirm each line and enter the probe temperature | AI, then staff |
+| 3. Check | Rules check the temperature range, pack-to-unit conversion and the quantity still due on the purchase order | Code, no AI |
+| 4. Approve | Any failed line holds the delivery. A manager accepts, rejects or returns it, with a reason | Manager |
+| 5. Notify | The manager is told in the app inbox and on Telegram; staff hear the decision | App and Telegram |
+| 6. Record | Every step is in the activity log. Accepted goods update stock on hand | System |
 
-Around the journey:
+## Key features
 
-- A product catalogue with categories, a temperature range per category that a product can override, pack sizes, minimum stock thresholds, and an SOP card per product with search. Products on past deliveries are archived rather than deleted.
-- **Import from a supplier sheet:** photograph a product list or SOP sheet, the model suggests products, and a manager corrects and ticks them before they are added.
-- **Purchase orders (quantity only):** suppliers, draft, issue, cancel and print orders, and draft one from low stock. A delivery received against an issued order is checked against what is still outstanding on it; a product not on the order goes to a manager.
+- **Receiving check** with photo reading, probe temperatures, stock photos and teammate tagging.
+- **Products & SOP cards:** per-product temperature ranges, pack sizes and step-by-step SOPs, with search. An **AI SOP writer** drafts steps from a manager's notes and a second pass checks them.
+- **Import from a supplier sheet:** photograph a product or SOP sheet; the AI suggests products for a manager to correct and add.
+- **Purchase orders** (quantity only), including a draft from low stock; deliveries are checked against what is still outstanding.
+- **Approvals, delivery records, activity log and stock counts**, with an Excel template and import.
+- **Team and roles:** owner, manager and staff, each seeing only what their role needs.
+- **Sign-in options:** password, passkey, Google, Telegram, and a PIN on a shared kitchen tablet.
+- **Telegram team group** that only the workspace's own active staff can join.
+- **Built for phones:** every page is tested at 320px and 360px wide.
 
-**SDG link:** 12.3 (less food waste: bad deliveries are stopped at the door) and 8 (SOP cards help new staff learn correct handling).
+## How the AI is used
+
+- **Model:** [Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) (FP8), an open-weight vision-language model, used as released (not trained on our data).
+- **Where it runs:** a RunPod serverless GPU endpoint that scales to zero, so it costs nothing when idle.
+- **What it does:** reads delivery orders and supplier sheets, and drafts and checks SOPs.
+- **Guard rails:** the reply is treated as untrusted input. It is parsed and validated, and staff confirm every line before anything is saved. The pass/fail decision is made by rules in code, not by the AI. An hourly cap on AI calls keeps GPU spend bounded.
+- **Next:** a light LoRA fine-tune on synthetic delivery orders, swapped in behind the same endpoint name so the app is unchanged.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  subgraph Phone["Staff and manager phones"]
-    UI["React + Vite + TypeScript + Tailwind"]
-  end
-  subgraph App["Replit: FastAPI"]
-    API["REST API"]
-    RULES["Rules engine"]
-    DB[("PostgreSQL")]
-  end
-  subgraph RunPod["RunPod: all AI runs here"]
-    EP["Serverless endpoint, scale to zero"]
-    VLM["Vision model"]
-  end
-  TG["Telegram Bot API"]
-
-  UI -->|HTTPS| API
-  API --> RULES
-  API --> DB
-  API -->|order photo| EP
-  EP --> VLM
-  EP -->|reply text| API
-  API -->|alerts| TG
+  UI["Phone or tablet<br/>React + TypeScript + Tailwind"] -->|HTTPS| API["FastAPI on Replit"]
+  API --> RULES["Rules engine"]
+  API --> DB[("PostgreSQL<br/>Row Level Security")]
+  API -->|photo| AI["RunPod serverless<br/>Qwen3-VL-8B"]
+  AI -->|text| API
+  API -->|alerts| TG["Telegram Bot API"]
 ```
 
-The backend treats the model's reply as untrusted input: it parses and validates it, and staff confirm every line before anything is saved.
+Each workspace's data is isolated twice: every query is scoped to the signed-in workspace, and PostgreSQL Row Level Security enforces the same rule inside the database. Passwords are hashed with scrypt, and sessions use HttpOnly cookies.
 
-## Status
+## Impact (SDGs)
 
-| Part | Choice | Status |
-|---|---|---|
-| Inference | RunPod serverless, 24 GB GPU, scale to zero | Worker is a stub. Endpoint not created yet |
-| Model | Open-weight vision model (PaddleOCR-VL vs Qwen3-VL) | Chosen on Wed 21 Oct from scores on mock orders |
-| Backend | Python, FastAPI, pytest | Built and tested |
-| Database | Replit PostgreSQL, with Row Level Security per workspace | Built and tested |
-| Accounts | Workspace sign-up, owner, manager and staff roles | Built and tested |
-| Frontend | React, Vite, TypeScript, Tailwind, Orbyte-style shell | Sign-in, dashboard, receiving, records, products and SOPs, approvals, activity, team, settings. Checked in a headless browser, not on a real phone |
-| Notifications | Telegram Bot API | Alerts built. Owner pastes the chat ids in Settings. No bot-side linking |
-| Agent | Google ADK extraction agent | Planned. Go/no-go Thu 22 Oct, else direct call |
-| Barcode scan | html5-qrcode | Not built. Products are picked from a list |
-| A2A endpoint | Lets other Orbyte agents call the check | Stretch, not built |
-| Fine-tuning | LoRA on RunPod | Only if zero-shot misses the thresholds |
+- **SDG 12.3, less food waste:** unsafe deliveries are stopped at the door instead of being thrown away later.
+- **SDG 8, decent work:** SOP cards and guided checks help new staff learn correct handling from day one.
 
-## Repository layout
+## Try it
 
-```
-src/backend/       FastAPI app: accounts, rules, catalogue, deliveries, extraction client, Telegram alerts
-src/frontend/      React app (Vite). `npm run build` writes src/frontend/dist, which FastAPI serves
-runpod/           RunPod endpoint settings and how to swap in fine-tuned weights
-tests/             pytest suite for accounts, workspace isolation, the rules, API, extraction parsing and alerts
-.replit            Replit run and deploy settings
-submission/        Submission pack (slides, video, links), added at the end
-1st_proposal.md    Plan, timeline, budget and owners
-```
+1. Open **https://sopbox.replit.app** and choose **Create a workspace**. You become its owner.
+2. Add categories and products under **Products & SOP** (or import them from a sheet photo).
+3. Add staff under **Team**, then run a **Receiving check**.
+
+Photo reading needs the RunPod endpoint switched on. When it's off, staff type the lines by hand and everything else works.
 
 ## Run it locally
 
-You need Python 3.11 or newer and Node 20 or newer. The database is PostgreSQL. Without installing it, `requirements-dev.txt` includes an embedded one.
-
 ```bash
-# Terminal 1: a local PostgreSQL. Prints two export lines; copy them into terminal 2.
-cd src/backend
-python3 -m venv .venv && . .venv/bin/activate
+# Backend (an embedded PostgreSQL is included for local use)
+cd src/backend && python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
-python -m app.devdb
+python -m app.devdb            # prints DATABASE_URL; export it in a second terminal
+uvicorn app.main:app --port 8000
 
-# Terminal 2: backend on http://localhost:8000
-cd src/backend && . .venv/bin/activate
-export DATABASE_URL=...  COOKIE_SECURE=0     # the lines from terminal 1
-uvicorn app.main:app --reload --port 8000
-
-# Terminal 3: frontend on http://localhost:5173 (proxies /api to :8000)
-cd src/frontend
-npm install
-npm run dev
+# Frontend
+cd src/frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
-Open http://localhost:5173 and choose **Create a workspace**. You become the owner of an empty workspace. Add categories and products under **Products & SOP**, then create staff accounts under **Team**.
+Deployment, configuration, the API and test details are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-Reading photos needs a RunPod endpoint (see Configuration). Until then, staff type the lines by hand.
+## Testing
 
-To run as one process, as on Replit: `npm run build` in `src/frontend`, then start uvicorn. It serves the built app and the API on port 8000.
+- **305 backend tests** (pytest) covering roles, workspace isolation, the rules, deliveries, AI reply parsing and security headers.
+- **28 phone UI tests** (Playwright) that open every page as owner, manager and staff on 320px and 360px screens.
+- Both run on every pull request in GitHub Actions.
 
-## Deploy on Replit
+## Built with
 
-Replit is mandatory for the challenge. The deployed filesystem is not persistent, which is why the database is PostgreSQL and not a file.
+**Our own work:** the app, rules, AI prompts, tests and design.
 
-**Accounts and settings you need**
+**Third-party open source:** FastAPI, Uvicorn, Pydantic, httpx, psycopg, openpyxl, py_webauthn, React, Vite, TypeScript, Tailwind CSS, Lucide icons, SimpleWebAuthn, Plus Jakarta Sans (via Fontsource), pytest, Playwright; AI served with vLLM on RunPod's worker-v1-vllm image.
 
-1. **Replit account on a plan that includes Deployments.** Check the current plan and credit rules on replit.com/pricing. Deployments are billed from your plan's credits.
-2. **GitHub access for Replit.** Create a Repl by importing `Dellrall/SDCIdea26` from GitHub. Pick the branch you want to deploy. A private repository needs you to grant Replit access.
-3. **A Replit PostgreSQL database.** In the Repl, open Tools, then Database, and create a PostgreSQL database. Replit sets `DATABASE_URL`. Confirm the deployment has it too (Deployments, Secrets).
-4. **Secrets** (Tools, Secrets, and again on the deployment):
+**Pre-trained model:** Qwen3-VL-8B-Instruct by the Qwen team (Apache 2.0).
 
-| Secret | Required | Value |
-|---|---|---|
-| `DATABASE_URL` | Yes | Set by the Replit database. Do not copy it into the repo |
-| `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` | For photo reading | The endpoint id (for example `sriet0cftztbik`) and an API key from your RunPod account (see `runpod/README.md`). Without them staff type lines by hand |
-| `TELEGRAM_BOT_TOKEN` | For alerts and Telegram sign-in | From @BotFather in Telegram. For sign-in, also send @BotFather `/setdomain` with the app's domain (e.g. `sopbox.replit.app`) |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | For Google sign-in | Google Cloud console, APIs & Services, Credentials, OAuth client ID (Web application). Authorised redirect URI: `https://<your domain>/api/auth/google/callback`, one per domain you use |
+**Services:** Replit (hosting and PostgreSQL), RunPod (GPU), Telegram Bot API, Google Sign-In.
 
-   Passkeys need no setup, but belong to the address they were made on: one added on the development URL does not work on the published one.
-   Leave `COOKIE_SECURE` unset on Replit: the app then sends the session cookie over HTTPS only.
-5. **Deploy.** The `.replit` file builds the frontend and starts the app on port 8000 (Autoscale). Open the deployment URL and choose **Create a workspace**: that first account is the owner.
-
-The app is published at https://sopbox.replit.app.
-
-### Every time you publish an update
-
-The app creates and updates its own tables when it starts. Replit's Publish separately compares
-the **development** database (used by Run) with **production** and plans to make production
-match. If development is behind the code, Publish proposes dropping production tables and
-columns, and with them real data.
-
-1. Pull the latest code (Git pane: refresh, then Pull).
-2. Bring the development database up to date: press **Run** and wait for the app, or run the
-   **Update dev database** workflow, or in the Shell `cd src/backend && python -m app.migrate`.
-3. Publish. The database step should show no changes, or only additions.
-4. If it lists any `DROP`, cancel the deployment and repeat step 2. Never choose "Copy your
-   development database schema & data to production": it replaces live data.
-
-## Configuration
-
-The backend reads environment variables (Replit Secrets in production). See `src/backend/.env.example`.
-
-| Variable | Purpose | Default |
-|---|---|---|
-| `DATABASE_URL` | PostgreSQL connection string. Required | none |
-| `COOKIE_SECURE` | `0` allows the session cookie over plain http, for local runs only | `1` |
-| `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` | RunPod endpoint id and API key. Without both, photo reading is off | none |
-| `TELEGRAM_BOT_TOKEN` | Bot token. Each workspace owner sets chat ids under Settings. With no token or chat id, alerts are skipped. Also enables "Continue with Telegram" (set the bot's domain with @BotFather `/setdomain`) | none |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth web client. With both, "Continue with Google" appears | none |
-
-Never commit keys. `.env` is git-ignored.
-
-## API
-
-Every route except `/api/health` and the sign-in routes needs a signed-in session. Roles are checked on the server.
-
-| Route | Who | Purpose |
-|---|---|---|
-| `POST /api/auth/register` | anyone | Create a workspace and its owner (email required), and sign in |
-| `POST /api/auth/login` | anyone | Sign in with a username or an email |
-| `GET /api/auth/session` | anyone | Who is signed in, or `null` |
-| `POST /api/auth/logout`, `GET /api/auth/me`, `PATCH /api/auth/me`, `POST /api/auth/password` | any signed in | Sign out, who am I, change my name or email, change my password |
-| `GET /api/auth/methods` | anyone | Which sign-in buttons to show (Google configured, Telegram bot id) |
-| `POST /api/auth/passkeys/login-options`, `POST /api/auth/passkeys/login` | anyone | Sign in with a passkey (WebAuthn, no username) |
-| `GET /api/auth/google/start?mode=login\|link`, `GET /api/auth/google/callback` | anyone; `link` needs a session | Google OpenID Connect (code flow with PKCE, state and nonce). Results come back to `/signin` or `/settings` as short codes |
-| `POST /api/auth/telegram/login` | anyone | Sign in with Telegram's signed answer (hash checked against the bot token, at most an hour old) |
-| `GET /api/auth/kitchen`, `POST /api/auth/kitchen/login` | a marked kitchen tablet | Who has a PIN; sign in with one |
-| `GET /api/auth/security` | any signed in | My sign-in methods and last 10 sign-ins |
-| `POST /api/auth/passkeys/register-options`, `POST /api/auth/passkeys`, `DELETE /api/auth/passkeys/{id}` | any signed in | Add or remove my passkeys |
-| `POST /api/auth/telegram/link`, `DELETE /api/auth/google`, `DELETE /api/auth/telegram`, `PUT /api/auth/pin` | any signed in | Connect or disconnect Telegram/Google; set or remove my PIN |
-| `PUT/DELETE /api/workspace/team-group` | owner | Connect (checks the bot's admin rights, makes the join-request link, registers the webhook) or disconnect the Telegram team group |
-| `POST /api/users/{id}/team-group/remove`, `POST /api/users/{id}/team-group/let-back` | owner | Remove someone from the team group (`{"hours": 1\|24\|168\|null}`), or let them back in |
-| `POST /api/telegram/webhook` | Telegram | Join requests; checked against a secret derived from the bot token |
-| `GET/POST /api/kitchen-devices`, `DELETE /api/kitchen-devices/{id}` | manager | Mark this browser as a kitchen tablet; list and remove tablets |
-| `GET /`, `GET /signin`, `GET /register`, `GET /settings` | anyone | The app. Signed out, `/` is the welcome page with a walkthrough of one delivery |
-| `GET /robots.txt`, `GET /sitemap.xml` | anyone | For search engines. The page itself gets absolute canonical and link-preview URLs from the request's address |
-| `GET/POST /api/users`, `PATCH /api/users/{id}` | owner | List, create, and change accounts (role, disable, reset password) |
-| `GET/PATCH /api/workspace` | owner | Workspace name and Telegram chat ids |
-| `GET /api/products?q=` | any | Products with stock. `q` searches name, category and SOP text |
-| `POST /api/products`, `PUT/DELETE /api/products/{id}` | manager | Edit products |
-| `PATCH /api/products/{id}` | manager | Archive or restore a product (`{"archived": true}`) |
-| `POST /api/products/read-sheet`, `POST /api/products/bulk` | manager | Suggest products from a sheet photo (saves nothing); add reviewed products together, all or none |
-| `GET /api/categories`; `POST`, `PUT/DELETE /api/categories/{id}` | any; manager | Categories and their default temperature range |
-| `POST /api/extract` | any | Read an order photo into lines, matched to products |
-| `POST /api/deliveries` | any | Check a delivery. Passing lines are stocked. Any failure holds it for a manager (approvers get an inbox note). With `purchase_order_id`, lines are checked against that issued order; `tagged_user_ids` tags teammates |
-| `GET /api/suppliers`; `POST`, `PUT/PATCH /api/suppliers/{id}` | any; manager | Suppliers; `PATCH` archives or restores |
-| `GET /api/purchase-orders?status=`, `GET /api/purchase-orders/{id}` | any | Orders with ordered, received, pending and outstanding quantities per line |
-| `POST /api/purchase-orders`, `PUT /api/purchase-orders/{id}` | manager | Create or edit a draft |
-| `POST /api/purchase-orders/{id}/issue`, `.../cancel`, `POST /api/purchase-orders/low-stock-draft` | manager | Issue, cancel (only with no deliveries), or draft from low stock |
-| `GET /api/deliveries?status=`, `GET /api/deliveries/{id}` | any | Read deliveries |
-| `POST /api/deliveries/{id}/decision` | manager | Accept, reject or return a held delivery |
-| `POST /api/deliveries/{id}/tags`, `DELETE /api/deliveries/{id}/tags/{user_id}` | any who can read deliveries | Tag or untag teammates; `@username` in a photo comment also tags |
-| `GET /api/audit?actor_id=` | manager | Audit log, newest first; `actor_id` shows one person's actions by account |
-| `GET /api/team` | any signed in | Active teammates, for tagging |
-| `GET /api/team/accountability` | owner | Per-person counts from the audit log |
-| `GET /api/inbox`, `POST /api/inbox/read` | any signed in | My notifications (tagged, approval needed, decision, comment); mark some (`ids`) or all read |
-
-"manager" includes the owner. The API docs page is switched off because its script loads from a CDN, which the strict Content-Security-Policy blocks.
-
-## Tests
-
-```bash
-pip install -r src/backend/requirements-dev.txt
-python -m pytest          # from the repository root
-```
-
-The suite starts an embedded PostgreSQL, so it needs no install, network, GPU or Telegram account. The app connects as an ordinary database role, so Row Level Security applies to every test. It covers sign-up, sign-in, roles, workspace isolation (including a direct database check), the rules, catalogue and delivery flows, decisions that cannot be made twice, the model-reply parser, the hourly cap on model calls, alerts that never break a delivery, and the security headers.
-
-### Phone UI tests
-
-```bash
-cd src/frontend
-npm ci && npx playwright install chromium
-npm run test:ui           # PYTHON=path/to/python if the backend's packages aren't in python3
-```
-
-Playwright builds the frontend, starts the app on a throwaway database (`e2e/server.py`) and opens every page as owner, manager and staff on a 360px Android and a 320px iPhone SE. Each page must fit the screen with no sideways scrolling, and the phone flows are tapped through: password sign-in and the last sign-in notice, the menu and inbox, stock count categories, and kitchen tablet PIN sign-in. `npx playwright show-report` shows a screenshot of every page. GitHub Actions runs them on every pull request.
-
-## Known limits
-
-- The first photo after the endpoint has been idle waits for a cold start (a few minutes). Staff can type the lines instead.
-- Anyone can create a workspace. An address can create 10 an hour. Accounts store an email and can sign in with it, but the app sends no email yet, so a forgotten owner password cannot be reset by the app: it takes a database change.
-- The sign-in lockout counter is in memory, so it is per server process.
-- The order photo is not stored. The audit log records readings and decisions, not the image.
-- `.replit` is untested on a live deployment. If Replit's database role bypasses Row Level Security, the application-level workspace filters still apply.
-- Manual stock corrections, barcode scanning and event-based SOPs (peak hour, new starter) are not built.
-
-## Roadmap
-
-From the original SopBox pitch, outside v1: a daily task list per role, a rotating person of the day, and a chat assistant that answers SOP questions. Also demand forecasting, POS integration and multi-outlet support.
+**Images:** dashboard kitchen photo by Yanhao Fang on Unsplash; SDG icons © United Nations.
 
 ## License
 
-See [LICENSE](LICENSE).
+Apache 2.0. See [LICENSE](LICENSE).
