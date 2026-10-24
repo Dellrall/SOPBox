@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL,
     display_name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('owner', 'manager', 'staff')),
+    section_access JSONB NOT NULL DEFAULT '{{"dashboard":"view","receive":"edit","records":"view","products":"view","purchasing":"none","approvals":"none","activity":"none","stocktake":"view"}}'::jsonb,
     password_hash TEXT NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TEXT NOT NULL
@@ -36,6 +37,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE UNIQUE INDEX IF NOT EXISTS users_username_key ON users (lower(username));
 -- Added after the first deploy: ALTER keeps databases created before it working.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS section_access JSONB NOT NULL
+    DEFAULT '{{"dashboard":"view","receive":"edit","records":"view","products":"view","purchasing":"none","approvals":"none","activity":"none","stocktake":"view"}}'::jsonb;
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_key ON users (lower(email)) WHERE email IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_one_owner_key ON users (workspace_id) WHERE role = 'owner';
 CREATE TABLE IF NOT EXISTS sessions (
@@ -146,6 +149,30 @@ CREATE TABLE IF NOT EXISTS audit_log (
     delivery_id BIGINT,
     detail TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS stocktakes (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    number BIGINT NOT NULL,
+    reference TEXT NOT NULL,
+    count_date DATE NOT NULL,
+    counted_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    notes TEXT NOT NULL DEFAULT '',
+    UNIQUE (workspace_id, number),
+    UNIQUE (workspace_id, reference)
+);
+CREATE TABLE IF NOT EXISTS stocktake_lines (
+    id {_ID},
+    stocktake_id BIGINT NOT NULL REFERENCES stocktakes(id) ON DELETE CASCADE,
+    product_id BIGINT REFERENCES products(id) ON DELETE SET NULL,
+    product_name TEXT NOT NULL,
+    base_unit TEXT NOT NULL,
+    expected_stock BIGINT NOT NULL CHECK (expected_stock >= 0),
+    counted_stock BIGINT NOT NULL CHECK (counted_stock >= 0),
+    difference BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS stocktakes_workspace_idx ON stocktakes (workspace_id, count_date DESC, id DESC);
+CREATE INDEX IF NOT EXISTS stocktake_lines_take_idx ON stocktake_lines (stocktake_id, id);
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible
@@ -160,6 +187,11 @@ RLS_TABLES = {
     "products": f"workspace_id = {_WS}",
     "deliveries": f"workspace_id = {_WS}",
     "audit_log": f"workspace_id = {_WS}",
+    "stocktakes": f"workspace_id = {_WS}",
+    "stocktake_lines": (
+        f"EXISTS (SELECT 1 FROM stocktakes s WHERE s.id = stocktake_lines.stocktake_id "
+        f"AND s.workspace_id = {_WS})"
+    ),
     "suppliers": f"workspace_id = {_WS}",
     "purchase_orders": f"workspace_id = {_WS}",
     "purchase_order_lines": (

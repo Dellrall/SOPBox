@@ -1,8 +1,42 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
-import type { UserOut } from "./types";
+import { DEFAULT_STAFF_ACCESS, SECTION_ACCESS_AREAS, type SectionAccess, type UserOut } from "./types";
 import { USERNAME_HINT, USERNAME_PATTERN, cleanUsername, usernameProblem } from "./username";
 import { Empty, ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
+
+function SectionAccessFields({
+  value,
+  onChange,
+}: {
+  value: SectionAccess;
+  onChange: (value: SectionAccess) => void;
+}) {
+  return (
+    <fieldset className={`${cardClass} space-y-3`}>
+      <legend className="px-1 text-sm font-bold text-brand-950">Staff section access</legend>
+      <p className="text-sm text-muted">Choose which sections this staff account can open and whether they can make changes.</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {SECTION_ACCESS_AREAS.map(({ key, label }) => (
+          <div key={key} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-white px-3 py-2">
+            <label className="text-sm font-medium text-ink" htmlFor={`access-${key}`}>
+              {label}
+            </label>
+            <select
+              id={`access-${key}`}
+              className={`${inputClass} w-auto min-w-32`}
+              value={value[key]}
+              onChange={(event) => onChange({ ...value, [key]: event.target.value as SectionAccess[typeof key] })}
+            >
+              <option value="none">No access</option>
+              <option value="view">View only</option>
+              <option value="edit">Edit + add</option>
+            </select>
+          </div>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
 
 function CreateForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
@@ -10,6 +44,7 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
   const [email, setEmail] = useState("");
   const [dropped, setDropped] = useState(false);
   const [role, setRole] = useState<"manager" | "staff">("staff");
+  const [sectionAccess, setSectionAccess] = useState<SectionAccess>({ ...DEFAULT_STAFF_ACCESS });
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
@@ -22,12 +57,20 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
     if (usernameProblem(username)) return setError(`Username: ${usernameProblem(username)}`);
     setBusy(true);
     try {
-      const made = await api.createUser({ username, display_name: name, role, password, ...(email.trim() ? { email } : {}) });
+      const made = await api.createUser({
+        username,
+        display_name: name,
+        role,
+        password,
+        ...(email.trim() ? { email } : {}),
+        ...(role === "staff" ? { section_access: sectionAccess } : {}),
+      });
       setDone(`Account created. Give ${made.display_name} the username "${made.username}" and the password you just set.`);
       setName("");
       setUsername("");
       setEmail("");
       setPassword("");
+      setSectionAccess({ ...DEFAULT_STAFF_ACCESS });
       onCreated();
     } catch (err) {
       setError((err as Error).message);
@@ -98,6 +141,7 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
           <p className="mt-1 text-xs text-slate-600">At least 8 characters. They can change it under Settings.</p>
         </div>
       </div>
+      {role === "staff" && <SectionAccessFields value={sectionAccess} onChange={setSectionAccess} />}
       <ErrorNote message={error} />
       {done && <SuccessNote>{done}</SuccessNote>}
       <button type="submit" disabled={busy} className={primaryButton}>
@@ -112,6 +156,8 @@ function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
   const [password, setPassword] = useState("");
   const [editingEmail, setEditingEmail] = useState(false);
   const [email, setEmail] = useState(user.email ?? "");
+  const [editingAccess, setEditingAccess] = useState(false);
+  const [sectionAccess, setSectionAccess] = useState<SectionAccess>(user.section_access);
   const [error, setError] = useState("");
   const isOwner = user.role === "owner";
 
@@ -121,6 +167,7 @@ function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
       await api.updateUser(user.id, body);
       setResetting(false);
       setEditingEmail(false);
+      setEditingAccess(false);
       setPassword("");
       onChanged();
     } catch (e) {
@@ -158,6 +205,17 @@ function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
             <button className={secondaryButton} onClick={() => setEditingEmail((r) => !r)}>
               {user.email ? "Change email" : "Add email"}
             </button>
+            {user.role === "staff" && (
+              <button
+                className={secondaryButton}
+                onClick={() => {
+                  setSectionAccess(user.section_access);
+                  setEditingAccess((r) => !r);
+                }}
+              >
+                Section access
+              </button>
+            )}
             <button className={secondaryButton} onClick={() => setResetting((r) => !r)}>
               Reset password
             </button>
@@ -167,6 +225,19 @@ function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
           </div>
         )}
       </div>
+      {editingAccess && user.role === "staff" && (
+        <div className="space-y-2">
+          <SectionAccessFields value={sectionAccess} onChange={setSectionAccess} />
+          <div className="flex gap-2">
+            <button className={primaryButton} onClick={() => void change({ section_access: sectionAccess })}>
+              Save access
+            </button>
+            <button className={secondaryButton} onClick={() => setEditingAccess(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {editingEmail && (
         <form
           className="flex flex-wrap items-center gap-2"
@@ -222,7 +293,7 @@ export default function Team() {
     <div className="space-y-4">
       <PageTitle
         title="Team"
-        subtitle="Staff receive deliveries. Managers can also edit products and approve failed deliveries. Only you, the owner, manage accounts."
+        subtitle="Choose section access for staff. Managers keep the existing full access. Only you, the owner, manage accounts."
       />
       <CreateForm onCreated={load} />
       <ErrorNote message={error} />

@@ -3,6 +3,7 @@ import type {
   Category,
   CategoryIn,
   DecisionIn,
+  DashboardSummary,
   Delivery,
   DeliveryIn,
   DeliveryStatus,
@@ -18,6 +19,11 @@ import type {
   RegisterIn,
   Supplier,
   SupplierIn,
+  Stocktake,
+  StocktakeCreateIn,
+  StocktakeDetail,
+  StocktakePreview,
+  StocktakeProduct,
   UserCreateIn,
   UserOut,
   UserUpdateIn,
@@ -101,7 +107,6 @@ export const api = {
   deleteProduct: (id: number) => del(`/products/${id}`),
   setArchived: (id: number, archived: boolean) => patch<Product>(`/products/${id}`, { archived }),
   createProducts: (products: ProductIn[]) => post<Product[]>("/products/bulk", { products }),
-  countStock: (lines: { product_id: number; counted: number }[]) => post<Product[]>("/stock-counts", { lines }),
   readProductSheet: (image_b64: string) => post<ProductSuggestion[]>("/products/read-sheet", { image_b64 }),
 
   // receiving
@@ -111,6 +116,31 @@ export const api = {
     get<Delivery[]>(`/deliveries?limit=${limit}${status ? `&status=${status}` : ""}`),
   decide: (id: number, body: DecisionIn) => post<Delivery>(`/deliveries/${id}/decision`, body),
   audit: (limit = 50) => get<AuditEntry[]>(`/audit?limit=${limit}`),
+  dashboard: () => get<DashboardSummary>("/dashboard"),
+
+  // stock count and stocktake
+  stocktakes: () => get<Stocktake[]>("/stocktakes"),
+  stocktakeProducts: () => get<StocktakeProduct[]>("/stocktakes/products"),
+  stocktake: (id: number) => get<StocktakeDetail>(`/stocktakes/${id}`),
+  createStocktake: (body: StocktakeCreateIn) => post<StocktakeDetail>("/stocktakes", body),
+  previewStocktake: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/stocktakes/preview", { method: "POST", body: form });
+    if (!res.ok) {
+      if (res.status === 401) onSignedOut();
+      throw new ApiError(res.status, await errorMessage(res));
+    }
+    return (await res.json()) as StocktakePreview;
+  },
+  stocktakeTemplate: async () => {
+    const res = await fetch("/api/stocktakes/template.xlsx");
+    if (!res.ok) {
+      if (res.status === 401) onSignedOut();
+      throw new ApiError(res.status, await errorMessage(res));
+    }
+    return res.blob();
+  },
 
   // purchasing
   suppliers: () => get<Supplier[]>("/suppliers"),

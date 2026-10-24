@@ -193,16 +193,6 @@ class ProductsBulkIn(_In):
     products: list[ProductIn] = Field(min_length=1, max_length=200)
 
 
-class StockCountLine(_In):
-    product_id: int
-    counted: int = Field(ge=0, le=1_000_000_000)  # in the product's base unit
-
-
-class StockCountIn(_In):
-    """A stock count: what was physically on the shelf. It replaces the recorded stock."""
-
-    lines: list[StockCountLine] = Field(min_length=1, max_length=500)
-
 
 class ExtractedLineOut(ExtractedLine):
     product_id: int | None
@@ -282,6 +272,119 @@ class AuditEntry(BaseModel):
 # ---- accounts ---------------------------------------------------------------------------------
 
 Role = Literal["owner", "manager", "staff"]
+AccessLevel = Literal["none", "view", "edit"]
+
+
+class SectionAccess(_In):
+    """Per-section access for staff; owner and manager roles retain their existing full access."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    dashboard: AccessLevel = "view"
+    receive: AccessLevel = "edit"
+    records: AccessLevel = "view"
+    products: AccessLevel = "view"
+    purchasing: AccessLevel = "none"
+    approvals: AccessLevel = "none"
+    activity: AccessLevel = "none"
+    stocktake: AccessLevel = "view"
+
+
+MAX_SAFE_COUNT = 9_007_199_254_740_991
+
+
+class StocktakeLineIn(_In):
+    product_id: int = Field(gt=0)
+    expected_stock: int = Field(ge=0, le=MAX_SAFE_COUNT)
+    counted_stock: int = Field(ge=0, le=MAX_SAFE_COUNT)
+
+
+class StocktakeCreateIn(_In):
+    count_date: date
+    notes: str = Field(default="", max_length=1000)
+    lines: list[StocktakeLineIn] = Field(min_length=1, max_length=5000)
+
+    @model_validator(mode="after")
+    def _unique_products(self) -> "StocktakeCreateIn":
+        ids = [line.product_id for line in self.lines]
+        if len(ids) != len(set(ids)):
+            raise ValueError("a product can only be counted once in a stocktake")
+        return self
+
+
+class StocktakeLineOut(BaseModel):
+    id: int
+    product_id: int | None
+    product_name: str
+    base_unit: str
+    expected_stock: int
+    counted_stock: int
+    difference: int
+
+
+class StocktakeOut(BaseModel):
+    id: int
+    reference: str
+    count_date: date
+    counted_by: str
+    created_at: str
+    notes: str
+    line_count: int
+    changed_count: int
+
+
+class StocktakeDetail(StocktakeOut):
+    lines: list[StocktakeLineOut]
+
+
+class StocktakePreviewLine(BaseModel):
+    product_id: int
+    product_name: str
+    base_unit: str
+    expected_stock: int
+    counted_stock: int
+    difference: int
+
+
+class StocktakePreview(BaseModel):
+    lines: list[StocktakePreviewLine]
+
+
+class StocktakeProductOut(BaseModel):
+    id: int
+    name: str
+    category: str
+    base_unit: str
+    stock: int
+
+
+class DashboardDeliveryOut(BaseModel):
+    id: int
+    supplier: str
+    status: DeliveryStatus
+    created_at: str
+    purchase_order: str | None
+
+
+class DashboardLowStockOut(BaseModel):
+    id: int
+    name: str
+    stock: int
+    min_stock: int
+    base_unit: str
+
+
+class DashboardSummary(BaseModel):
+    product_count: int
+    delivery_count: int
+    pending_count: int
+    accepted_count: int
+    rejected_count: int
+    returned_count: int
+    recent_deliveries: list[DashboardDeliveryOut]
+    low_stock_products: list[DashboardLowStockOut]
+
+
 # 3 to 32 of a-z, 0-9 and . _ -, starting and ending with a letter or number. No spaces or other
 # symbols, so a username can always be typed again exactly, on any keyboard.
 _USERNAME = re.compile(r"^[a-z0-9](?:[a-z0-9._-]{1,30})[a-z0-9]$")
@@ -362,6 +465,7 @@ class Me(BaseModel):
     email: str | None
     display_name: str
     role: Role
+    section_access: SectionAccess
     workspace: WorkspaceRef
 
 
@@ -389,6 +493,7 @@ class UserCreateIn(_In):
     email: str | None = Field(default=None, max_length=254)
     role: Literal["manager", "staff"]
     password: Password
+    section_access: SectionAccess = Field(default_factory=SectionAccess)
 
     @model_validator(mode="after")
     def _clean(self) -> "UserCreateIn":
@@ -405,6 +510,7 @@ class UserUpdateIn(_In):
     role: Literal["manager", "staff"] | None = None
     active: bool | None = None
     password: Password | None = None
+    section_access: SectionAccess | None = None
 
     @model_validator(mode="after")
     def _clean(self) -> "UserUpdateIn":
@@ -420,6 +526,7 @@ class UserOut(BaseModel):
     email: str | None
     display_name: str
     role: Role
+    section_access: SectionAccess
     active: bool
     created_at: str
 

@@ -5,13 +5,14 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import psycopg
-from fastapi import BackgroundTasks, Depends, FastAPI, Query, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Query, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, purchasing
+from app import stocktakes
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
 from app.db import close_pool, get_db, init_db
 from app.errors import (
@@ -26,7 +27,6 @@ from app.errors import (
 from app.extraction import extract_lines, extract_products
 from app.models import (
     ArchiveIn,
-    StockCountIn,
     CancelIn,
     LowStockDraftIn,
     PurchaseOrder,
@@ -36,6 +36,9 @@ from app.models import (
     AuditEntry,
     Category,
     CategoryIn,
+    DashboardDeliveryOut,
+    DashboardLowStockOut,
+    DashboardSummary,
     DecisionIn,
     Delivery,
     DeliveryIn,
@@ -53,6 +56,11 @@ from app.models import (
     UserCreateIn,
     UserOut,
     UserUpdateIn,
+    StocktakeCreateIn,
+    StocktakeDetail,
+    StocktakeOut,
+    StocktakePreview,
+    StocktakeProductOut,
     WorkspaceRef,
     WorkspaceSettings,
     WorkspaceUpdateIn,
@@ -63,6 +71,32 @@ from app.security import SECURITY_HEADERS
 logger = logging.getLogger("sopbox")
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+CatalogueReader = Annotated[
+    CurrentUser,
+    Depends(auth.require_any_section("receive", "products", "purchasing")),
+]
+ProductEditor = Annotated[CurrentUser, Depends(auth.require_any_section("products", edit=True))]
+PurchasingReader = Annotated[
+    CurrentUser,
+    Depends(auth.require_any_section("purchasing", "receive")),
+]
+PurchasingEditor = Annotated[
+    CurrentUser,
+    Depends(auth.require_any_section("purchasing", edit=True)),
+]
+DeliveryReader = Annotated[
+    CurrentUser,
+    Depends(auth.require_any_section("records", "approvals")),
+]
+ReceivingEditor = Annotated[CurrentUser, Depends(auth.require_any_section("receive", edit=True))]
+ApprovalsEditor = Annotated[CurrentUser, Depends(auth.require_any_section("approvals", edit=True))]
+ActivityReader = Annotated[CurrentUser, Depends(auth.require_any_section("activity"))]
+StocktakeReader = Annotated[CurrentUser, Depends(auth.require_any_section("stocktake"))]
+StocktakeEditor = Annotated[
+    CurrentUser, Depends(auth.require_any_section("stocktake", edit=True))
+]
+DashboardReader = Annotated[CurrentUser, Depends(auth.require_any_section("dashboard"))]
 
 
 @asynccontextmanager
@@ -192,6 +226,7 @@ def _me(user: CurrentUser) -> Me:
         email=user.email,
         display_name=user.display_name,
         role=user.role,
+        section_access=user.section_access,
         workspace=WorkspaceRef(id=user.workspace_id, name=user.workspace_name),
     )
 
@@ -270,64 +305,101 @@ def update_workspace(body: WorkspaceUpdateIn, owner: OwnerOnly, conn: Conn):
     return accounts.update_workspace(conn, owner, body)
 
 
+# ---- limited dashboard summary -----------------------------------------------------------------
+
+
+@app.get("/api/dashboard", response_model=DashboardSummary)
+def dashboard_summary(user: DashboardReader, conn: Conn):
+    ws = user.workspace_id
+    product_count = conn.execute(
+        "SELECT COUNT(*)::int AS count FROM products WHERE workspace_id = %s AND NOT archived",
+        (ws,),
+    ).fetchone()["count"]
+    counts = {
+        row["status"]: row["count"]
+        for row in conn.execute(
+            "SELECT status, COUNT(*)::int AS count FROM deliveries "
+            "WHERE workspace_id = %s GROUP BY status",
+            (ws,),
+        ).fetchall()
+    }
+    recent = conn.execute(
+        "SELECT d.id, d.supplier, d.status, d.created_at, "
+        "CASE WHEN po.number IS NULL THEN NULL ELSE 'PO-' || lpad(po.number::text, 4, '0') END AS purchase_order "
+        "FROM deliveries d LEFT JOIN purchase_orders po ON po.id = d.purchase_order_id "
+        "WHERE d.workspace_id = %s ORDER BY d.id DESC LIMIT 6",
+        (ws,),
+    ).fetchall()
+    low_stock = conn.execute(
+        "SELECT id, name, stock, min_stock, base_unit FROM products "
+        "WHERE workspace_id = %s AND NOT archived AND stock < min_stock "
+        "ORDER BY stock ASC, lower(name) LIMIT 100",
+        (ws,),
+    ).fetchall()
+    return DashboardSummary(
+        product_count=product_count,
+        delivery_count=sum(counts.values()),
+        pending_count=counts.get("pending_approval", 0),
+        accepted_count=counts.get("accepted", 0),
+        rejected_count=counts.get("rejected", 0),
+        returned_count=counts.get("returned", 0),
+        recent_deliveries=[DashboardDeliveryOut(**row) for row in recent],
+        low_stock_products=[DashboardLowStockOut(**row) for row in low_stock],
+    )
+
+
 # ---- catalogue (anyone signed in can read; owners and managers change it) ---------------------
 
 
 @app.get("/api/categories", response_model=list[Category])
-def list_categories(user: User, conn: Conn):
+def list_categories(user: CatalogueReader, conn: Conn):
     return catalogue.list_categories(conn, user.workspace_id)
 
 
 @app.post("/api/categories", response_model=Category, status_code=201)
-def create_category(body: CategoryIn, user: ManagerUp, conn: Conn):
+def create_category(body: CategoryIn, user: ProductEditor, conn: Conn):
     return catalogue.create_category(conn, user.workspace_id, body)
 
 
 @app.put("/api/categories/{category_id}", response_model=Category)
-def update_category(category_id: int, body: CategoryIn, user: ManagerUp, conn: Conn):
+def update_category(category_id: int, body: CategoryIn, user: ProductEditor, conn: Conn):
     return catalogue.update_category(conn, user.workspace_id, category_id, body)
 
 
 @app.delete("/api/categories/{category_id}", status_code=204)
-def delete_category(category_id: int, user: ManagerUp, conn: Conn) -> None:
+def delete_category(category_id: int, user: ProductEditor, conn: Conn) -> None:
     catalogue.delete_category(conn, user.workspace_id, category_id)
 
 
 @app.get("/api/products", response_model=list[Product])
-def list_products(user: User, conn: Conn, q: str | None = Query(default=None, max_length=100)):
+def list_products(user: CatalogueReader, conn: Conn, q: str | None = Query(default=None, max_length=100)):
     """All products. `q` searches name, category and SOP text: this is the SOP lookup."""
     return catalogue.list_products(conn, user.workspace_id, q)
 
 
 @app.get("/api/products/{product_id}", response_model=Product)
-def get_product(product_id: int, user: User, conn: Conn):
+def get_product(product_id: int, user: CatalogueReader, conn: Conn):
     return catalogue.get_product(conn, user.workspace_id, product_id)
 
 
 @app.post("/api/products", response_model=Product, status_code=201)
-def create_product(body: ProductIn, user: ManagerUp, conn: Conn):
+def create_product(body: ProductIn, user: ProductEditor, conn: Conn):
     return catalogue.create_product(conn, user.workspace_id, body)
 
 
 @app.put("/api/products/{product_id}", response_model=Product)
-def update_product(product_id: int, body: ProductIn, user: ManagerUp, conn: Conn):
+def update_product(product_id: int, body: ProductIn, user: ProductEditor, conn: Conn):
     return catalogue.update_product(conn, user.workspace_id, product_id, body)
 
 
 @app.post("/api/products/bulk", response_model=list[Product], status_code=201)
-def create_products(body: ProductsBulkIn, user: ManagerUp, conn: Conn):
+def create_products(body: ProductsBulkIn, user: ProductEditor, conn: Conn):
     """Add several reviewed products together: all of them, or none if one is not valid."""
     return catalogue.create_products(conn, user.workspace_id, body.products)
 
 
-@app.post("/api/stock-counts", response_model=list[Product])
-def count_stock(body: StockCountIn, user: ManagerUp, conn: Conn):
-    """Record a shelf count. Stock becomes what was counted; deliveries add to it from there."""
-    return catalogue.count_stock(conn, user.workspace_id, user.display_name, body)
-
-
 @app.post("/api/products/read-sheet", response_model=list[ProductSuggestionOut])
-def read_product_sheet(body: ExtractRequest, user: ManagerUp, conn: Conn):
+def read_product_sheet(body: ExtractRequest, user: ProductEditor, conn: Conn):
     """Read a supplier's product list or SOP sheet into suggestions. Nothing is saved here."""
     categories = {c.name.lower(): c.id for c in catalogue.list_categories(conn, user.workspace_id)}
     names = {p.name.lower() for p in catalogue.list_products(conn, user.workspace_id)}
@@ -342,13 +414,13 @@ def read_product_sheet(body: ExtractRequest, user: ManagerUp, conn: Conn):
 
 
 @app.patch("/api/products/{product_id}", response_model=Product)
-def archive_product(product_id: int, body: ArchiveIn, user: ManagerUp, conn: Conn):
+def archive_product(product_id: int, body: ArchiveIn, user: ProductEditor, conn: Conn):
     """Archive (or restore) a product: it leaves receiving but keeps its delivery history."""
     return catalogue.set_archived(conn, user.workspace_id, product_id, body.archived)
 
 
 @app.delete("/api/products/{product_id}", status_code=204)
-def delete_product(product_id: int, user: ManagerUp, conn: Conn) -> None:
+def delete_product(product_id: int, user: ProductEditor, conn: Conn) -> None:
     catalogue.delete_product(conn, user.workspace_id, product_id)
 
 
@@ -357,59 +429,74 @@ def delete_product(product_id: int, user: ManagerUp, conn: Conn) -> None:
 
 
 @app.get("/api/suppliers", response_model=list[Supplier])
-def list_suppliers(user: User, conn: Conn):
+def list_suppliers(user: PurchasingReader, conn: Conn):
     return purchasing.list_suppliers(conn, user.workspace_id)
 
 
 @app.post("/api/suppliers", response_model=Supplier, status_code=201)
-def create_supplier(body: SupplierIn, user: ManagerUp, conn: Conn):
+def create_supplier(body: SupplierIn, user: PurchasingEditor, conn: Conn):
     return purchasing.create_supplier(conn, user.workspace_id, body)
 
 
 @app.put("/api/suppliers/{supplier_id}", response_model=Supplier)
-def update_supplier(supplier_id: int, body: SupplierIn, user: ManagerUp, conn: Conn):
+def update_supplier(supplier_id: int, body: SupplierIn, user: PurchasingEditor, conn: Conn):
     return purchasing.update_supplier(conn, user.workspace_id, supplier_id, body)
 
 
 @app.patch("/api/suppliers/{supplier_id}", response_model=Supplier)
-def archive_supplier(supplier_id: int, body: ArchiveIn, user: ManagerUp, conn: Conn):
+def archive_supplier(supplier_id: int, body: ArchiveIn, user: PurchasingEditor, conn: Conn):
     return purchasing.set_supplier_archived(conn, user.workspace_id, supplier_id, body.archived)
 
 
 @app.get("/api/purchase-orders", response_model=list[PurchaseOrder])
 def list_purchase_orders(
-    user: User, conn: Conn, status: Literal["draft", "issued", "cancelled"] | None = None
+    user: PurchasingReader, conn: Conn, status: Literal["draft", "issued", "cancelled"] | None = None
 ):
+    if (
+        user.role == "staff"
+        and not auth.can_access_section(user, "purchasing")
+        and status not in (None, "issued")
+    ):
+        raise ForbiddenError("receiving staff can only view issued purchase orders")
+    if user.role == "staff" and not auth.can_access_section(user, "purchasing"):
+        status = "issued"
     return purchasing.list_orders(conn, user.workspace_id, status)
 
 
 @app.get("/api/purchase-orders/{order_id}", response_model=PurchaseOrder)
-def get_purchase_order(order_id: int, user: User, conn: Conn):
-    return purchasing.get_order(conn, user.workspace_id, order_id)
+def get_purchase_order(order_id: int, user: PurchasingReader, conn: Conn):
+    order = purchasing.get_order(conn, user.workspace_id, order_id)
+    if (
+        user.role == "staff"
+        and not auth.can_access_section(user, "purchasing")
+        and order.status != "issued"
+    ):
+        raise NotFoundError("purchase order not found")
+    return order
 
 
 @app.post("/api/purchase-orders", response_model=PurchaseOrder, status_code=201)
-def create_purchase_order(body: PurchaseOrderIn, user: ManagerUp, conn: Conn):
+def create_purchase_order(body: PurchaseOrderIn, user: PurchasingEditor, conn: Conn):
     return purchasing.create_order(conn, user.workspace_id, user.display_name, body)
 
 
 @app.post("/api/purchase-orders/low-stock-draft", response_model=PurchaseOrder, status_code=201)
-def draft_from_low_stock(body: LowStockDraftIn, user: ManagerUp, conn: Conn):
+def draft_from_low_stock(body: LowStockDraftIn, user: PurchasingEditor, conn: Conn):
     return purchasing.low_stock_draft(conn, user.workspace_id, user.display_name, body)
 
 
 @app.put("/api/purchase-orders/{order_id}", response_model=PurchaseOrder)
-def update_purchase_order(order_id: int, body: PurchaseOrderIn, user: ManagerUp, conn: Conn):
+def update_purchase_order(order_id: int, body: PurchaseOrderIn, user: PurchasingEditor, conn: Conn):
     return purchasing.update_order(conn, user.workspace_id, user.display_name, order_id, body)
 
 
 @app.post("/api/purchase-orders/{order_id}/issue", response_model=PurchaseOrder)
-def issue_purchase_order(order_id: int, user: ManagerUp, conn: Conn):
+def issue_purchase_order(order_id: int, user: PurchasingEditor, conn: Conn):
     return purchasing.issue_order(conn, user.workspace_id, user.display_name, order_id)
 
 
 @app.post("/api/purchase-orders/{order_id}/cancel", response_model=PurchaseOrder)
-def cancel_purchase_order(order_id: int, body: CancelIn, user: ManagerUp, conn: Conn):
+def cancel_purchase_order(order_id: int, body: CancelIn, user: PurchasingEditor, conn: Conn):
     return purchasing.cancel_order(conn, user.workspace_id, user.display_name, order_id, body.reason)
 
 
@@ -417,7 +504,7 @@ def cancel_purchase_order(order_id: int, body: CancelIn, user: ManagerUp, conn: 
 
 
 @app.post("/api/extract", response_model=list[ExtractedLineOut])
-def extract(body: ExtractRequest, user: User, conn: Conn):
+def extract(body: ExtractRequest, user: ReceivingEditor, conn: Conn):
     """Read an order photo. Staff must confirm every line before submitting the delivery."""
     products = catalogue.list_products(conn, user.workspace_id, active_only=True)
     return [
@@ -427,7 +514,7 @@ def extract(body: ExtractRequest, user: User, conn: Conn):
 
 
 @app.post("/api/deliveries", response_model=Delivery, status_code=201)
-def create_delivery(body: DeliveryIn, background: BackgroundTasks, user: User, conn: Conn):
+def create_delivery(body: DeliveryIn, background: BackgroundTasks, user: ReceivingEditor, conn: Conn):
     delivery = deliveries.create_delivery(conn, user.workspace_id, user.display_name, body)
     if delivery.status == "pending_approval":
         chat = accounts.get_workspace(conn, user.workspace_id).telegram_manager_chat_id
@@ -437,7 +524,7 @@ def create_delivery(body: DeliveryIn, background: BackgroundTasks, user: User, c
 
 @app.get("/api/deliveries", response_model=list[Delivery])
 def list_deliveries(
-    user: User,
+    user: DeliveryReader,
     conn: Conn,
     status: DeliveryStatus | None = None,
     limit: int = Query(default=50, ge=1, le=200),
@@ -446,13 +533,13 @@ def list_deliveries(
 
 
 @app.get("/api/deliveries/{delivery_id}", response_model=Delivery)
-def get_delivery(delivery_id: int, user: User, conn: Conn):
+def get_delivery(delivery_id: int, user: DeliveryReader, conn: Conn):
     return deliveries.get_delivery(conn, user.workspace_id, delivery_id)
 
 
 @app.post("/api/deliveries/{delivery_id}/decision", response_model=Delivery)
 def decide(
-    delivery_id: int, body: DecisionIn, background: BackgroundTasks, user: ManagerUp, conn: Conn
+    delivery_id: int, body: DecisionIn, background: BackgroundTasks, user: ApprovalsEditor, conn: Conn
 ):
     delivery = deliveries.decide(conn, user.workspace_id, delivery_id, user.display_name, body)
     chat = accounts.get_workspace(conn, user.workspace_id).telegram_staff_chat_id
@@ -461,8 +548,57 @@ def decide(
 
 
 @app.get("/api/audit", response_model=list[AuditEntry])
-def audit(user: ManagerUp, conn: Conn, limit: int = Query(default=50, ge=1, le=200)):
+def audit(user: ActivityReader, conn: Conn, limit: int = Query(default=50, ge=1, le=200)):
     return deliveries.list_audit(conn, user.workspace_id, limit)
+
+
+# ---- blind stock counts ------------------------------------------------------------------------
+
+
+@app.get("/api/stocktakes/template.xlsx")
+def download_stocktake_template(user: StocktakeReader, conn: Conn):
+    return Response(
+        content=stocktakes.build_template(conn, user.workspace_id),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="stock-count-template.xlsx"'},
+    )
+
+
+@app.get("/api/stocktakes/products", response_model=list[StocktakeProductOut])
+def list_stocktake_products(user: StocktakeReader, conn: Conn):
+    return conn.execute(
+        "SELECT p.id, p.name, c.name AS category, p.base_unit, p.stock "
+        "FROM products p JOIN categories c ON c.id = p.category_id "
+        "WHERE p.workspace_id = %s AND NOT p.archived ORDER BY lower(p.name)",
+        (user.workspace_id,),
+    ).fetchall()
+
+
+@app.post("/api/stocktakes/preview", response_model=StocktakePreview)
+async def preview_stocktake(
+    file: Annotated[UploadFile, File()],
+    user: StocktakeReader,
+    conn: Conn,
+):
+    content = await file.read(stocktakes.MAX_UPLOAD_BYTES + 1)
+    return StocktakePreview(
+        lines=stocktakes.preview_import(conn, user.workspace_id, file.filename or "", content)
+    )
+
+
+@app.get("/api/stocktakes", response_model=list[StocktakeOut])
+def list_stocktakes(user: StocktakeReader, conn: Conn):
+    return stocktakes.list_stocktakes(conn, user.workspace_id)
+
+
+@app.post("/api/stocktakes", response_model=StocktakeDetail, status_code=201)
+def create_stocktake(body: StocktakeCreateIn, user: StocktakeEditor, conn: Conn):
+    return stocktakes.create_stocktake(conn, user.workspace_id, user.display_name, body)
+
+
+@app.get("/api/stocktakes/{stocktake_id}", response_model=StocktakeDetail)
+def get_stocktake(stocktake_id: int, user: StocktakeReader, conn: Conn):
+    return stocktakes.get_stocktake(conn, user.workspace_id, stocktake_id)
 
 
 # ---- pages for browsers and search engines ---------------------------------------------------
