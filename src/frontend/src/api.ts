@@ -13,6 +13,7 @@ import type {
   ProductIn,
   ProfileUpdateIn,
   ProductSuggestion,
+  SopDraft,
   PurchaseOrder,
   PurchaseOrderIn,
   PurchaseOrderStatus,
@@ -107,6 +108,7 @@ export const api = {
   deleteProduct: (id: number) => del(`/products/${id}`),
   setArchived: (id: number, archived: boolean) => patch<Product>(`/products/${id}`, { archived }),
   createProducts: (products: ProductIn[]) => post<Product[]>("/products/bulk", { products }),
+  draftSop: (body: Omit<ProductIn, "sop" | "min_stock"> & { notes: string }) => post<SopDraft>("/products/sop-draft", body),
   readProductSheet: (image_b64: string) => post<ProductSuggestion[]>("/products/read-sheet", { image_b64 }),
 
   // receiving

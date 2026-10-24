@@ -95,6 +95,36 @@ class ProductIn(_In):
         return self
 
 
+class SopDraftIn(_In):
+    """A product as the form holds it (it may not be saved yet) and the manager's rough SOP notes."""
+
+    name: str = Field(min_length=1, max_length=120)
+    category_id: int
+    base_unit: str = Field(min_length=1, max_length=20)
+    temp_min_c: float | None = None
+    temp_max_c: float | None = None
+    pack_units: list[PackUnit] = Field(default_factory=list, max_length=10)
+    notes: str = Field(min_length=1, max_length=2000)
+
+    @model_validator(mode="after")
+    def _check(self) -> "SopDraftIn":
+        _check_range(self.temp_min_c, self.temp_max_c)
+        return self
+
+
+class SopIssue(_Clean):
+    """Something the checking pass found in a drafted SOP. Untrusted: the model produced it."""
+
+    step: int | None = Field(default=None, ge=1)
+    problem: str = Field(min_length=1, max_length=300)
+
+
+class SopDraft(BaseModel):
+    sop: str
+    issues: list[SopIssue]
+    checked: bool  # False when the checking pass could not run: review every step yourself
+
+
 class Product(BaseModel):
     id: int
     name: str

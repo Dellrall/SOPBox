@@ -24,9 +24,11 @@ from app.errors import (
     NotFoundError,
     RateLimitError,
 )
-from app.extraction import extract_lines, extract_products
+from app.extraction import extract_lines, extract_products, write_sop
 from app.models import (
     ArchiveIn,
+    SopDraft,
+    SopDraftIn,
     CancelIn,
     LowStockDraftIn,
     PurchaseOrder,
@@ -411,6 +413,24 @@ def read_product_sheet(body: ExtractRequest, user: ProductEditor, conn: Conn):
         )
         for s in extract_products(body.image_b64)
     ]
+
+
+@app.post("/api/products/sop-draft", response_model=SopDraft)
+def draft_sop(body: SopDraftIn, user: ProductEditor, conn: Conn):
+    """AI writes an SOP from the manager's notes and a second pass checks it. Nothing is saved here."""
+    category = catalogue.get_category(conn, user.workspace_id, body.category_id)
+    low, high = (
+        (body.temp_min_c, body.temp_max_c) if body.temp_min_c is not None
+        else (category.temp_min_c, category.temp_max_c)
+    )
+    facts = {
+        "name": body.name,
+        "category": category.name,
+        "arrival_temperature_c": None if low is None else f"{low:g} to {high:g}",
+        "counted_in": body.base_unit,
+        "pack_sizes": [f"1 {p.unit} = {p.base_qty} {body.base_unit}" for p in body.pack_units],
+    }
+    return write_sop(facts, body.notes)
 
 
 @app.patch("/api/products/{product_id}", response_model=Product)

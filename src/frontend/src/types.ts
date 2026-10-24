@@ -130,6 +130,12 @@ export type ProductIn = {
   pack_units: PackUnit[];
 };
 
+export type SopDraft = {
+  sop: string;
+  issues: { step: number | null; problem: string }[];
+  checked: boolean; // false when the checking pass could not run
+};
+
 export type ProductSuggestion = {
   name: string;
   category: string | null;
