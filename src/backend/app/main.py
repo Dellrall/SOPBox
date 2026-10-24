@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 import psycopg
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Query, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -135,6 +136,8 @@ async def lifespan(_: FastAPI):
 
 # Swagger UI loads its script from a CDN, which the strict CSP below would block.
 app = FastAPI(title="SopBox API", lifespan=lifespan, docs_url=None, redoc_url=None)
+# Compressed, the app's script is about a quarter of its size: much quicker on a phone's data.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.middleware("http")
