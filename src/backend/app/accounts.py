@@ -20,7 +20,10 @@ from app.models import (
     WorkspaceUpdateIn,
 )
 
-_USER_COLUMNS = "id, username, email, display_name, role, section_access, active, created_at"
+_USER_COLUMNS = (
+    "id, username, email, display_name, role, section_access, active, created_at, "
+    "telegram_id IS NOT NULL AS telegram_linked, team_group_removed_until"
+)
 
 
 def _now() -> str:
@@ -144,10 +147,10 @@ def create_user(conn: psycopg.Connection, owner: CurrentUser, data: UserCreateIn
         conn, owner.workspace_id, owner.display_name, "user.created", None,
         f"{data.username} ({data.role})",
     )
-    return _get_user(conn, owner.workspace_id, user_id)
+    return get_user(conn, owner.workspace_id, user_id)
 
 
-def _get_user(conn: psycopg.Connection, workspace_id: int, user_id: int) -> UserOut:
+def get_user(conn: psycopg.Connection, workspace_id: int, user_id: int) -> UserOut:
     row = conn.execute(
         f"SELECT {_USER_COLUMNS} FROM users WHERE id = %s AND workspace_id = %s",
         (user_id, workspace_id),
@@ -160,7 +163,7 @@ def _get_user(conn: psycopg.Connection, workspace_id: int, user_id: int) -> User
 def update_user(
     conn: psycopg.Connection, owner: CurrentUser, user_id: int, data: UserUpdateIn
 ) -> UserOut:
-    target = _get_user(conn, owner.workspace_id, user_id)
+    target = get_user(conn, owner.workspace_id, user_id)
     if target.role == "owner":
         raise InvalidRequestError("the owner account cannot be changed here")
     # Only what actually changes is written and logged: a repeated click records nothing.
@@ -178,7 +181,7 @@ def update_user(
         _apply_user_changes(conn, owner, target, user_id, changes)
     except psycopg.errors.UniqueViolation as err:
         raise _taken(err) from None
-    return _get_user(conn, owner.workspace_id, user_id)
+    return get_user(conn, owner.workspace_id, user_id)
 
 
 def _apply_user_changes(
@@ -237,7 +240,8 @@ def _describe(changes: dict) -> str:
 
 def get_workspace(conn: psycopg.Connection, workspace_id: int) -> WorkspaceSettings:
     row = conn.execute(
-        "SELECT id, name, telegram_manager_chat_id, telegram_staff_chat_id FROM workspaces "
+        "SELECT id, name, telegram_manager_chat_id, telegram_staff_chat_id, telegram_team_chat_id, "
+        "telegram_team_title, telegram_team_invite_link FROM workspaces "
         "WHERE id = %s",
         (workspace_id,),
     ).fetchone()

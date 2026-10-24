@@ -3,7 +3,7 @@ import { api } from "./api";
 import { KitchenTablets, SignInSecurity } from "./Security";
 import { setStocktakeStartsExpanded, stocktakeStartsExpanded } from "./Stocktake";
 import type { Me, WorkspaceSettings } from "./types";
-import { ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton } from "./ui";
+import { ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 function Profile({ me, onChanged }: { me: Me; onChanged: (me: Me) => void }) {
   const [name, setName] = useState(me.display_name);
@@ -120,8 +120,8 @@ function Workspace() {
     setError("");
     setDone(false);
     try {
-      const { id: _id, ...body } = ws;
-      setWs(await api.updateWorkspace(body));
+      const { name, telegram_manager_chat_id, telegram_staff_chat_id } = ws;
+      setWs(await api.updateWorkspace({ name, telegram_manager_chat_id, telegram_staff_chat_id }));
       setDone(true);
     } catch (err) {
       setError((err as Error).message);
@@ -166,6 +166,95 @@ function Workspace() {
   );
 }
 
+/**
+ * The workspace's Telegram team group. The owner makes the group; SOPBox lets in only the
+ * workspace's own people (see team_group.py on the server).
+ */
+function TeamGroup() {
+  const [ws, setWs] = useState<WorkspaceSettings | null>(null);
+  const [chatId, setChatId] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api
+      .workspace()
+      .then(setWs)
+      .catch((e: Error) => setError(e.message));
+  }, []);
+
+  async function run(action: () => Promise<WorkspaceSettings>) {
+    setError("");
+    setBusy(true);
+    try {
+      setWs(await action());
+      setChatId("");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!ws) return null;
+  return (
+    <section className={`${cardClass} space-y-3`}>
+      <div>
+        <SectionTitle>Telegram team group</SectionTitle>
+        <p className="mt-1 text-sm text-muted">
+          A group only your own people can join. When someone connects Telegram, the bot sends them the link, and it lets
+          them in only while their account is active. Remove or let people back in from the Team page.
+        </p>
+      </div>
+      {ws.telegram_team_chat_id ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-sm">
+          <span className="min-w-0 flex-1">
+            <span className="font-semibold text-ink">{ws.telegram_team_title || "Team group"}</span>
+            <span className="block break-all text-xs text-muted">{ws.telegram_team_invite_link}</span>
+          </span>
+          <button type="button" className={secondaryButton} disabled={busy} onClick={() => void run(api.disconnectTeamGroup)}>
+            Disconnect
+          </button>
+        </div>
+      ) : (
+        <>
+          <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
+            <li>In Telegram, create a group for your team.</li>
+            <li>In the group's settings, set "Chat history for new members" to Visible.</li>
+            <li>Add the SOPBox bot as an admin with "Invite users via link" and "Ban users" turned on.</li>
+            <li>Paste the group's chat id below (it starts with -100).</li>
+          </ol>
+          <form
+            className="flex flex-wrap gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run(() => api.connectTeamGroup(chatId));
+            }}
+          >
+            <label className="sr-only" htmlFor="team-group-chat">
+              Group chat id
+            </label>
+            <input
+              id="team-group-chat"
+              required
+              inputMode="numeric"
+              pattern="-?\d{1,20}"
+              placeholder="-1001234567890"
+              className={`${inputClass} min-w-40 flex-1`}
+              value={chatId}
+              onChange={(e) => setChatId(e.target.value.trim())}
+            />
+            <button type="submit" className={primaryButton} disabled={busy}>
+              {busy ? "Checking…" : "Connect group"}
+            </button>
+          </form>
+        </>
+      )}
+      <ErrorNote message={error} />
+    </section>
+  );
+}
+
 /** Choices about how pages look, kept on this device. */
 function Display() {
   const [expanded, setExpanded] = useState(stocktakeStartsExpanded);
@@ -201,6 +290,7 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
       <Password />
       {me.role !== "staff" && <KitchenTablets />}
       {me.role === "owner" && <Workspace />}
+      {me.role === "owner" && <TeamGroup />}
     </div>
   );
 }

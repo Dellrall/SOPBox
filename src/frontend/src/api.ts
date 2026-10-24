@@ -124,7 +124,11 @@ export const api = {
   inbox: () => get<Inbox>("/inbox"),
   markRead: (ids?: number[]) => post<void>("/inbox/read", { ids: ids ?? null }),
   workspace: () => get<WorkspaceSettings>("/workspace"),
-  updateWorkspace: (body: Partial<Omit<WorkspaceSettings, "id">>) =>
+  connectTeamGroup: (chat_id: string) => put<WorkspaceSettings>("/workspace/team-group", { chat_id }),
+  disconnectTeamGroup: () => request<WorkspaceSettings>("DELETE", "/workspace/team-group"),
+  removeFromTeamGroup: (id: number, hours: 1 | 24 | 168 | null) => post<UserOut>(`/users/${id}/team-group/remove`, { hours }),
+  letBackIntoTeamGroup: (id: number) => post<UserOut>(`/users/${id}/team-group/let-back`),
+  updateWorkspace: (body: Partial<Pick<WorkspaceSettings, "name" | "telegram_manager_chat_id" | "telegram_staff_chat_id">>) =>
     patch<WorkspaceSettings>("/workspace", body),
 
   // catalogue

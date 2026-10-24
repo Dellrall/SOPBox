@@ -273,6 +273,13 @@ CREATE TABLE IF NOT EXISTS sign_ins (
     device TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sign_ins_user_idx ON sign_ins (user_id, id DESC);
+
+-- The workspace's Telegram team group (see team_group.py). Removed people are kept out until the
+-- time shown; FOREVER means until the owner lets them back in.
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS telegram_team_chat_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS telegram_team_title TEXT NOT NULL DEFAULT '';
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS telegram_team_invite_link TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS team_group_removed_until TEXT;
 CREATE INDEX IF NOT EXISTS stocktakes_workspace_idx ON stocktakes (workspace_id, count_date DESC, id DESC);
 CREATE INDEX IF NOT EXISTS stocktake_lines_take_idx ON stocktake_lines (stocktake_id, id);
 """
