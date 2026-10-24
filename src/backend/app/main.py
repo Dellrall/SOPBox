@@ -44,6 +44,7 @@ from app.models import (
     DashboardLowStockOut,
     DashboardSummary,
     DecisionIn,
+    PhotoCommentIn,
     Delivery,
     DeliveryIn,
     DeliveryStatus,
@@ -564,6 +565,19 @@ def list_deliveries(
 @app.get("/api/deliveries/{delivery_id}", response_model=Delivery)
 def get_delivery(delivery_id: int, user: DeliveryReader, conn: Conn):
     return deliveries.get_delivery(conn, user.workspace_id, delivery_id)
+
+
+@app.get("/api/deliveries/{delivery_id}/photos/{photo_id}")
+def delivery_photo(delivery_id: int, photo_id: int, user: DeliveryReader, conn: Conn):
+    data = deliveries.get_photo(conn, user.workspace_id, delivery_id, photo_id)
+    # A photo never changes once saved, so the browser may keep it; private because it needs a login.
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+
+
+@app.post("/api/deliveries/{delivery_id}/photos/{photo_id}/comments", response_model=Delivery, status_code=201)
+def comment_on_photo(delivery_id: int, photo_id: int, body: PhotoCommentIn, user: DeliveryReader, conn: Conn):
+    """Anyone who can see the delivery can discuss its photos; the decision itself stays with approvers."""
+    return deliveries.comment_on_photo(conn, user.workspace_id, delivery_id, photo_id, user.display_name, body)
 
 
 @app.post("/api/deliveries/{delivery_id}/decision", response_model=Delivery)

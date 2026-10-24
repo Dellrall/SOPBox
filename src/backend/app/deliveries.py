@@ -3,6 +3,7 @@
 Every function takes the caller's `workspace_id` and only touches that workspace's rows.
 """
 
+import base64
 import json
 from datetime import datetime, timezone
 
@@ -17,7 +18,10 @@ from app.models import (
     Delivery,
     DeliveryIn,
     DeliveryLine,
+    DeliveryPhoto,
     DeliveryStatus,
+    PhotoComment,
+    PhotoCommentIn,
 )
 
 ACCEPTED: DeliveryStatus = "accepted"
@@ -113,13 +117,19 @@ def create_delivery(
                     json.dumps(check.issues),
                 ),
             )
+        for photo in data.photos:
+            conn.execute(
+                "INSERT INTO delivery_photos (delivery_id, data, caption) VALUES (%s, %s, %s)",
+                (delivery_id, base64.b64decode(photo.data), photo.caption),
+            )
         audit(
             conn,
             ws,
             received_by,
             "delivery.received",
             delivery_id,
-            f"{len(lines)} line(s), {failed} failed",
+            f"{len(lines)} line(s), {failed} failed"
+            + (f", {len(data.photos)} photo(s)" if data.photos else ""),
         )
         if status == ACCEPTED:
             _add_stock(conn, delivery_id)
@@ -164,11 +174,48 @@ def _delivery(conn: psycopg.Connection, row: dict) -> Delivery:
         number = conn.execute(
             "SELECT number FROM purchase_orders WHERE id = %s", (row["purchase_order_id"],)
         ).fetchone()["number"]
+    photos = conn.execute(
+        "SELECT id, caption FROM delivery_photos WHERE delivery_id = %s ORDER BY id", (row["id"],)
+    ).fetchall()
+    comments: dict[int, list[PhotoComment]] = {p["id"]: [] for p in photos}
+    if photos:
+        for c in conn.execute(
+            "SELECT id, photo_id, author, body, created_at FROM delivery_photo_comments "
+            "WHERE photo_id = ANY(%s) ORDER BY id",
+            (list(comments),),
+        ).fetchall():
+            comments[c["photo_id"]].append(PhotoComment(**c))
     return Delivery(
         **row,
         purchase_order=purchasing.reference(number) if number else None,
         lines=[DeliveryLine(**{**r, "issues": json.loads(r["issues"])}) for r in lines],
+        photos=[DeliveryPhoto(**p, comments=comments[p["id"]]) for p in photos],
     )
+
+
+def get_photo(conn: psycopg.Connection, ws: int, delivery_id: int, photo_id: int) -> bytes:
+    row = conn.execute(
+        "SELECT p.data FROM delivery_photos p JOIN deliveries d ON d.id = p.delivery_id "
+        "WHERE p.id = %s AND p.delivery_id = %s AND d.workspace_id = %s",
+        (photo_id, delivery_id, ws),
+    ).fetchone()
+    if row is None:
+        raise NotFoundError("photo not found")
+    return bytes(row["data"])
+
+
+def comment_on_photo(
+    conn: psycopg.Connection, ws: int, delivery_id: int, photo_id: int, author: str, data: PhotoCommentIn
+) -> Delivery:
+    with conn.transaction():
+        get_photo(conn, ws, delivery_id, photo_id)  # 404 unless it is this workspace's
+        conn.execute(
+            "INSERT INTO delivery_photo_comments (photo_id, author, body, created_at) "
+            "VALUES (%s, %s, %s, %s)",
+            (photo_id, author, data.body, _now()),
+        )
+        audit(conn, ws, author, "delivery.photo_comment", delivery_id, data.body[:200])
+    return get_delivery(conn, ws, delivery_id)
 
 
 def get_delivery(conn: psycopg.Connection, ws: int, delivery_id: int) -> Delivery:

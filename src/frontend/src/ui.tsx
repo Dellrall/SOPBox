@@ -16,6 +16,7 @@ export const dangerButton = `${button} border border-red-200 bg-white text-red-7
 export const panelClass = "rounded-2xl border border-line bg-white shadow-sm shadow-brand-950/[0.03]";
 export const cardClass = `${panelClass} p-5`;
 
+export const STATUS_LABEL = (s: DeliveryStatus) => STATUS[s].label;
 const STATUS: Record<DeliveryStatus, { label: string; style: string; dot: string }> = {
   accepted: { label: "Accepted", style: "bg-emerald-50 text-emerald-800 ring-emerald-600/20", dot: "bg-emerald-500" },
   pending_approval: { label: "Waiting for a manager", style: "bg-amber-50 text-amber-800 ring-amber-600/20", dot: "bg-amber-500" },

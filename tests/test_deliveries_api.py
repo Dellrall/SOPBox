@@ -232,3 +232,76 @@ def test_every_step_is_logged_with_who_and_what(client, catalogue_ids):
     ]
     assert entries[0]["detail"] == "Short by 100"
     assert all(e["at"] for e in entries)
+
+
+# ---- photos of the stock ----------------------------------------------------------------------
+
+JPEG = b"\xff\xd8\xff\xe0" + b"photo-bytes"
+
+
+def photo(extra=b"", caption=""):
+    import base64
+
+    return {"data": base64.b64encode(JPEG + extra).decode(), "caption": caption}
+
+
+def post_with_photos(client, ids, photos, **line):
+    return client.post(
+        "/api/deliveries", json={"supplier": "Fresh Foods", "lines": [sausage_line(ids, **line)], "photos": photos}
+    )
+
+
+def test_photos_and_their_descriptions_are_kept_for_the_manager(client, catalogue_ids):
+    resp = post_with_photos(
+        client, catalogue_ids, [photo(b"0", "Box crushed on the left"), photo(b"1")], temp_c=5
+    )
+    assert resp.status_code == 201, resp.text
+    delivery = resp.json()
+    assert [(p["caption"], p["comments"]) for p in delivery["photos"]] == [("Box crushed on the left", []), ("", [])]
+    pending = client.get("/api/deliveries?status=pending_approval").json()
+    assert pending[0]["photos"] == delivery["photos"]
+    got = client.get(f"/api/deliveries/{delivery['id']}/photos/{delivery['photos'][1]['id']}")
+    assert got.status_code == 200
+    assert got.headers["content-type"] == "image/jpeg"
+    assert got.content == JPEG + b"1"
+
+
+def test_staff_and_managers_can_comment_on_a_photo(client, catalogue_ids):
+    delivery = post_with_photos(client, catalogue_ids, [photo()]).json()
+    url = f"/api/deliveries/{delivery['id']}/photos/{delivery['photos'][0]['id']}/comments"
+    assert client.post(url, json={"body": "  Supplier says it was fine at loading  "}).status_code == 201
+    updated = client.post(url, json={"body": "Raise with them on Monday"}).json()
+    comments = updated["photos"][0]["comments"]
+    assert [c["body"] for c in comments] == ["Supplier says it was fine at loading", "Raise with them on Monday"]
+    assert comments[0]["author"] == "Olive Owner"
+    assert client.post(url, json={"body": "   "}).status_code == 422
+    log = client.get("/api/audit").json()
+    assert any(a["action"] == "delivery.photo_comment" and a["delivery_id"] == delivery["id"] for a in log)
+
+
+def test_a_delivery_without_photos_has_none(client, catalogue_ids):
+    assert receive(client, catalogue_ids, sausage_line(catalogue_ids))["photos"] == []
+
+
+@pytest.mark.parametrize(
+    "photos",
+    [
+        [{"data": "not base64!"}],
+        [{"data": "iVBORw0KGgo="}],  # a PNG header, not JPEG
+        [{"data": "/9j/4A=="}] * 5,  # too many
+        [{"data": "/9j/4A==", "caption": "x" * 301}],
+    ],
+)
+def test_bad_photos_are_rejected(client, catalogue_ids, photos):
+    assert post_with_photos(client, catalogue_ids, photos).status_code == 422
+
+
+def test_another_workspace_cannot_see_or_comment_on_a_photo(client, catalogue_ids):
+    from conftest import sign_up
+
+    delivery = post_with_photos(client, catalogue_ids, [photo()]).json()
+    url = f"/api/deliveries/{delivery['id']}/photos/{delivery['photos'][0]['id']}"
+    other = sign_up("Other Cafe", "otherowner")
+    assert other.get(url).status_code == 404
+    assert other.post(url + "/comments", json={"body": "hi"}).status_code == 404
+    assert client.get(f"/api/deliveries/{delivery['id']}/photos/999999").status_code == 404

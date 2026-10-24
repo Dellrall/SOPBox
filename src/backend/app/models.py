@@ -1,3 +1,4 @@
+import base64
 import re
 import unicodedata
 from datetime import date
@@ -244,6 +245,42 @@ class DeliveryIn(_In):
     # outstanding on it, and a product that is not on the order fails.
     purchase_order_id: int | None = None
     lines: list[DeliveryLineIn] = Field(min_length=1, max_length=100)
+    photos: list["PhotoIn"] = Field(default_factory=list, max_length=4)
+
+
+class PhotoIn(_In):
+    """A JPEG of the stock as it arrived, base64. About 2 MB at most; phones send far less."""
+
+    data: str = Field(min_length=1, max_length=2_800_000)
+    caption: str = Field(default="", max_length=300)
+
+    @field_validator("data")
+    @classmethod
+    def _jpeg(cls, photo: str) -> str:
+        try:
+            data = base64.b64decode(photo, validate=True)
+        except ValueError:
+            raise ValueError("a photo is not valid base64") from None
+        if not data.startswith(b"\xff\xd8\xff"):
+            raise ValueError("photos must be JPEG images")
+        return photo
+
+
+class PhotoCommentIn(_In):
+    body: str = Field(min_length=1, max_length=1000)
+
+
+class PhotoComment(BaseModel):
+    id: int
+    author: str
+    body: str
+    created_at: str
+
+
+class DeliveryPhoto(BaseModel):
+    id: int  # the image is at /api/deliveries/{delivery_id}/photos/{id}
+    caption: str
+    comments: list[PhotoComment]
 
 
 class LineCheck(BaseModel):
@@ -277,6 +314,7 @@ class Delivery(BaseModel):
     purchase_order_id: int | None = None
     purchase_order: str | None = None  # its reference, e.g. PO-0007
     lines: list[DeliveryLine]
+    photos: list[DeliveryPhoto] = []
 
 
 class DecisionIn(_In):
