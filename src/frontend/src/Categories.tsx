@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "./api";
 import type { Category } from "./types";
-import { Empty, ErrorNote, cardClass, dangerButton, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
+import { Empty, ErrorNote, TempInput, cardClass, dangerButton, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 const num = (text: string): number | null => (text.trim() === "" ? null : Number(text));
 const range = (c: Category) =>
@@ -66,13 +66,13 @@ function CategoryForm({
         <label className={labelClass} htmlFor={`cat-min-${id}`}>
           Lowest °C
         </label>
-        <input id={`cat-min-${id}`} inputMode="decimal" className={inputClass} value={min} onChange={(e) => setMin(e.target.value)} />
+        <TempInput id={`cat-min-${id}`} value={min} onChange={setMin} />
       </div>
       <div>
         <label className={labelClass} htmlFor={`cat-max-${id}`}>
           Highest °C
         </label>
-        <input id={`cat-max-${id}`} inputMode="decimal" className={inputClass} value={max} onChange={(e) => setMax(e.target.value)} />
+        <TempInput id={`cat-max-${id}`} value={max} onChange={setMax} />
       </div>
       <div className="flex gap-2">
         <button type="submit" disabled={busy} className={primaryButton}>

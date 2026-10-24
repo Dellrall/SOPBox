@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "./api";
 import SopWriter from "./SopWriter";
 import type { Category, PackUnit, Product, ProductIn } from "./types";
-import { ErrorNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
+import { ErrorNote, TempInput, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 const num = (text: string): number | null => (text.trim() === "" ? null : Number(text));
 
@@ -129,8 +129,8 @@ export default function ProductForm({
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium text-slate-700">Own temperature range (optional)</legend>
         <div className="grid grid-cols-2 gap-3">
-          <input aria-label="Lowest temperature in °C" inputMode="decimal" placeholder="Lowest °C" className={inputClass} value={tempMin} onChange={(e) => setTempMin(e.target.value)} />
-          <input aria-label="Highest temperature in °C" inputMode="decimal" placeholder="Highest °C" className={inputClass} value={tempMax} onChange={(e) => setTempMax(e.target.value)} />
+          <TempInput aria-label="Lowest temperature in °C" placeholder="Lowest °C" value={tempMin} onChange={setTempMin} />
+          <TempInput aria-label="Highest temperature in °C" placeholder="Highest °C" value={tempMax} onChange={setTempMax} />
         </div>
         <p className="text-xs text-slate-600">Leave empty to use the category&apos;s range.</p>
       </fieldset>
