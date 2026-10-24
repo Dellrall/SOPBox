@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMascot, type Scene } from "./Mascot";
-import { Camera, ImagePlus, Loader2, X } from "lucide-react";
+import { Camera, Loader2, X } from "lucide-react";
+import { PhotoPicker } from "./PhotoPicker";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
 import DeliveryPhotos from "./DeliveryPhotos";
@@ -76,11 +77,9 @@ export default function Receive({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [result, setResult] = useState<Delivery | null>(null);
-  const photoInput = useRef<HTMLInputElement>(null);
   // Photos of the stock itself, for the manager who approves it (not read by the AI).
   const [stockPhotos, setStockPhotos] = useState<{ key: number; data: string; caption: string }[]>([]);
   const [tagged, setTagged] = useState<number[]>([]);
-  const stockInput = useRef<HTMLInputElement>(null);
 
   // Receive stays mounted while you look at other pages, so reload the catalogue each time it is
   // opened: a manager may have added products or a delivery may have changed the stock.
@@ -176,23 +175,20 @@ export default function Receive({
       setError(`${(e as Error).message}. Add the lines by hand.`);
     } finally {
       setBusy("");
-      if (photoInput.current) photoInput.current.value = "";
     }
   }
 
-  async function addStockPhotos(files: FileList) {
+  async function addStockPhotos(files: File[]) {
     setError("");
     const room = MAX_PHOTOS - stockPhotos.length;
     if (files.length > room) setError(`Up to ${MAX_PHOTOS} photos per delivery. The first ${room} were added.`);
     try {
       const added: typeof stockPhotos = [];
-      for (const file of [...files].slice(0, room))
+      for (const file of files.slice(0, room))
         added.push({ key: Date.now() + Math.random(), data: await imageToJpegBase64(file, 1280), caption: "" });
       setStockPhotos((all) => [...all, ...added]);
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      if (stockInput.current) stockInput.current.value = "";
     }
   }
 
@@ -377,29 +373,23 @@ export default function Receive({
           <p className="mx-auto mt-3 max-w-sm text-sm text-slate-700">
             Take a photo of the delivery order and the lines fill in for you to confirm. You can also type them below.
           </p>
-          <input
-            ref={photoInput}
-            id="order-photo"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="sr-only"
-            onChange={(e) => e.target.files?.[0] && void readPhoto(e.target.files[0])}
-          />
-          <label
-            htmlFor="order-photo"
-            className={`${primaryButton} mt-4 cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""}`}
-          >
-            {busy === "reading" ? (
-              <>
-                <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Reading the order… (up to 3 min if the reader was asleep)
-              </>
-            ) : (
-              <>
-                <Camera aria-hidden className="h-4 w-4" /> Photograph the order
-              </>
-            )}
-          </label>
+          <div className="mt-4">
+            <PhotoPicker
+              id="order-photo"
+              takeClass={primaryButton}
+              takeLabel="Take photo"
+              chooseLabel="Choose photo"
+              disabled={busy !== ""}
+              onFiles={(files) => void readPhoto(files[0])}
+              busy={
+                busy === "reading" && (
+                  <>
+                    <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Reading the order… (up to 3 min if the reader was asleep)
+                  </>
+                )
+              }
+            />
+          </div>
           {notice && <p className="mt-3 text-sm text-brand-900">{notice}</p>}
         </div>
 
@@ -527,21 +517,14 @@ export default function Receive({
             </ul>
           )}
           {stockPhotos.length < MAX_PHOTOS && (
-            <>
-              <input
-                ref={stockInput}
-                id="stock-photos"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                multiple
-                className="sr-only"
-                onChange={(e) => e.target.files?.length && void addStockPhotos(e.target.files)}
-              />
-              <label htmlFor="stock-photos" className={`${secondaryButton} cursor-pointer`}>
-                <ImagePlus aria-hidden className="h-4 w-4" /> {stockPhotos.length ? "Add another photo" : "Add a photo of the stock"}
-              </label>
-            </>
+            <PhotoPicker
+              id="stock-photos"
+              multiple
+              takeClass={secondaryButton}
+              takeLabel={stockPhotos.length ? "Take another" : "Take a photo"}
+              chooseLabel={stockPhotos.length ? "Choose another" : "Choose photos"}
+              onFiles={(files) => void addStockPhotos(files)}
+            />
           )}
         </fieldset>
 
