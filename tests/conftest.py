@@ -9,7 +9,7 @@ from app.db import close_pool, init_db
 from app.main import app
 
 PASSWORD = "correct horse battery"
-_TABLES = "workspaces, users, sessions, categories, products, pack_units, deliveries, delivery_lines, audit_log, suppliers, purchase_orders, purchase_order_lines"
+_TABLES = "workspaces, users, sessions, categories, products, pack_units, deliveries, delivery_lines, audit_log, stocktake_lines, stocktakes, suppliers, purchase_orders, purchase_order_lines"
 
 
 @pytest.fixture(scope="session", autouse=True)

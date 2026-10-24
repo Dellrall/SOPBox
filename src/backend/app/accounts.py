@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 
 import psycopg
+from psycopg.types.json import Jsonb
 
 from app import auth
 from app.auditlog import audit
@@ -19,7 +20,7 @@ from app.models import (
     WorkspaceUpdateIn,
 )
 
-_USER_COLUMNS = "id, username, email, display_name, role, active, created_at"
+_USER_COLUMNS = "id, username, email, display_name, role, section_access, active, created_at"
 
 
 def _now() -> str:
@@ -50,14 +51,17 @@ def _insert_user(
     role: str,
     password: str,
     email: str | None,
+    section_access: dict[str, str] | None = None,
 ) -> int:
     try:
         with conn.transaction():
             return conn.execute(
                 "INSERT INTO users (workspace_id, username, email, display_name, role, "
-                "password_hash, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                "section_access, password_hash, created_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                 (
                     workspace_id, username, email, display_name, role,
+                    Jsonb(section_access) if section_access is not None else Jsonb({}),
                     auth.hash_password(password), _now(),
                 ),
             ).fetchone()["id"]
@@ -134,7 +138,7 @@ def list_users(conn: psycopg.Connection, owner: CurrentUser) -> list[UserOut]:
 def create_user(conn: psycopg.Connection, owner: CurrentUser, data: UserCreateIn) -> UserOut:
     user_id = _insert_user(
         conn, owner.workspace_id, data.username, data.display_name, data.role, data.password,
-        data.email,
+        data.email, data.section_access.model_dump(),
     )
     audit(
         conn, owner.workspace_id, owner.display_name, "user.created", None,
@@ -160,6 +164,9 @@ def update_user(
     if target.role == "owner":
         raise InvalidRequestError("the owner account cannot be changed here")
     changes = data.model_dump(exclude_none=True)
+    resulting_role = changes.get("role", target.role)
+    if "section_access" in changes and resulting_role != "staff":
+        raise InvalidRequestError("section access can only be assigned to staff accounts")
     try:
         _apply_user_changes(conn, owner, target, user_id, changes)
     except psycopg.errors.UniqueViolation as err:
@@ -179,6 +186,11 @@ def _apply_user_changes(
             )
         if "role" in changes:
             conn.execute("UPDATE users SET role = %s WHERE id = %s", (changes["role"], user_id))
+        if "section_access" in changes:
+            conn.execute(
+                "UPDATE users SET section_access = %s WHERE id = %s",
+                (Jsonb(changes["section_access"]), user_id),
+            )
         if "active" in changes:
             conn.execute("UPDATE users SET active = %s WHERE id = %s", (changes["active"], user_id))
         if "password" in changes:

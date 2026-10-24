@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ClipboardCheck,
+  ClipboardList,
   History,
   LayoutDashboard,
   LogOut,
@@ -26,8 +27,9 @@ import PurchaseOrders from "./PurchaseOrders";
 import Receive from "./Receive";
 import Records from "./Records";
 import Settings from "./Settings";
+import Stocktake from "./Stocktake";
 import Team from "./Team";
-import type { Me, Role } from "./types";
+import type { Me, Role, SectionKey } from "./types";
 import { ROLE_LABEL } from "./ui";
 
 export type PageId =
@@ -38,20 +40,35 @@ export type PageId =
   | "purchasing"
   | "approvals"
   | "activity"
+  | "stocktake"
   | "team"
   | "settings";
 
-const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[] }[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "manager", "staff"] },
-  { id: "receive", label: "Receiving check", icon: ScanLine, roles: ["owner", "manager", "staff"] },
-  { id: "records", label: "Delivery records", icon: Truck, roles: ["owner", "manager", "staff"] },
-  { id: "products", label: "Products & SOP", icon: PackageSearch, roles: ["owner", "manager", "staff"] },
-  { id: "purchasing", label: "Purchase orders", icon: ShoppingCart, roles: ["owner", "manager"] },
-  { id: "approvals", label: "Approvals", icon: ClipboardCheck, roles: ["owner", "manager"] },
-  { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager"] },
+const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?: SectionKey }[] = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "manager", "staff"], access: "dashboard" },
+  { id: "receive", label: "Receiving check", icon: ScanLine, roles: ["owner", "manager", "staff"], access: "receive" },
+  { id: "records", label: "Delivery records", icon: Truck, roles: ["owner", "manager", "staff"], access: "records" },
+  { id: "products", label: "Products & SOP", icon: PackageSearch, roles: ["owner", "manager", "staff"], access: "products" },
+  { id: "purchasing", label: "Purchase orders", icon: ShoppingCart, roles: ["owner", "manager", "staff"], access: "purchasing" },
+  { id: "approvals", label: "Approvals", icon: ClipboardCheck, roles: ["owner", "manager", "staff"], access: "approvals" },
+  { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager", "staff"], access: "activity" },
+  { id: "stocktake", label: "Stock Count", icon: ClipboardList, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "team", label: "Team", icon: Users, roles: ["owner"] },
   { id: "settings", label: "Settings", icon: SettingsIcon, roles: ["owner", "manager", "staff"] },
 ];
+
+function sectionAllowed(me: Me, section: SectionKey, edit = false): boolean {
+  if (me.role !== "staff") return true;
+  const access = me.section_access[section] ?? "none";
+  return edit ? access === "edit" : access === "view" || access === "edit";
+}
+
+function firstPage(me: Me): PageId {
+  return (
+    NAV.find((item) => item.roles.includes(me.role) && (!item.access || sectionAllowed(me, item.access)))?.id ??
+    "settings"
+  );
+}
 
 const initials = (name: string) =>
   name
@@ -97,6 +114,14 @@ export default function App() {
       .catch(() => setMe(null));
   }, []);
 
+  useEffect(() => {
+    const refreshSession = () => {
+      api.session().then(setMe).catch(() => undefined);
+    };
+    window.addEventListener("focus", refreshSession);
+    return () => window.removeEventListener("focus", refreshSession);
+  }, []);
+
   if (me === undefined)
     return (
       <div className="flex min-h-screen items-center justify-center" role="status">
@@ -112,20 +137,24 @@ export default function App() {
 }
 
 function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me) => void; onSignedOut: () => void }) {
-  const [page, setPage] = useState<PageId>("dashboard");
+  const [page, setPage] = useState<PageId>(() => firstPage(me));
   const [menuOpen, setMenuOpen] = useState(false);
   const [pending, setPending] = useState(0);
   // Set when a purchase order's "Receive a delivery" button opens the receiving check.
   const [receivePo, setReceivePo] = useState<number | null>(null);
-  const canDecide = me.role !== "staff";
+  const canViewApprovals = sectionAllowed(me, "approvals");
+  const canDecide = sectionAllowed(me, "approvals", true);
 
   const refreshPending = useCallback(() => {
-    if (!canDecide) return;
+    if (!canViewApprovals) {
+      setPending(0);
+      return;
+    }
     api
       .deliveries("pending_approval", 100)
       .then((d) => setPending(d.length))
       .catch(() => undefined);
-  }, [canDecide]);
+  }, [canViewApprovals]);
 
   useEffect(refreshPending, [refreshPending, page]);
 
@@ -149,7 +178,14 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
     onSignedOut();
   }
 
-  const nav = NAV.filter((n) => n.roles.includes(me.role));
+  const nav = useMemo(
+    () => NAV.filter((n) => n.roles.includes(me.role) && (!n.access || sectionAllowed(me, n.access))),
+    [me],
+  );
+
+  useEffect(() => {
+    if (!nav.some((item) => item.id === page)) setPage(nav[0]?.id ?? "settings");
+  }, [nav, page]);
 
   return (
     <div className="min-h-screen bg-surface text-ink lg:flex">
@@ -242,23 +278,40 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
       <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
         {/* Receive stays mounted so a half-filled delivery survives a look at another page. */}
         <div hidden={page !== "receive"}>
-          <Receive active={page === "receive"} purchaseOrderId={receivePo} onPurchaseOrderTaken={() => setReceivePo(null)} />
+          <Receive
+            active={page === "receive"}
+            canEdit={sectionAllowed(me, "receive", true)}
+            purchaseOrderId={receivePo}
+            onPurchaseOrderTaken={() => setReceivePo(null)}
+          />
         </div>
-        {page === "dashboard" && <Dashboard key={visit} me={me} go={go} />}
+        {page === "dashboard" && (
+          <Dashboard
+            key={visit}
+            me={me}
+            go={go}
+            canStartReceive={sectionAllowed(me, "receive")}
+            canEditProducts={sectionAllowed(me, "products", true)}
+            canViewRecords={sectionAllowed(me, "records")}
+            canViewApprovals={canViewApprovals}
+          />
+        )}
         {page === "records" && <Records key={visit} />}
-        {page === "products" && <Products key={visit} canEdit={canDecide} />}
-        {page === "purchasing" && canDecide && (
+        {page === "products" && <Products key={visit} canEdit={sectionAllowed(me, "products", true)} />}
+        {page === "purchasing" && (
           <PurchaseOrders
             key={visit}
-            canEdit={canDecide}
+            canEdit={sectionAllowed(me, "purchasing", true)}
+            canReceive={sectionAllowed(me, "receive", true)}
             onReceive={(id) => {
               setReceivePo(id);
               go("receive");
             }}
           />
         )}
-        {page === "approvals" && canDecide && <Approvals key={visit} onChanged={refreshPending} />}
-        {page === "activity" && canDecide && <Activity key={visit} />}
+        {page === "approvals" && <Approvals key={visit} canDecide={canDecide} onChanged={refreshPending} />}
+        {page === "activity" && <Activity key={visit} />}
+        {page === "stocktake" && <Stocktake key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "team" && me.role === "owner" && <Team key={visit} />}
         {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}
       </main>

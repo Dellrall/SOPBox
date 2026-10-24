@@ -50,10 +50,12 @@ const rangeHint = (p?: Product): string =>
 
 export default function Receive({
   active,
+  canEdit,
   purchaseOrderId,
   onPurchaseOrderTaken,
 }: {
   active: boolean;
+  canEdit: boolean;
   purchaseOrderId?: number | null; // preselect this order, from its "Receive a delivery" button
   onPurchaseOrderTaken?: () => void;
 }) {
@@ -216,6 +218,28 @@ export default function Receive({
     setError("");
   }
 
+  const title = <PageTitle title="Receiving check" subtitle="Record a delivery as it arrives. Each line is checked against its product's rules." />;
+
+  if (!canEdit) {
+    return (
+      <div>
+        {title}
+        <section className={`${cardClass} max-w-2xl space-y-2`}>
+          <h2 className="font-semibold text-brand-950">View-only access</h2>
+          <p className="text-sm text-muted">
+            You can review the catalogue and issued purchase orders here, but you cannot record a delivery.
+            Ask the owner to grant “Edit + add” access if you need to receive stock.
+          </p>
+          {orders.length > 0 && (
+            <p className="text-sm text-ink">
+              {orders.length} issued {orders.length === 1 ? "purchase order is" : "purchase orders are"} available to review.
+            </p>
+          )}
+        </section>
+      </div>
+    );
+  }
+
   if (result) {
     return (
       <section className={`${cardClass} space-y-3`} aria-live="polite">
@@ -237,8 +261,6 @@ export default function Receive({
       </section>
     );
   }
-
-  const title = <PageTitle title="Receiving check" subtitle="Record a delivery as it arrives. Each line is checked against its product's rules." />;
 
   if (loaded && products.length === 0 && !error) {
     return (

@@ -134,11 +134,13 @@ class CurrentUser:
     email: str | None
     display_name: str
     role: Role
+    section_access: dict[str, str]
 
 
 def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
     row = conn.execute(
-        "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, u.role "
+        "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, "
+        "u.role, u.section_access "
         "FROM sessions s JOIN users u ON u.id = s.user_id JOIN workspaces w ON w.id = u.workspace_id "
         "WHERE s.token_hash = %s AND s.expires_at > now() AND u.active",
         (token_digest(token),),
@@ -148,7 +150,8 @@ def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
 
 def get_me(conn: psycopg.Connection, user_id: int) -> "CurrentUser":
     row = conn.execute(
-        "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, u.role "
+        "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, "
+        "u.role, u.section_access "
         "FROM users u JOIN workspaces w ON w.id = u.workspace_id WHERE u.id = %s",
         (user_id,),
     ).fetchone()
@@ -185,6 +188,24 @@ def require_roles(*allowed: Role):
         if user.role not in allowed:
             raise ForbiddenError("your role cannot do this")
         return user
+
+    return check
+
+
+def can_access_section(user: CurrentUser, section: str, *, edit: bool = False) -> bool:
+    if user.role in ("owner", "manager"):
+        return True
+    level = user.section_access.get(section, "none")
+    return level == "edit" or (not edit and level == "view")
+
+
+def require_any_section(*sections: str, edit: bool = False):
+    """Allow owners/managers as before; staff need the requested access to at least one section."""
+
+    def check(user: User) -> CurrentUser:
+        if any(can_access_section(user, section, edit=edit) for section in sections):
+            return user
+        raise ForbiddenError("you do not have access to this section")
 
     return check
 

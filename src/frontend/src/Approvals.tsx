@@ -15,7 +15,7 @@ import {
   secondaryButton,
 } from "./ui";
 
-function PendingCard({ delivery, onDone }: { delivery: Delivery; onDone: () => void }) {
+function PendingCard({ delivery, canDecide, onDone }: { delivery: Delivery; canDecide: boolean; onDone: () => void }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -46,29 +46,35 @@ function PendingCard({ delivery, onDone }: { delivery: Delivery; onDone: () => v
         Received by {delivery.received_by} at {when(delivery.created_at)}
       </p>
       <DeliveryLines lines={delivery.lines} />
-      <div>
-        <label className={labelClass} htmlFor={`reason-${delivery.id}`}>
-          Reason (needed to reject or return)
-        </label>
-        <input id={`reason-${delivery.id}`} className={inputClass} value={reason} onChange={(e) => setReason(e.target.value)} />
-      </div>
+      {canDecide ? (
+        <div>
+          <label className={labelClass} htmlFor={`reason-${delivery.id}`}>
+            Reason (needed to reject or return)
+          </label>
+          <input id={`reason-${delivery.id}`} className={inputClass} value={reason} onChange={(e) => setReason(e.target.value)} />
+        </div>
+      ) : (
+        <p className="rounded-xl bg-surface px-3 py-2 text-sm text-muted">View-only access. You cannot make an approval decision.</p>
+      )}
       <ErrorNote message={error} />
-      <div className="flex flex-wrap gap-2">
-        <button className={primaryButton} disabled={busy} onClick={() => void decide("accept")}>
-          Accept
-        </button>
-        <button className={secondaryButton} disabled={busy} onClick={() => void decide("return")}>
-          Return to supplier
-        </button>
-        <button className={secondaryButton} disabled={busy} onClick={() => void decide("reject")}>
-          Reject
-        </button>
-      </div>
+      {canDecide && (
+        <div className="flex flex-wrap gap-2">
+          <button className={primaryButton} disabled={busy} onClick={() => void decide("accept")}>
+            Accept
+          </button>
+          <button className={secondaryButton} disabled={busy} onClick={() => void decide("return")}>
+            Return to supplier
+          </button>
+          <button className={secondaryButton} disabled={busy} onClick={() => void decide("reject")}>
+            Reject
+          </button>
+        </div>
+      )}
     </article>
   );
 }
 
-export default function Approvals({ onChanged }: { onChanged: () => void }) {
+export default function Approvals({ canDecide, onChanged }: { canDecide: boolean; onChanged: () => void }) {
   const [pending, setPending] = useState<Delivery[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -104,6 +110,7 @@ export default function Approvals({ onChanged }: { onChanged: () => void }) {
         <PendingCard
           key={d.id}
           delivery={d}
+          canDecide={canDecide}
           onDone={() => {
             void load();
             onChanged();
