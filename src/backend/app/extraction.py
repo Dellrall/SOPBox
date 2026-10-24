@@ -250,12 +250,10 @@ SOP_CHECKER_PROMPT = """You check a draft receiving SOP against the facts it mus
 PRODUCT: {facts}
 NOTES: {notes}
 DRAFT: {draft}
-List every problem of these kinds, and nothing else:
-- a step that states something not in PRODUCT or NOTES (an invented temperature, time, quantity or rule);
-- a step that contradicts PRODUCT (for example a different temperature range or unit);
-- an instruction in NOTES that the draft leaves out.
-Do not comment on wording or style. If there are no problems, return an empty list.
-Return only JSON: {{"issues": [{{"step": <step number or null>, "problem": "<one short sentence>"}}]}}"""
+Give one verdict per step. A step is ok when everything it says is in PRODUCT or NOTES, even in other words. Kitchen terms keep their usual meaning: first in first out means new stock goes behind older stock.
+A step is not ok when it adds a value or rule that is not given (a temperature, time, quantity, place or brand), or changes one that is. Then say which, in one short sentence.
+Under "missing", list each instruction in NOTES that no step covers. Do not comment on wording or style.
+Return only JSON: {{"checks": [{{"step": 1, "ok": true, "problem": null}}], "missing": ["<note left out>"]}}"""
 
 MAX_SOP_STEPS = 10
 _STEP_NUMBER = re.compile(r"^\s*(?:step\s*)?\d+\s*[.):-]\s*", re.IGNORECASE)
@@ -270,6 +268,29 @@ def _steps(text: str) -> list[str]:
     if not steps:
         raise ExtractionError("the model did not write any steps; add more detail to the notes")
     return steps
+
+
+def _issues(reply: str, step_count: int) -> list[SopIssue]:
+    """The checker's verdicts as issues: each step it did not pass, then each note left out.
+
+    Asked for a verdict per step, the model answers briefly; asked for a free list of problems,
+    it argued with itself about a correct step until it ran out of tokens (live, 24 Oct 2026).
+    """
+    data = _load_json(_FENCE.sub(lambda m: m.group(1), reply.strip()))
+    checks = data.get("checks") if isinstance(data, dict) else None
+    missing = data.get("missing", []) if isinstance(data, dict) else None
+    if not isinstance(checks, list) or not isinstance(missing, list):
+        raise ExtractionError("the checker's reply was not in the expected shape")
+    issues = []
+    for c in checks:
+        if not isinstance(c, dict) or c.get("ok") is not False:
+            continue
+        step = c.get("step") if isinstance(c.get("step"), int) and 1 <= c.get("step") <= step_count else None
+        issues.append(SopIssue(step=step, problem=str(c.get("problem") or "Check this step against your notes.")[:300]))
+    for note in missing:
+        if isinstance(note, str) and note.strip():
+            issues.append(SopIssue(problem=f"Not covered: {note.strip()}"[:300]))
+    return issues[:10]
 
 
 def write_sop(facts: dict, notes: str, sleep: Callable[[float], None] = time.sleep) -> SopDraft:
@@ -288,17 +309,14 @@ def write_sop(facts: dict, notes: str, sleep: Callable[[float], None] = time.sle
         reply = _ask_model(
             None,
             SOP_CHECKER_PROMPT.format(facts=facts_json, notes=notes_json, draft=json.dumps(numbered, ensure_ascii=False)),
-            800,
+            600,
             sleep,
             SOP_SYSTEM,
         )
-        issues = [SopIssue.model_validate(r) for r in _rows(reply, "issues")[:10]]
+        issues = _issues(reply, len(steps))
     except (ExtractionError, RateLimitError, ValidationError):
         logger.warning("sop check did not run")
         return SopDraft(sop="\n".join(numbered), issues=[], checked=False)
-    for issue in issues:
-        if issue.step is not None and issue.step > len(steps):
-            issue.step = None
     return SopDraft(sop="\n".join(numbered), issues=issues, checked=True)
 
 
