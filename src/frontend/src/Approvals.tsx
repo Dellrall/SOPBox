@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "./api";
 import DeliveryLines from "./DeliveryLines";
 import DeliveryPhotos from "./DeliveryPhotos";
+import { DeliveryTags } from "./Tags";
 import type { Decision, Delivery } from "./types";
 import {
   Empty,
@@ -56,6 +57,7 @@ function PendingCard({ delivery: initial, canDecide, onDone }: { delivery: Deliv
       </p>
       <DeliveryLines lines={delivery.lines} />
       <DeliveryPhotos delivery={delivery} onChanged={setDelivery} />
+      <DeliveryTags delivery={delivery} onChanged={setDelivery} />
       {canDecide ? (
         <div>
           <label className={labelClass} htmlFor={`reason-${delivery.id}`}>

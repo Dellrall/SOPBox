@@ -65,7 +65,7 @@ function Photo({ delivery, index, onChanged }: { delivery: Delivery; index: numb
           <input
             className={`${inputClass} min-w-0 flex-1 py-2 text-sm`}
             aria-label={`Comment on photo ${index + 1}`}
-            placeholder="Add a comment…"
+            placeholder="Add a comment… (@username tags a teammate)"
             maxLength={1000}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

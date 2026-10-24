@@ -3,8 +3,9 @@ import { AlertTriangle, ArrowRight, CheckCircle2, Circle, Clock, PackageX, ScanL
 import { api } from "./api";
 import { DeliveriesChart, LowStockBars } from "./DashboardCharts";
 import { useMascot } from "./Mascot";
+import { InboxCard } from "./Inbox";
 import type { PageId } from "./App";
-import type { DashboardSummary, Me, PurchaseOrder } from "./types";
+import type { DashboardSummary, Me, Notification, PurchaseOrder } from "./types";
 import { Empty, ErrorNote, PageTitle, SectionTitle, StatusBadge, cardClass, panelClass, primaryButton, secondaryButton, when } from "./ui";
 
 /** A number with what it counts and when ("today", "right now"); opens its page when it has one. */
@@ -104,6 +105,7 @@ export default function Dashboard({
   canViewRecords,
   canViewApprovals,
   canViewPurchasing,
+  onOpenNotification,
 }: {
   me: Me;
   go: (page: PageId) => void;
@@ -112,6 +114,7 @@ export default function Dashboard({
   canViewRecords: boolean;
   canViewApprovals: boolean;
   canViewPurchasing: boolean;
+  onOpenNotification: (n: Notification) => void;
 }) {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [hasTeam, setHasTeam] = useState(false);
@@ -257,6 +260,8 @@ export default function Dashboard({
           <ArrowRight aria-hidden className="h-4 w-4" />
         </button>
       )}
+
+      <InboxCard onOpen={onOpenNotification} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat

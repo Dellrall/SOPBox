@@ -1,5 +1,8 @@
 import type {
+  Accountability,
   AuditEntry,
+  Inbox,
+  TeamMember,
   Category,
   CategoryIn,
   DashboardSummary,
@@ -94,6 +97,10 @@ export const api = {
   users: () => get<UserOut[]>("/users"),
   createUser: (body: UserCreateIn) => post<UserOut>("/users", body),
   updateUser: (id: number, body: UserUpdateIn) => patch<UserOut>(`/users/${id}`, body),
+  team: () => get<TeamMember[]>("/team"),
+  accountability: () => get<Accountability[]>("/team/accountability"),
+  inbox: () => get<Inbox>("/inbox"),
+  markRead: (ids?: number[]) => post<void>("/inbox/read", { ids: ids ?? null }),
   workspace: () => get<WorkspaceSettings>("/workspace"),
   updateWorkspace: (body: Partial<Omit<WorkspaceSettings, "id">>) =>
     patch<WorkspaceSettings>("/workspace", body),
@@ -121,7 +128,9 @@ export const api = {
   photoUrl: (deliveryId: number, photoId: number) => `/api/deliveries/${deliveryId}/photos/${photoId}`,
   commentOnPhoto: (deliveryId: number, photoId: number, body: string) =>
     post<Delivery>(`/deliveries/${deliveryId}/photos/${photoId}/comments`, { body }),
-  audit: (limit = 50) => get<AuditEntry[]>(`/audit?limit=${limit}`),
+  tagTeammates: (deliveryId: number, user_ids: number[]) => post<Delivery>(`/deliveries/${deliveryId}/tags`, { user_ids }),
+  untagTeammate: (deliveryId: number, userId: number) => request<Delivery>("DELETE", `/deliveries/${deliveryId}/tags/${userId}`),
+  audit: (limit = 50, actorId?: number) => get<AuditEntry[]>(`/audit?limit=${limit}${actorId ? `&actor_id=${actorId}` : ""}`),
   dashboard: () => get<DashboardSummary>("/dashboard"),
 
   // stock count and stocktake

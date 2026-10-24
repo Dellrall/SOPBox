@@ -4,6 +4,7 @@ import { Camera, ImagePlus, Loader2, X } from "lucide-react";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
 import DeliveryPhotos from "./DeliveryPhotos";
+import { DeliveryTags, TagPicker } from "./Tags";
 import SearchSelect from "./SearchSelect";
 import { imageToJpegBase64 } from "./image";
 import type { Delivery, Product, PurchaseOrder } from "./types";
@@ -78,6 +79,7 @@ export default function Receive({
   const photoInput = useRef<HTMLInputElement>(null);
   // Photos of the stock itself, for the manager who approves it (not read by the AI).
   const [stockPhotos, setStockPhotos] = useState<{ key: number; data: string; caption: string }[]>([]);
+  const [tagged, setTagged] = useState<number[]>([]);
   const stockInput = useRef<HTMLInputElement>(null);
 
   // Receive stays mounted while you look at other pages, so reload the catalogue each time it is
@@ -229,6 +231,7 @@ export default function Receive({
           purchase_order_id: orderId,
           lines: payload,
           photos: stockPhotos.map((p) => ({ data: p.data, caption: p.caption.trim() })),
+          tagged_user_ids: tagged,
         }),
       );
     } catch (e) {
@@ -242,6 +245,7 @@ export default function Receive({
     setResult(null);
     setLines([blankLine()]);
     setStockPhotos([]);
+    setTagged([]);
     setSupplier("");
     setOrderId(null);
     setNotice("");
@@ -304,6 +308,7 @@ export default function Receive({
         </p>
         <DeliveryLines lines={result.lines} />
         <DeliveryPhotos delivery={result} onChanged={setResult} />
+        <DeliveryTags delivery={result} onChanged={setResult} />
         <button className={primaryButton} onClick={startAnother}>
           Receive another delivery
         </button>
@@ -539,6 +544,14 @@ export default function Receive({
             </>
           )}
         </fieldset>
+
+        <div>
+          <label className={labelClass} htmlFor="tag-teammates">
+            Tag teammates (optional)
+          </label>
+          <p className="mb-2 text-sm text-muted">They get a note in their inbox, e.g. the chef who needs this stock.</p>
+          <TagPicker id="tag-teammates" value={tagged} onChange={setTagged} disabled={busy !== ""} />
+        </div>
 
         <ErrorNote message={active ? error : ""} />
 

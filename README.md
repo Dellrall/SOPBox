@@ -201,14 +201,18 @@ Every route except `/api/health` and the two sign-in routes needs a signed-in se
 | `POST /api/products/read-sheet`, `POST /api/products/bulk` | manager | Suggest products from a sheet photo (saves nothing); add reviewed products together, all or none |
 | `GET /api/categories`; `POST`, `PUT/DELETE /api/categories/{id}` | any; manager | Categories and their default temperature range |
 | `POST /api/extract` | any | Read an order photo into lines, matched to products |
-| `POST /api/deliveries` | any | Check a delivery. Passing lines are stocked. Any failure holds it for a manager. With `purchase_order_id`, lines are checked against that issued order |
+| `POST /api/deliveries` | any | Check a delivery. Passing lines are stocked. Any failure holds it for a manager (approvers get an inbox note). With `purchase_order_id`, lines are checked against that issued order; `tagged_user_ids` tags teammates |
 | `GET /api/suppliers`; `POST`, `PUT/PATCH /api/suppliers/{id}` | any; manager | Suppliers; `PATCH` archives or restores |
 | `GET /api/purchase-orders?status=`, `GET /api/purchase-orders/{id}` | any | Orders with ordered, received, pending and outstanding quantities per line |
 | `POST /api/purchase-orders`, `PUT /api/purchase-orders/{id}` | manager | Create or edit a draft |
 | `POST /api/purchase-orders/{id}/issue`, `.../cancel`, `POST /api/purchase-orders/low-stock-draft` | manager | Issue, cancel (only with no deliveries), or draft from low stock |
 | `GET /api/deliveries?status=`, `GET /api/deliveries/{id}` | any | Read deliveries |
 | `POST /api/deliveries/{id}/decision` | manager | Accept, reject or return a held delivery |
-| `GET /api/audit` | manager | Audit log, newest first |
+| `POST /api/deliveries/{id}/tags`, `DELETE /api/deliveries/{id}/tags/{user_id}` | any who can read deliveries | Tag or untag teammates; `@username` in a photo comment also tags |
+| `GET /api/audit?actor_id=` | manager | Audit log, newest first; `actor_id` shows one person's actions by account |
+| `GET /api/team` | any signed in | Active teammates, for tagging |
+| `GET /api/team/accountability` | owner | Per-person counts from the audit log |
+| `GET /api/inbox`, `POST /api/inbox/read` | any signed in | My notifications (tagged, approval needed, decision, comment); mark some (`ids`) or all read |
 
 "manager" includes the owner. The API docs page is switched off because its script loads from a CDN, which the strict Content-Security-Policy blocks.
 

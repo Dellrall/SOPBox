@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
-import { DEFAULT_STAFF_ACCESS, SECTION_ACCESS_AREAS, type SectionAccess, type UserOut } from "./types";
+import { DEFAULT_STAFF_ACCESS, SECTION_ACCESS_AREAS, type Accountability, type SectionAccess, type UserOut } from "./types";
 import { USERNAME_HINT, USERNAME_PATTERN, cleanUsername, usernameProblem } from "./username";
 import { Empty, ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
@@ -274,6 +274,72 @@ function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
 }
 
 /** Owner only: create and manage the accounts of the people who work here. */
+const COUNTS: { key: keyof Pick<Accountability, "received" | "decided" | "stock_counts" | "purchase_orders" | "comments" | "tagged">; label: string }[] = [
+  { key: "received", label: "Deliveries received" },
+  { key: "decided", label: "Approvals decided" },
+  { key: "stock_counts", label: "Stock counts" },
+  { key: "purchase_orders", label: "Order actions" },
+  { key: "comments", label: "Comments" },
+  { key: "tagged", label: "Tagged on" },
+];
+
+/** What each person has done, counted by account from the activity log. */
+function AccountabilityTable() {
+  const [rows, setRows] = useState<Accountability[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    api
+      .accountability()
+      .then(setRows)
+      .catch((e: Error) => setError(e.message));
+  }, []);
+
+  return (
+    <section aria-labelledby="accountability-title" className="space-y-2">
+      <h2 id="accountability-title" className="text-lg font-bold text-brand-950">
+        Accountability
+      </h2>
+      <p className="text-sm text-muted">
+        Every action is tied to the account that did it. To see one person's actions, choose them under Person in the Activity log.
+      </p>
+      <ErrorNote message={error} />
+      {rows && (
+        <div className={`${cardClass} overflow-x-auto`}>
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-muted">
+              <tr>
+                <th scope="col" className="px-4 py-2.5">Person</th>
+                {COUNTS.map((c) => (
+                  <th key={c.key} scope="col" className="px-3 py-2.5 text-right">{c.label}</th>
+                ))}
+                <th scope="col" className="px-4 py-2.5 text-right">Last active</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {rows.map((r) => (
+                <tr key={r.user_id} className={r.active ? "" : "text-muted"}>
+                  <th scope="row" className="px-4 py-2.5 text-left font-semibold text-ink">
+                    {r.display_name}
+                    <span className="block text-xs font-normal text-muted">
+                      @{r.username} · {r.role}{r.active ? "" : " · inactive"}
+                    </span>
+                  </th>
+                  {COUNTS.map((c) => (
+                    <td key={c.key} className="px-3 py-2.5 text-right tabular-nums">{r[c.key]}</td>
+                  ))}
+                  <td className="px-4 py-2.5 text-right text-xs text-muted">
+                    {r.last_active ? new Date(r.last_active).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "Never"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function Team() {
   const [users, setUsers] = useState<UserOut[] | null>(null);
   const [error, setError] = useState("");
@@ -305,6 +371,7 @@ export default function Team() {
           ))}
         </ul>
       )}
+      <AccountabilityTable />
     </div>
   );
 }

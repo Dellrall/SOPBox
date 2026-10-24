@@ -192,6 +192,33 @@ CREATE TABLE IF NOT EXISTS stocktake_lines (
     counted_stock BIGINT NOT NULL CHECK (counted_stock >= 0),
     difference BIGINT NOT NULL
 );
+-- Accountability: the signed-in account behind each logged action (NULL for "system" and for
+-- entries written before this column existed). Set from the request, see scope_to_user.
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS actor_id BIGINT REFERENCES users(id);
+CREATE INDEX IF NOT EXISTS audit_log_actor_idx ON audit_log (workspace_id, actor_id, id DESC);
+-- Who received a delivery, as an account, so they can be told about its decision and comments.
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS received_by_id BIGINT REFERENCES users(id);
+-- Teammates tagged on a delivery, from the receiving form, the delivery itself or an @mention.
+CREATE TABLE IF NOT EXISTS delivery_tags (
+    delivery_id BIGINT NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tagged_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (delivery_id, user_id)
+);
+-- Each person's inbox. The text is written when the event happens, like the audit log.
+CREATE TABLE IF NOT EXISTS notifications (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('tagged', 'approval_needed', 'decided', 'comment')),
+    delivery_id BIGINT REFERENCES deliveries(id) ON DELETE CASCADE,
+    actor TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    read_at TEXT
+);
+CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, id DESC);
 CREATE INDEX IF NOT EXISTS stocktakes_workspace_idx ON stocktakes (workspace_id, count_date DESC, id DESC);
 CREATE INDEX IF NOT EXISTS stocktake_lines_take_idx ON stocktake_lines (stocktake_id, id);
 """
@@ -214,6 +241,11 @@ RLS_TABLES = {
         f"AND s.workspace_id = {_WS})"
     ),
     "suppliers": f"workspace_id = {_WS}",
+    "notifications": f"workspace_id = {_WS}",
+    "delivery_tags": (
+        f"EXISTS (SELECT 1 FROM deliveries d WHERE d.id = delivery_tags.delivery_id "
+        f"AND d.workspace_id = {_WS})"
+    ),
     "purchase_orders": f"workspace_id = {_WS}",
     "purchase_order_lines": (
         f"EXISTS (SELECT 1 FROM purchase_orders o WHERE o.id = purchase_order_lines.purchase_order_id "
@@ -300,11 +332,17 @@ def get_db() -> Iterator[psycopg.Connection]:
         try:
             yield conn
         finally:
-            # The pool reuses this connection: forget which workspace it served.
+            # The pool reuses this connection: forget which workspace and user it served.
             if not conn.closed:
                 conn.execute("RESET app.workspace_id")
+                conn.execute("RESET app.user_id")
 
 
 def scope_to_workspace(conn: psycopg.Connection, workspace_id: int) -> None:
     """Tell the database which workspace this connection serves. Reset when the pool takes it back."""
     conn.execute("SELECT set_config('app.workspace_id', %s, false)", (str(workspace_id),))
+
+
+def scope_to_user(conn: psycopg.Connection, user_id: int) -> None:
+    """Tell the database who is signed in, so the audit log ties each action to their account."""
+    conn.execute("SELECT set_config('app.user_id', %s, false)", (str(user_id),))

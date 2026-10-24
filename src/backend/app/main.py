@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app import accounts, auth, catalogue, deliveries, purchasing
+from app import accounts, auth, catalogue, deliveries, inbox, purchasing
 from app import stocktakes
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
 from app.db import close_pool, get_db, init_db
@@ -27,7 +27,12 @@ from app.errors import (
 )
 from app.extraction import extract_lines, extract_products, write_sop
 from app.models import (
+    Accountability,
     ArchiveIn,
+    Inbox,
+    NotificationsReadIn,
+    TagsIn,
+    TeamMember,
     SopDraft,
     SopDraftIn,
     CancelIn,
@@ -552,7 +557,7 @@ def extract(body: ExtractRequest, user: ReceivingEditor, conn: Conn):
 
 @app.post("/api/deliveries", response_model=Delivery, status_code=201)
 def create_delivery(body: DeliveryIn, background: BackgroundTasks, user: ReceivingEditor, conn: Conn):
-    delivery = deliveries.create_delivery(conn, user.workspace_id, user.display_name, body)
+    delivery = deliveries.create_delivery(conn, user.workspace_id, user, body)
     if delivery.status == "pending_approval":
         chat = accounts.get_workspace(conn, user.workspace_id).telegram_manager_chat_id
         background.add_task(send_telegram, chat, approval_needed_message(delivery))
@@ -584,22 +589,62 @@ def delivery_photo(delivery_id: int, photo_id: int, user: DeliveryReader, conn: 
 @app.post("/api/deliveries/{delivery_id}/photos/{photo_id}/comments", response_model=Delivery, status_code=201)
 def comment_on_photo(delivery_id: int, photo_id: int, body: PhotoCommentIn, user: DeliveryReader, conn: Conn):
     """Anyone who can see the delivery can discuss its photos; the decision itself stays with approvers."""
-    return deliveries.comment_on_photo(conn, user.workspace_id, delivery_id, photo_id, user.display_name, body)
+    return deliveries.comment_on_photo(conn, user.workspace_id, delivery_id, photo_id, user, body)
 
 
 @app.post("/api/deliveries/{delivery_id}/decision", response_model=Delivery)
 def decide(
     delivery_id: int, body: DecisionIn, background: BackgroundTasks, user: ApprovalsEditor, conn: Conn
 ):
-    delivery = deliveries.decide(conn, user.workspace_id, delivery_id, user.display_name, body)
+    delivery = deliveries.decide(conn, user.workspace_id, delivery_id, user, body)
     chat = accounts.get_workspace(conn, user.workspace_id).telegram_staff_chat_id
     background.add_task(send_telegram, chat, decision_message(delivery))
     return delivery
 
 
+@app.post("/api/deliveries/{delivery_id}/tags", response_model=Delivery)
+def tag_teammates(delivery_id: int, body: TagsIn, user: DeliveryReader, conn: Conn):
+    """Anyone who can see the delivery can tag a teammate on it; each one is told in their inbox."""
+    return deliveries.add_tags(conn, user.workspace_id, delivery_id, user, body.user_ids)
+
+
+@app.delete("/api/deliveries/{delivery_id}/tags/{user_id}", response_model=Delivery)
+def untag_teammate(delivery_id: int, user_id: int, user: DeliveryReader, conn: Conn):
+    return deliveries.remove_tag(conn, user.workspace_id, delivery_id, user, user_id)
+
+
 @app.get("/api/audit", response_model=list[AuditEntry])
-def audit(user: ActivityReader, conn: Conn, limit: int = Query(default=50, ge=1, le=200)):
-    return deliveries.list_audit(conn, user.workspace_id, limit)
+def audit(
+    user: ActivityReader,
+    conn: Conn,
+    limit: int = Query(default=50, ge=1, le=200),
+    actor_id: int | None = None,
+):
+    return deliveries.list_audit(conn, user.workspace_id, limit, actor_id)
+
+
+# ---- teammates, inbox and accountability -------------------------------------------------------
+
+
+@app.get("/api/team", response_model=list[TeamMember])
+def list_team(user: User, conn: Conn):
+    """Active teammates' names, for tagging. Everyone in the workspace may see who else is in it."""
+    return inbox.team(conn, user.workspace_id)
+
+
+@app.get("/api/team/accountability", response_model=list[Accountability])
+def team_accountability(owner: OwnerOnly, conn: Conn):
+    return inbox.accountability(conn, owner.workspace_id)
+
+
+@app.get("/api/inbox", response_model=Inbox)
+def get_inbox(user: User, conn: Conn, limit: int = Query(default=30, ge=1, le=100)):
+    return inbox.inbox(conn, user.workspace_id, user.id, limit)
+
+
+@app.post("/api/inbox/read", status_code=204)
+def read_inbox(body: NotificationsReadIn, user: User, conn: Conn) -> None:
+    inbox.mark_read(conn, user.workspace_id, user.id, body.ids)
 
 
 # ---- blind stock counts ------------------------------------------------------------------------
