@@ -30,6 +30,8 @@ Everyone has a username and password. From **Settings, Sign-in & security**, a p
 - **Google** and **Telegram:** shown only when configured (see Configuration).
 - **Kitchen tablet PIN:** a manager marks a shared tablet in Settings; on it, people tap their name and type a 4 to 8 digit PIN. A PIN works on no other browser, is throttled like a password, and its session lasts 12 hours.
 
+**Telegram team group.** The owner can connect one Telegram group per workspace (Settings, Telegram team group). A bot can't create groups, so the owner creates it, sets "Chat history for new members" to Visible (which makes it a supergroup), and adds the SOPBox bot as an admin with "Invite users via link" and "Ban users". SOPBox then makes one invite link that asks to join and sends it by Telegram message to everyone who has connected Telegram (and to each person when they connect later; it's also in their Settings). Telegram passes each join request to `/api/telegram/webhook`, and the bot approves only a Telegram account linked to an active person in that workspace who hasn't been removed, so a forwarded link lets nobody else in. On the Team page the owner can remove someone for 1 hour, 1 day, 1 week or until let back in. Disabling an account or disconnecting Telegram takes the person out too. The webhook is registered when the group is connected, at the address the owner is using, so connect it from the published site, not the development URL.
+
 Every sign-in is recorded. The app shows "your last sign-in was …" once per session, a sign-in from a new device or method lands in the person's inbox, Settings lists the last 10, and the owner's Team page shows each person's last sign-in. Changes to sign-in methods are in the activity log.
 
 Passwords are hashed with scrypt, sessions are random tokens in an HttpOnly cookie, and five wrong passwords lock an account for 15 minutes. Each workspace's data is separate: every query is scoped to the signed-in workspace, and PostgreSQL Row Level Security enforces the same rule inside the database. Names in the audit log come from the signed-in account, not from anything typed.
@@ -210,6 +212,9 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `GET /api/auth/security` | any signed in | My sign-in methods and last 10 sign-ins |
 | `POST /api/auth/passkeys/register-options`, `POST /api/auth/passkeys`, `DELETE /api/auth/passkeys/{id}` | any signed in | Add or remove my passkeys |
 | `POST /api/auth/telegram/link`, `DELETE /api/auth/google`, `DELETE /api/auth/telegram`, `PUT /api/auth/pin` | any signed in | Connect or disconnect Telegram/Google; set or remove my PIN |
+| `PUT/DELETE /api/workspace/team-group` | owner | Connect (checks the bot's admin rights, makes the join-request link, registers the webhook) or disconnect the Telegram team group |
+| `POST /api/users/{id}/team-group/remove`, `POST /api/users/{id}/team-group/let-back` | owner | Remove someone from the team group (`{"hours": 1\|24\|168\|null}`), or let them back in |
+| `POST /api/telegram/webhook` | Telegram | Join requests; checked against a secret derived from the bot token |
 | `GET/POST /api/kitchen-devices`, `DELETE /api/kitchen-devices/{id}` | manager | Mark this browser as a kitchen tablet; list and remove tablets |
 | `GET /`, `GET /signin`, `GET /register`, `GET /settings` | anyone | The app. Signed out, `/` is the welcome page with a walkthrough of one delivery |
 | `GET /robots.txt`, `GET /sitemap.xml` | anyone | For search engines. The page itself gets absolute canonical and link-preview URLs from the request's address |

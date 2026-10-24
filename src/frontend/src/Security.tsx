@@ -127,9 +127,16 @@ export function SignInSecurity() {
         {methods?.telegram_bot_id && (
           <Method icon={<Send aria-hidden className="h-5 w-5" />} title="Telegram" status={state.telegram_linked ? "Connected." : "Sign in with the Telegram app on your phone."}>
             {state.telegram_linked ? (
-              <button type="button" className={secondaryButton} disabled={busy} onClick={() => void run(() => api.unlink("telegram"), "Telegram disconnected.")}>
-                Disconnect
-              </button>
+              <>
+                {state.team_group_link && (
+                  <a href={state.team_group_link} target="_blank" rel="noopener noreferrer" className={primaryButton}>
+                    Join {state.team_group_title || "the team group"}
+                  </a>
+                )}
+                <button type="button" className={secondaryButton} disabled={busy} onClick={() => void run(() => api.unlink("telegram"), "Telegram disconnected.")}>
+                  Disconnect
+                </button>
+              </>
             ) : (
               <a href={telegramLoginUrl(methods.telegram_bot_id, "/settings")} className={secondaryButton}>
                 Connect Telegram

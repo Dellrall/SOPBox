@@ -58,6 +58,9 @@ export type UserOut = {
   section_access: SectionAccess;
   active: boolean;
   created_at: string;
+  telegram_linked: boolean;
+  /** Kept out of the Telegram team group until then; year 9999 means until let back in. */
+  team_group_removed_until: string | null;
 };
 
 export type UserCreateIn = {
@@ -93,6 +96,9 @@ export type WorkspaceSettings = {
   name: string;
   telegram_manager_chat_id: string;
   telegram_staff_chat_id: string;
+  telegram_team_chat_id: string;
+  telegram_team_title: string;
+  telegram_team_invite_link: string;
 };
 
 export type PackUnit = { unit: string; base_qty: number };
@@ -403,6 +409,8 @@ export type Security = {
   pin_set: boolean;
   passkeys: Passkey[];
   recent_sign_ins: SignIn[];
+  team_group_title: string | null;
+  team_group_link: string | null;
 };
 export type KitchenDevice = { id: number; name: string; created_by: string; created_at: string; last_used_at: string | null; this_device: boolean };
 export type KitchenScreen = { device_name: string; workspace_name: string; people: { id: number; display_name: string }[] };

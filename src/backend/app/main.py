@@ -1,3 +1,4 @@
+import hmac
 import html
 import logging
 from datetime import datetime, timedelta, timezone
@@ -12,9 +13,10 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso
+from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
 from app import stocktakes
 from app.auditlog import audit as audit_entry
+from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
 from app.db import close_pool, get_db, init_db
 from app.errors import (
@@ -39,6 +41,8 @@ from app.models import (
     PinIn,
     SecurityOut,
     SignInMethods,
+    TeamGroupIn,
+    TeamGroupRemoveIn,
     TelegramAuthIn,
     ArchiveIn,
     Inbox,
@@ -329,7 +333,11 @@ def my_security(user: User, conn: Conn):
     recent = conn.execute(
         "SELECT id, at, method, device FROM sign_ins WHERE user_id = %s ORDER BY id DESC LIMIT 10", (user.id,)
     ).fetchall()
-    return SecurityOut(**row, passkeys=passkeys.list_passkeys(conn, user.id), recent_sign_ins=recent)
+    group = team_group.link_for(conn, user.id)
+    return SecurityOut(
+        **row, passkeys=passkeys.list_passkeys(conn, user.id), recent_sign_ins=recent,
+        team_group_title=group[0] if group else None, team_group_link=group[1] if group else None,
+    )
 
 
 @app.post("/api/auth/passkeys/register-options")
@@ -410,13 +418,26 @@ def telegram_login(body: TelegramAuthIn, request: Request, response: Response, c
 
 
 @app.post("/api/auth/telegram/link", status_code=204)
-def telegram_link(body: TelegramAuthIn, user: User, conn: Conn) -> None:
+def telegram_link(body: TelegramAuthIn, background: BackgroundTasks, user: User, conn: Conn) -> None:
     sso.telegram_link(conn, user, body.model_dump())
     _security_event(conn, user, "Connected Telegram sign-in")
+    _send_invites(background, [team_group.invite(conn, user.id)])
+
+
+def _send_invites(background: BackgroundTasks, invites: list[tuple[str, str] | None]) -> None:
+    """Team group links go out after the response, so a slow Telegram never holds up the page."""
+    for invite in filter(None, invites):
+        background.add_task(send_telegram, *invite)
 
 
 @app.delete("/api/auth/{provider}", status_code=204)
-def unlink_provider(provider: Literal["google", "telegram"], user: User, conn: Conn) -> None:
+def unlink_provider(provider: Literal["google", "telegram"], background: BackgroundTasks, user: User, conn: Conn) -> None:
+    if provider == "telegram":
+        # Out of the team group: that Telegram account is no longer known to be this person.
+        old = conn.execute("SELECT telegram_id FROM users WHERE id = %s", (user.id,)).fetchone()["telegram_id"]
+        if old:
+            chat = accounts.get_workspace(conn, user.workspace_id).telegram_team_chat_id
+            background.add_task(team_group.kick_quietly, chat, old, keep_out=False)
     sso.unlink(conn, user, provider)
     _security_event(conn, user, f"Disconnected {provider.title()} sign-in")
 
@@ -472,8 +493,54 @@ def create_user(body: UserCreateIn, owner: OwnerOnly, conn: Conn):
 
 
 @app.patch("/api/users/{user_id}", response_model=UserOut)
-def update_user(user_id: int, body: UserUpdateIn, owner: OwnerOnly, conn: Conn):
-    return accounts.update_user(conn, owner, user_id, body)
+def update_user(user_id: int, body: UserUpdateIn, background: BackgroundTasks, owner: OwnerOnly, conn: Conn):
+    was_active = accounts.get_user(conn, owner.workspace_id, user_id).active
+    updated = accounts.update_user(conn, owner, user_id, body)
+    if updated.active != was_active and updated.telegram_linked:
+        # A disabled account leaves the team group; enabling it lets the person back in.
+        chat = accounts.get_workspace(conn, owner.workspace_id).telegram_team_chat_id
+        telegram_id = conn.execute("SELECT telegram_id FROM users WHERE id = %s", (user_id,)).fetchone()["telegram_id"]
+        if updated.active:
+            background.add_task(team_group.unban_quietly, chat, telegram_id)
+            _send_invites(background, [team_group.invite(conn, user_id)])
+        else:
+            background.add_task(team_group.kick_quietly, chat, telegram_id, keep_out=True)
+    return updated
+
+
+@app.put("/api/workspace/team-group", response_model=WorkspaceSettings)
+def connect_team_group(body: TeamGroupIn, request: Request, background: BackgroundTasks, owner: OwnerOnly, conn: Conn):
+    """Connect the workspace's Telegram team group. Everyone with Telegram connected gets the link."""
+    ws = team_group.connect(conn, owner, body.chat_id, _origin(request))
+    _send_invites(background, team_group.invites_for_everyone(conn, owner.workspace_id))
+    return ws
+
+
+@app.delete("/api/workspace/team-group", response_model=WorkspaceSettings)
+def disconnect_team_group(owner: OwnerOnly, conn: Conn):
+    return team_group.disconnect(conn, owner)
+
+
+@app.post("/api/users/{user_id}/team-group/remove", response_model=UserOut)
+def remove_from_team_group(user_id: int, body: TeamGroupRemoveIn, owner: OwnerOnly, conn: Conn):
+    team_group.remove(conn, owner, user_id, body.hours)
+    return accounts.get_user(conn, owner.workspace_id, user_id)
+
+
+@app.post("/api/users/{user_id}/team-group/let-back", response_model=UserOut)
+def let_back_into_team_group(user_id: int, background: BackgroundTasks, owner: OwnerOnly, conn: Conn):
+    _send_invites(background, [team_group.let_back(conn, owner, user_id)])
+    return accounts.get_user(conn, owner.workspace_id, user_id)
+
+
+@app.post("/api/telegram/webhook", include_in_schema=False)
+def telegram_webhook(request_body: dict, request: Request, conn: Conn) -> dict:
+    """Updates from Telegram (join requests to team groups). Only Telegram knows the secret."""
+    sent = request.headers.get("x-telegram-bot-api-secret-token", "")
+    if not get_settings().telegram_bot_token or not hmac.compare_digest(sent, team_group.webhook_secret()):
+        raise AuthError("not from Telegram")
+    team_group.handle_update(conn, request_body)
+    return {}
 
 
 @app.get("/api/workspace", response_model=WorkspaceSettings)

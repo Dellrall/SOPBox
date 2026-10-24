@@ -40,6 +40,8 @@ const ACTIONS: Record<string, { label: string; group: Group; icon: LucideIcon; t
   "stocktake.created": { label: "Stock counted", group: "stock", icon: ClipboardList, tone: "bg-violet-50 text-violet-700" },
   "user.created": { label: "Account created", group: "team", icon: UserPlus, tone: "bg-slate-100 text-slate-600" },
   "user.updated": { label: "Account changed", group: "team", icon: UserCog, tone: "bg-slate-100 text-slate-600" },
+  "team_group.connected": { label: "Team group changed", group: "team", icon: Send, tone: "bg-slate-100 text-slate-600" },
+  "team_group.member": { label: "Team group", group: "team", icon: Send, tone: "bg-slate-100 text-slate-600" },
   "user.sign_in_method": { label: "Sign-in changed", group: "team", icon: KeyRound, tone: "bg-slate-100 text-slate-600" },
   "workspace.updated": { label: "Settings changed", group: "team", icon: Settings, tone: "bg-slate-100 text-slate-600" },
 };

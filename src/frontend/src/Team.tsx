@@ -151,7 +151,68 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
-function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
+const FOREVER_YEAR = "9999";
+
+/** Team group status and the owner's remove / let back in controls. */
+function TeamGroupControls({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
+  const [error, setError] = useState("");
+  const until = user.team_group_removed_until;
+  const removed = until !== null && new Date(until) > new Date();
+
+  async function act(action: () => Promise<unknown>) {
+    setError("");
+    try {
+      await action();
+      onChanged();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-muted">
+        Team group:{" "}
+        {removed
+          ? until!.startsWith(FOREVER_YEAR)
+            ? "removed until you let them back in"
+            : `removed until ${new Date(until!).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}`
+          : user.telegram_linked
+            ? "can join"
+            : "hasn't connected Telegram yet"}
+      </span>
+      {removed ? (
+        <button className={secondaryButton} onClick={() => void act(() => api.letBackIntoTeamGroup(user.id))}>
+          Let back in
+        </button>
+      ) : (
+        <>
+          <label className="sr-only" htmlFor={`tg-remove-${user.id}`}>
+            Remove {user.display_name} from the team group
+          </label>
+          <select
+            id={`tg-remove-${user.id}`}
+            className={`${inputClass} w-auto!`}
+            value=""
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v) void act(() => api.removeFromTeamGroup(user.id, v === "forever" ? null : (Number(v) as 1 | 24 | 168)));
+            }}
+          >
+            <option value="">Remove from group…</option>
+            <option value="1">For 1 hour</option>
+            <option value="24">For 1 day</option>
+            <option value="168">For 1 week</option>
+            <option value="forever">Until I let them back in</option>
+          </select>
+        </>
+      )}
+      <ErrorNote message={error} />
+    </div>
+  );
+}
+
+function Row({ user, onChanged, teamGroup }: { user: UserOut; onChanged: () => void; teamGroup: boolean }) {
   const [resetting, setResetting] = useState(false);
   const [password, setPassword] = useState("");
   const [editingEmail, setEditingEmail] = useState(false);
@@ -225,6 +286,7 @@ function Row({ user, onChanged }: { user: UserOut; onChanged: () => void }) {
           </div>
         )}
       </div>
+      {teamGroup && !isOwner && user.active && <TeamGroupControls user={user} onChanged={onChanged} />}
       {editingAccess && user.role === "staff" && (
         <div className="space-y-2">
           <SectionAccessFields value={sectionAccess} onChange={setSectionAccess} />
@@ -346,7 +408,14 @@ function AccountabilityTable() {
 
 export default function Team() {
   const [users, setUsers] = useState<UserOut[] | null>(null);
+  const [teamGroup, setTeamGroup] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    api
+      .workspace()
+      .then((ws) => setTeamGroup(Boolean(ws.telegram_team_chat_id)))
+      .catch(() => setTeamGroup(false));
+  }, []);
 
   const load = useCallback(() => {
     api
@@ -371,7 +440,7 @@ export default function Team() {
       {users && (
         <ul className={`${cardClass} divide-y divide-line`}>
           {users.map((u) => (
-            <Row key={u.id} user={u} onChanged={load} />
+            <Row key={u.id} user={u} onChanged={load} teamGroup={teamGroup} />
           ))}
         </ul>
       )}

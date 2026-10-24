@@ -636,6 +636,19 @@ class UserOut(BaseModel):
     section_access: SectionAccess
     active: bool
     created_at: str
+    telegram_linked: bool = False
+    # Kept out of the Telegram team group until then (team_group.FOREVER: until let back in).
+    team_group_removed_until: str | None = None
+
+
+class TeamGroupIn(_In):
+    chat_id: str = Field(pattern=r"^-?\d{1,20}$", description="The group's chat id, e.g. -1001234567890")
+
+
+class TeamGroupRemoveIn(_In):
+    """How long to keep the person out of the team group; None: until the owner lets them back in."""
+
+    hours: Literal[1, 24, 168] | None = None
 
 
 class WorkspaceSettings(BaseModel):
@@ -643,6 +656,10 @@ class WorkspaceSettings(BaseModel):
     name: str
     telegram_manager_chat_id: str
     telegram_staff_chat_id: str
+    # The team group people join (team_group.py); empty when none is connected.
+    telegram_team_chat_id: str = ""
+    telegram_team_title: str = ""
+    telegram_team_invite_link: str = ""
 
 
 class WorkspaceUpdateIn(_In):
@@ -894,3 +911,6 @@ class SecurityOut(BaseModel):
     pin_set: bool
     passkeys: list[PasskeyOut]
     recent_sign_ins: list[SignIn]
+    # The workspace's Telegram team group, when this person may join it.
+    team_group_title: str | None = None
+    team_group_link: str | None = None
