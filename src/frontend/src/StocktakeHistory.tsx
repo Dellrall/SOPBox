@@ -7,22 +7,25 @@ const PAGE = 10;
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** "2026-10-24" for a local calendar day, the same shape as a stocktake's count_date. */
-const keyOf = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+export const keyOf = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-const dayTitle = (key: string) =>
+export const dayTitle = (key: string) =>
   new Date(`${key}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
-/** A month grid; each day that had counts gets a bubble that grows with how many. */
-function CountCalendar({
+/** A month grid; each day with entries gets a bubble that grows with how many. Shared with Delivery records. */
+export function CountCalendar({
   perDay,
   picked,
   onPick,
+  noun = ["count", "counts"],
 }: {
   perDay: Map<string, number>;
   picked: string | null;
   onPick: (day: string | null) => void;
+  /** What a day holds, singular and plural. */
+  noun?: [string, string];
 }) {
   const latest = [...perDay.keys()].sort().pop();
   const start = latest ? new Date(`${latest}T00:00:00`) : new Date();
@@ -72,8 +75,8 @@ function CountCalendar({
               type="button"
               disabled={n === 0}
               aria-pressed={isPicked}
-              aria-label={`${dayTitle(key)}: ${n} ${n === 1 ? "count" : "counts"}`}
-              title={n ? `${n} ${n === 1 ? "count" : "counts"}` : undefined}
+              aria-label={`${dayTitle(key)}: ${n} ${n === 1 ? noun[0] : noun[1]}`}
+              title={n ? `${n} ${n === 1 ? noun[0] : noun[1]}` : undefined}
               onClick={() => onPick(isPicked ? null : key)}
               className="relative flex aspect-square items-center justify-center text-sm disabled:cursor-default"
             >
@@ -97,7 +100,7 @@ function CountCalendar({
       </div>
       <p className="mt-3 flex items-center gap-2 text-xs text-muted">
         <span aria-hidden className="inline-block h-3 w-3 rounded-full bg-brand-100" />
-        Bigger bubble, more counts. Tap a day to see only its counts.
+        Bigger bubble, more {noun[1]}. Tap a day to see only its {noun[1]}.
       </p>
     </div>
   );
