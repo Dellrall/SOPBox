@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { PhotoPicker } from "./PhotoPicker";
 import { api } from "./api";
@@ -18,6 +18,7 @@ type Row = {
   perPack: string;
   min: string;
   max: string;
+  sop: string;
   note: string;
 };
 
@@ -63,6 +64,7 @@ export default function ImportSheet({
           perPack: s.units_per_pack ? String(s.units_per_pack) : "",
           min: s.temp_min_c === null ? "" : String(s.temp_min_c),
           max: s.temp_max_c === null ? "" : String(s.temp_max_c),
+          sop: s.sop ?? "",
           note: [s.exists ? "already in your catalogue" : null, s.warning].filter(Boolean).join("; "),
         })),
       );
@@ -111,7 +113,7 @@ export default function ImportSheet({
         temp_min_c: min,
         temp_max_c: max,
         min_stock: 0,
-        sop: "",
+        sop: r.sop.trim(),
         pack_units: r.packUnit.trim() ? [{ unit: r.packUnit.trim(), base_qty: perPack }] : [],
       });
     }
@@ -175,7 +177,8 @@ export default function ImportSheet({
               </thead>
               <tbody className="align-top">
                 {rows.map((r, i) => (
-                  <tr key={r.key} className="border-t border-line">
+                  <Fragment key={r.key}>
+                  <tr className="border-t border-line">
                     <td className="py-2 pr-2">
                       <input type="checkbox" aria-label={`Add product ${i + 1}`} className="mt-3 h-4 w-4 accent-brand-600" checked={r.include} onChange={(e) => set(r.key, { include: e.target.checked })} />
                     </td>
@@ -214,6 +217,21 @@ export default function ImportSheet({
                       </span>
                     </td>
                   </tr>
+                  <tr>
+                    <td />
+                    <td colSpan={6} className="pb-3 pr-2">
+                      <textarea
+                        aria-label={`SOP, product ${i + 1}`}
+                        rows={2}
+                        maxLength={4000}
+                        placeholder="SOP (optional): how to check, store or handle it, one step per line"
+                        className={cell}
+                        value={r.sop}
+                        onChange={(e) => set(r.key, { sop: e.target.value })}
+                      />
+                    </td>
+                  </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>

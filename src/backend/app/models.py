@@ -182,9 +182,10 @@ class ProductSuggestion(_Clean):
     units_per_pack: int | None = Field(default=None, gt=0, le=100_000)
     temp_min_c: float | None = Field(default=None, ge=-60, le=100)
     temp_max_c: float | None = Field(default=None, ge=-60, le=100)
+    sop: str | None = Field(default=None, max_length=4000)  # receiving or handling steps as printed
     warning: str | None = Field(default=None, max_length=200)
 
-    @field_validator("category", "pack_size", "base_unit", "pack_unit", "warning", mode="before")
+    @field_validator("category", "pack_size", "base_unit", "pack_unit", "sop", "warning", mode="before")
     @classmethod
     def _blank_is_none(cls, value: object) -> object:
         return None if isinstance(value, str) and not value.strip() else value

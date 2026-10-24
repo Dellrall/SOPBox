@@ -156,6 +156,7 @@ export type ProductSuggestion = {
   units_per_pack: number | null;
   temp_min_c: number | null;
   temp_max_c: number | null;
+  sop: string | null; // handling steps printed on the sheet
   warning: string | null;
   exists: boolean; // already in the catalogue
 };
