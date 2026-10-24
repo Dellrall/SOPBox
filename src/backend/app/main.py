@@ -1,5 +1,6 @@
 import html
 import logging
+from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
@@ -39,6 +40,7 @@ from app.models import (
     Category,
     CategoryIn,
     DashboardDeliveryOut,
+    DashboardDayOut,
     DashboardLowStockOut,
     DashboardSummary,
     DecisionIn,
@@ -338,6 +340,12 @@ def dashboard_summary(user: DashboardReader, conn: Conn):
         "ORDER BY stock ASC, lower(name) LIMIT 100",
         (ws,),
     ).fetchall()
+    since = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat(timespec="seconds")
+    activity = conn.execute(
+        "SELECT created_at, status FROM deliveries WHERE workspace_id = %s AND created_at >= %s "
+        "ORDER BY created_at, id LIMIT 5000",
+        (ws, since),
+    ).fetchall()
     return DashboardSummary(
         product_count=product_count,
         delivery_count=sum(counts.values()),
@@ -347,6 +355,7 @@ def dashboard_summary(user: DashboardReader, conn: Conn):
         returned_count=counts.get("returned", 0),
         recent_deliveries=[DashboardDeliveryOut(**row) for row in recent],
         low_stock_products=[DashboardLowStockOut(**row) for row in low_stock],
+        recent_activity=[DashboardDayOut(**row) for row in activity],
     )
 
 

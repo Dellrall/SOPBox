@@ -278,6 +278,7 @@ export type DashboardSummary = {
     min_stock: number;
     base_unit: string;
   }[];
+  recent_activity: { created_at: string; status: DeliveryStatus }[];
 };
 
 // ---- purchasing ----

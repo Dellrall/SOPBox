@@ -406,6 +406,13 @@ class DashboardLowStockOut(BaseModel):
     base_unit: str
 
 
+class DashboardDayOut(BaseModel):
+    """One delivery in the chart window; the browser groups them by its own calendar day."""
+
+    created_at: str
+    status: DeliveryStatus
+
+
 class DashboardSummary(BaseModel):
     product_count: int
     delivery_count: int
@@ -415,6 +422,8 @@ class DashboardSummary(BaseModel):
     returned_count: int
     recent_deliveries: list[DashboardDeliveryOut]
     low_stock_products: list[DashboardLowStockOut]
+    # Deliveries from the last 15 days (one spare day covers any time zone), oldest first.
+    recent_activity: list[DashboardDayOut]
 
 
 # 3 to 32 of a-z, 0-9 and . _ -, starting and ending with a letter or number. No spaces or other
