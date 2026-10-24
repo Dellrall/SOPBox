@@ -29,6 +29,7 @@ import Records from "./Records";
 import Settings from "./Settings";
 import Stocktake from "./Stocktake";
 import Team from "./Team";
+import { MascotDock, type Scene } from "./Mascot";
 import type { Me, Role, SectionKey } from "./types";
 import { ROLE_LABEL } from "./ui";
 
@@ -135,6 +136,20 @@ export default function App() {
   }
   return <Shell me={me} onMeChanged={setMe} onSignedOut={() => setMe(null)} />;
 }
+
+/** What the helpers do on a page that has nothing going on. */
+const IDLE: Record<PageId, Scene> = {
+  dashboard: { who: "cabbage", action: "wave" },
+  receive: { who: "fish", action: "wave", text: "Snap the delivery order and I'll read the lines for you." },
+  records: { who: "fish", action: "read" },
+  products: { who: "cabbage", action: "count" },
+  purchasing: { who: "carrot", action: "write" },
+  approvals: { who: "carrot", action: "read" },
+  activity: { who: "fish", action: "read" },
+  stocktake: { who: "cabbage", action: "count" },
+  team: { who: "crew", action: "wave" },
+  settings: { who: "cabbage", action: "sleep" },
+};
 
 function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me) => void; onSignedOut: () => void }) {
   const [page, setPage] = useState<PageId>(() => firstPage(me));
@@ -299,7 +314,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
         </div>
       </aside>
 
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
         {/* Receive stays mounted so a half-filled delivery survives a look at another page. */}
         <div hidden={page !== "receive"}>
           <Receive
@@ -339,6 +354,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
         {page === "team" && me.role === "owner" && <Team key={visit} />}
         {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}
       </main>
+      <MascotDock fallback={IDLE[page]} />
     </div>
   );
 }

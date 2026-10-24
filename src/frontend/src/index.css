@@ -94,3 +94,29 @@
 .demo-rise {
   animation: demo-rise 0.4s ease-out both;
 }
+
+/* ---- mascots (Mascot.tsx) ---- */
+@keyframes mascot-bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
+@keyframes mascot-hop { 0%, 100% { transform: translateY(0) } 30% { transform: translateY(-10px) rotate(-4deg) } 60% { transform: translateY(0) rotate(3deg) } }
+@keyframes mascot-trudge { 0%, 100% { transform: rotate(-3deg) } 50% { transform: rotate(3deg) translateY(-2px) } }
+@keyframes mascot-shiver { 0%, 100% { transform: translateX(0) } 25% { transform: translateX(-1.5px) } 75% { transform: translateX(1.5px) } }
+@keyframes mascot-breathe { 0%, 100% { transform: scale(1) } 50% { transform: scale(1.03, 0.97) } }
+@keyframes mascot-wave { 0%, 100% { transform: rotate(0) } 50% { transform: rotate(-25deg) } }
+@keyframes mascot-scan { 0%, 100% { transform: translate(0, 0) } 50% { transform: translate(-6px, 3px) } }
+@keyframes mascot-poke { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(4px) } }
+@keyframes mascot-zz { 0% { opacity: 0; transform: translate(0, 0) } 50% { opacity: 1 } 100% { opacity: 0; transform: translate(6px, -10px) } }
+@keyframes mascot-pop { from { opacity: 0; transform: translateY(4px) scale(0.96) } to { opacity: 1; transform: none } }
+.mascot-bob { animation: mascot-bob 1.6s ease-in-out infinite; transform-origin: 50% 100% }
+.mascot-hop { animation: mascot-hop 0.9s ease-in-out infinite; transform-origin: 50% 100% }
+.mascot-trudge { animation: mascot-trudge 0.8s ease-in-out infinite; transform-origin: 50% 100% }
+.mascot-shiver { animation: mascot-shiver 0.25s linear infinite }
+.mascot-breathe { animation: mascot-breathe 3s ease-in-out infinite; transform-origin: 50% 100% }
+.mascot-wave { animation: mascot-wave 0.7s ease-in-out infinite }
+.mascot-scan { animation: mascot-scan 1.4s ease-in-out infinite }
+.mascot-poke { animation: mascot-poke 0.9s ease-in-out infinite }
+.mascot-scribble { animation: mascot-poke 0.35s linear infinite }
+.mascot-zz { animation: mascot-zz 2s ease-out infinite }
+.mascot-pop { animation: mascot-pop 0.2s ease-out }
+@media (prefers-reduced-motion: reduce) {
+  [class*="mascot-"] { animation: none !important }
+}

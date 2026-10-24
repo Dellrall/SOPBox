@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, FileUp, X } from "lucide-react";
 import { api } from "./api";
 import StocktakeHistory from "./StocktakeHistory";
+import { useMascot } from "./Mascot";
 import type { StocktakeDetail, StocktakeLine, StocktakePreviewLine, StocktakeProduct } from "./types";
 import {
   ErrorNote,
@@ -243,6 +244,18 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
       setError((err as Error).message);
     }
   }
+
+  useMascot(
+    busy && reviewing
+      ? { who: "cabbage", action: "carry", text: `Saving ${reviewLines.length} counts and updating stock…` }
+      : notice.includes("saved")
+        ? { who: "crew", action: "cheer", text: notice }
+        : reviewing
+          ? { who: "fish", action: "read", text: "Check the differences before you save. Red means less on the shelf than the system thinks." }
+          : counted.length > 0
+            ? { who: "cabbage", action: "count", text: `Counted ${counted.length} of ${products.length} products.`, progress: counted.length / Math.max(1, products.length) }
+            : null,
+  );
 
   return (
     <div className="space-y-6">
