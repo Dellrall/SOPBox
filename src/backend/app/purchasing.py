@@ -105,7 +105,7 @@ def _received_by_product(conn: psycopg.Connection, order_id: int) -> dict[int, d
         "SELECT l.product_id, d.status, SUM(l.received_base_qty) AS qty "
         "FROM delivery_lines l JOIN deliveries d ON d.id = l.delivery_id "
         "WHERE d.purchase_order_id = %s AND d.status IN ('accepted', 'pending_approval') "
-        "AND l.product_id IS NOT NULL AND l.received_base_qty IS NOT NULL "
+        "AND l.product_id IS NOT NULL AND l.received_base_qty IS NOT NULL AND NOT l.returned "
         "GROUP BY l.product_id, d.status",
         (order_id,),
     ).fetchall()

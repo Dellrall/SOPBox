@@ -24,7 +24,8 @@ function PendingCard({ delivery: initial, canDecide, onDone }: { delivery: Deliv
   const [error, setError] = useState("");
 
   async function decide(decision: Decision) {
-    if (decision !== "accept" && !reason.trim()) return setError("Give a reason to reject or return.");
+    if (decision !== "accept" && !reason.trim())
+      return setError(decision === "accept_passed" ? "Give a reason for the lines you send back." : "Give a reason to reject or return.");
     setBusy(true);
     setError("");
     try {
@@ -35,6 +36,11 @@ function PendingCard({ delivery: initial, canDecide, onDone }: { delivery: Deliv
       setBusy(false);
     }
   }
+
+  const passed = delivery.lines.filter((l) => l.passed).length;
+  const failed = delivery.lines.length - passed;
+  // Part of the delivery is fine: stock that, send the rest back, and the order keeps waiting for it.
+  const mixed = passed > 0 && failed > 0;
 
   return (
     <article className={`${cardClass} space-y-3`}>
@@ -53,7 +59,7 @@ function PendingCard({ delivery: initial, canDecide, onDone }: { delivery: Deliv
       {canDecide ? (
         <div>
           <label className={labelClass} htmlFor={`reason-${delivery.id}`}>
-            Reason (needed to reject or return)
+            Reason (needed to reject, return, or send lines back)
           </label>
           <input id={`reason-${delivery.id}`} className={inputClass} value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
@@ -64,8 +70,13 @@ function PendingCard({ delivery: initial, canDecide, onDone }: { delivery: Deliv
       {canDecide && (
         <div className="flex flex-wrap gap-2">
           <button className={primaryButton} disabled={busy} onClick={() => void decide("accept")}>
-            Accept
+            Accept all
           </button>
+          {mixed && (
+            <button className={primaryButton} disabled={busy} onClick={() => void decide("accept_passed")}>
+              Accept {passed} good {passed === 1 ? "line" : "lines"}, return {failed}
+            </button>
+          )}
           <button className={secondaryButton} disabled={busy} onClick={() => void decide("return")}>
             Return to supplier
           </button>

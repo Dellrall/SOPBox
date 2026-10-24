@@ -31,6 +31,7 @@ RETURNED: DeliveryStatus = "returned"
 
 _DECISION_STATUS: dict[str, DeliveryStatus] = {
     "accept": ACCEPTED,
+    "accept_passed": ACCEPTED,
     "reject": REJECTED,
     "return": RETURNED,
 }
@@ -46,11 +47,11 @@ def _add_stock(conn: psycopg.Connection, delivery_id: int) -> None:
         """
         UPDATE products SET stock = stock + (
             SELECT COALESCE(SUM(received_base_qty), 0) FROM delivery_lines
-            WHERE delivery_id = %s AND product_id = products.id
+            WHERE delivery_id = %s AND product_id = products.id AND NOT returned
         )
         WHERE id IN (
             SELECT product_id FROM delivery_lines
-            WHERE delivery_id = %s AND product_id IS NOT NULL
+            WHERE delivery_id = %s AND product_id IS NOT NULL AND NOT returned
         )
         """,
         (delivery_id, delivery_id),
@@ -159,9 +160,26 @@ def decide(
             if exists is None:
                 raise NotFoundError(f"delivery {delivery_id} not found")
             raise ConflictError("this delivery is not waiting for approval")
+        action = f"delivery.{new_status}"
+        if data.decision == "accept_passed":
+            sent_back = conn.execute(
+                "UPDATE delivery_lines SET returned = TRUE WHERE delivery_id = %s AND NOT passed "
+                "RETURNING name",
+                (delivery_id,),
+            ).fetchall()
+            kept = conn.execute(
+                "SELECT 1 FROM delivery_lines WHERE delivery_id = %s AND passed", (delivery_id,)
+            ).fetchone()
+            if kept is None:
+                # Raising rolls back the status change too.
+                raise InvalidRequestError("no line passed its checks, so return or reject the delivery")
+            action = "delivery.partly_accepted"
+            data = data.model_copy(
+                update={"reason": f"returned {', '.join(r['name'] for r in sent_back)}: {data.reason}"}
+            )
         if new_status == ACCEPTED:
             _add_stock(conn, delivery_id)
-        audit(conn, ws, decided_by, f"delivery.{new_status}", delivery_id, data.reason)
+        audit(conn, ws, decided_by, action, delivery_id, data.reason)
     return get_delivery(conn, ws, delivery_id)
 
 

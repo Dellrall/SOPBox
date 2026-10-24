@@ -22,6 +22,7 @@ type Group = "deliveries" | "orders" | "stock" | "team";
 
 const ACTIONS: Record<string, { label: string; group: Group; icon: LucideIcon; tone: string }> = {
   "delivery.received": { label: "Delivery checked", group: "deliveries", icon: Truck, tone: "bg-sky-50 text-sky-700" },
+  "delivery.partly_accepted": { label: "Delivery partly accepted", group: "deliveries", icon: Undo2, tone: "bg-amber-50 text-amber-700" },
   "delivery.accepted": { label: "Delivery accepted", group: "deliveries", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" },
   "delivery.rejected": { label: "Delivery rejected", group: "deliveries", icon: XCircle, tone: "bg-red-50 text-red-700" },
   "delivery.returned": { label: "Delivery returned", group: "deliveries", icon: Undo2, tone: "bg-amber-50 text-amber-700" },
