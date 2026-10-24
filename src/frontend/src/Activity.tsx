@@ -16,8 +16,7 @@ export default function Activity() {
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Activity log" subtitle="Every reading, decision and account change, with who did it and when." />
-      <p className="text-sm text-slate-600">Every receiving, decision and account change, newest first.</p>
+      <PageTitle title="Activity log" subtitle="Every reading, decision, stock count and account change, newest first." />
       <ErrorNote message={error} />
       {rows?.length === 0 && <Empty>No activity yet.</Empty>}
       {rows && rows.length > 0 && (

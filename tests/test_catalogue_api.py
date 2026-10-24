@@ -229,3 +229,54 @@ def test_staff_cannot_archive(client, catalogue_ids, make_user):
     staff = make_user("staff")
     resp = staff.patch(f"/api/products/{catalogue_ids['sausage']}", json={"archived": True})
     assert resp.status_code == 403
+
+
+# ---- stock count ------------------------------------------------------------------------------
+
+
+def test_a_stock_count_sets_stock_and_logs_each_difference(client, catalogue_ids):
+    sausage, fries = catalogue_ids["sausage"], catalogue_ids["fries"]
+    resp = client.post(
+        "/api/stock-counts",
+        json={"lines": [{"product_id": sausage, "counted": 40}, {"product_id": fries, "counted": 0}]},
+    )
+    assert resp.status_code == 200, resp.text
+    stock = {p["id"]: p["stock"] for p in resp.json()}
+    assert stock[sausage] == 40 and stock[fries] == 0
+
+    details = [e["detail"] for e in client.get("/api/audit").json() if e["action"] == "stock.counted"]
+    assert details == ["Frozen sausage: 0 → 40 pcs"]  # fries matched, so only one difference
+
+
+def test_a_count_that_matches_is_still_recorded(client, catalogue_ids):
+    client.post("/api/stock-counts", json={"lines": [{"product_id": catalogue_ids["sausage"], "counted": 0}]})
+    details = [e["detail"] for e in client.get("/api/audit").json() if e["action"] == "stock.counted"]
+    assert details == ["1 counted, all matched"]
+
+
+@pytest.mark.parametrize(
+    "lines",
+    [
+        [],
+        [{"product_id": 1, "counted": -1}],
+        [{"product_id": 1, "counted": 1.5}],
+    ],
+)
+def test_a_stock_count_checks_its_input(client, lines):
+    assert client.post("/api/stock-counts", json={"lines": lines}).status_code == 422
+
+
+def test_a_product_appears_once_per_count_and_must_be_yours(client, catalogue_ids):
+    sausage = catalogue_ids["sausage"]
+    twice = [{"product_id": sausage, "counted": 1}, {"product_id": sausage, "counted": 2}]
+    assert client.post("/api/stock-counts", json={"lines": twice}).status_code == 422
+    unknown = [{"product_id": sausage, "counted": 5}, {"product_id": 999999, "counted": 1}]
+    assert client.post("/api/stock-counts", json={"lines": unknown}).status_code == 404
+    # Nothing was changed by the refused count.
+    assert client.get(f"/api/products/{sausage}").json()["stock"] == 0
+
+
+def test_staff_cannot_change_stock_by_counting(make_user, catalogue_ids):
+    staff = make_user("staff")
+    body = {"lines": [{"product_id": catalogue_ids["sausage"], "counted": 5}]}
+    assert staff.post("/api/stock-counts", json=body).status_code == 403

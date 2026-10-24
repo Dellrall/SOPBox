@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ScanText } from "lucide-react";
 import { ApiError, api } from "./api";
 import Categories from "./Categories";
@@ -24,6 +24,14 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
+  const formTop = useRef<HTMLDivElement>(null);
+
+  // The form opens near the top of the page; bring it into view from wherever Edit was pressed.
+  useEffect(() => {
+    if (!editing) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    formTop.current?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+  }, [editing]);
 
   useEffect(() => {
     let stale = false;
@@ -115,6 +123,7 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
         />
       )}
 
+      <div ref={formTop} className="scroll-mt-20" />
       {editing && (
         <ProductForm
           key={editing === "new" ? "new" : editing.id}

@@ -38,6 +38,7 @@ function Step({ done, title, children }: { done: boolean; title: string; childre
 export default function Dashboard({ me, go }: { me: Me; go: (page: PageId) => void }) {
   const [products, setProducts] = useState<Product[] | null>(null);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [hasTeam, setHasTeam] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -47,7 +48,13 @@ export default function Dashboard({ me, go }: { me: Me; go: (page: PageId) => vo
         setDeliveries(d);
       })
       .catch((e: Error) => setError(e.message));
-  }, []);
+    // Only the owner can list accounts, and only the owner sees the team step.
+    if (me.role === "owner")
+      api
+        .users()
+        .then((users) => setHasTeam(users.some((u) => u.role !== "owner")))
+        .catch(() => setHasTeam(false));
+  }, [me.role]);
 
   if (error) return <ErrorNote message={error} />;
   if (!products) return <p className="text-muted">Loading…</p>;
@@ -77,7 +84,7 @@ export default function Dashboard({ me, go }: { me: Me; go: (page: PageId) => vo
               )}
             </Step>
             {me.role === "owner" && (
-              <Step done={false} title="Create accounts for your team">
+              <Step done={hasTeam} title="Create accounts for your team">
                 <p className="mt-1 text-sm text-muted">Staff receive deliveries; managers also approve failures.</p>
                 <button className={`${secondaryButton} mt-3`} onClick={() => go("team")}>
                   Open Team

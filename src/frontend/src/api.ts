@@ -101,6 +101,7 @@ export const api = {
   deleteProduct: (id: number) => del(`/products/${id}`),
   setArchived: (id: number, archived: boolean) => patch<Product>(`/products/${id}`, { archived }),
   createProducts: (products: ProductIn[]) => post<Product[]>("/products/bulk", { products }),
+  countStock: (lines: { product_id: number; counted: number }[]) => post<Product[]>("/stock-counts", { lines }),
   readProductSheet: (image_b64: string) => post<ProductSuggestion[]>("/products/read-sheet", { image_b64 }),
 
   // receiving

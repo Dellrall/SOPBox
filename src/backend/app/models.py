@@ -193,6 +193,17 @@ class ProductsBulkIn(_In):
     products: list[ProductIn] = Field(min_length=1, max_length=200)
 
 
+class StockCountLine(_In):
+    product_id: int
+    counted: int = Field(ge=0, le=1_000_000_000)  # in the product's base unit
+
+
+class StockCountIn(_In):
+    """A stock count: what was physically on the shelf. It replaces the recorded stock."""
+
+    lines: list[StockCountLine] = Field(min_length=1, max_length=500)
+
+
 class ExtractedLineOut(ExtractedLine):
     product_id: int | None
 
