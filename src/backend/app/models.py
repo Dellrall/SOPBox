@@ -600,10 +600,14 @@ class SupplierIn(_In):
     contact: str = Field(default="", max_length=120)
     phone: str = Field(default="", max_length=40)
     email: str = Field(default="", max_length=254)
+    # The products this supplier sells. Left out on an update, the current list is kept.
+    product_ids: list[int] | None = Field(default=None, max_length=1000)
 
     @model_validator(mode="after")
     def _clean(self) -> "SupplierIn":
         self.email = _email(self.email) or ""
+        if self.product_ids is not None:
+            self.product_ids = list(dict.fromkeys(self.product_ids))
         return self
 
 
@@ -614,6 +618,7 @@ class Supplier(BaseModel):
     phone: str
     email: str
     archived: bool
+    product_ids: list[int]
 
 
 class PurchaseOrderLineIn(_In):

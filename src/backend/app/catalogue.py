@@ -225,6 +225,11 @@ def delete_product(conn: psycopg.Connection, ws: int, product_id: int) -> None:
     cur = conn.execute("DELETE FROM products WHERE id = %s AND workspace_id = %s", (product_id, ws))
     if cur.rowcount == 0:
         raise NotFoundError(f"product {product_id} not found")
+    # A plain id list has no foreign key, so take the product off its suppliers' lists here.
+    conn.execute(
+        "UPDATE suppliers SET product_ids = array_remove(product_ids, %s) WHERE workspace_id = %s",
+        (product_id, ws),
+    )
 
 
 # ---- matching order text to products ----------------------------------------------------------
