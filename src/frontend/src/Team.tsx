@@ -129,8 +129,8 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
             Role
           </label>
           <select id="u-role" className={inputClass} value={role} onChange={(e) => setRole(e.target.value as "manager" | "staff")}>
-            <option value="staff">Staff: receives deliveries</option>
-            <option value="manager">Manager: also edits products and approves</option>
+            <option value="staff">Staff</option>
+            <option value="manager">Manager</option>
           </select>
         </div>
         <div>
