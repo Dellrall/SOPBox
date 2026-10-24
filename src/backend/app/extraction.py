@@ -214,11 +214,13 @@ Return only JSON in this exact shape, with one entry per product that is actuall
   "pack_unit": <the unit it is delivered in, or null>,
   "units_per_pack": <whole number of base units in one pack_unit, or null>,
   "temp_min_c": <number or null>, "temp_max_c": <number or null>,
+  "sop": <the receiving, storage or handling instructions printed for this product, or null>,
   "warning": <null or a short note>}]}
 Rules:
 - Copy pack_size character for character from the sheet. Do not take units from the product name.
 - Never invent products, units, pack sizes or temperatures. Use null for anything not clearly printed.
 - Give temp_min_c and temp_max_c only when the sheet prints both a lowest and a highest temperature, for example "0-4 C" gives 0 and 4. Otherwise use null for both, and note a single printed temperature in "warning".
+- Copy "sop" from the sheet only, one instruction per line. Never write instructions of your own.
 - Do not list prices, subtotals, taxes or headings as products.
 - Use "warning" for anything a manager should check.
 Write nothing outside the JSON."""

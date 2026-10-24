@@ -8,7 +8,7 @@ from app.errors import ExtractionError
 SHEET_REPLY = """```json
 {"products": [
   {"name": "Frozen Sausage 1kg", "category": "frozen", "base_unit": "pcs", "pack_unit": "ctn", "units_per_pack": 12,
-   "temp_min_c": -20, "temp_max_c": -10, "warning": null},
+   "temp_min_c": -20, "temp_max_c": -10, "sop": "Reject if thawed\\nStore at -18 C", "warning": null},
   {"name": "Fresh Milk 1L", "category": "Chilled", "base_unit": "bottle", "pack_unit": null, "units_per_pack": null,
    "temp_min_c": null, "temp_max_c": 4, "warning": ""}
 ]}
@@ -18,6 +18,7 @@ SHEET_REPLY = """```json
 def test_suggestions_are_parsed_and_half_a_range_becomes_a_note():
     sausage, milk = [extraction.ProductSuggestion.model_validate(r) for r in extraction._rows(SHEET_REPLY, "products")]
     assert (sausage.pack_unit, sausage.units_per_pack, sausage.temp_min_c) == ("ctn", 12, -20)
+    assert sausage.sop == "Reject if thawed\nStore at -18 C" and milk.sop is None
     assert (milk.temp_min_c, milk.temp_max_c) == (None, None)
     assert milk.warning == "only one temperature was printed (4.0 C)"
 
