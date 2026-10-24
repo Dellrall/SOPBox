@@ -116,9 +116,13 @@ test.describe("phone layout", () => {
 
   test("the inbox opens over the page, not inside the header", async ({ page }) => {
     await page.goto("/");
+    // The dashboard has no inbox list of its own, at most one line for the newest unread.
+    await expect(page.locator("main h1:visible")).toHaveCount(1);
+    await expect(page.locator("main").getByRole("heading", { name: /^Inbox/ })).toHaveCount(0);
     await page.locator("header").getByRole("button", { name: /inbox|notification/i }).first().tap();
     const inbox = page.getByRole("dialog", { name: "Inbox" });
     await expect(inbox).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(1);
     const box = (await inbox.boundingBox())!;
     const screen = page.viewportSize()!;
     expect(box.height, "the inbox should fill the screen's height").toBeGreaterThanOrEqual(screen.height - 1);

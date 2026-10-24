@@ -3,12 +3,11 @@ import { createPortal } from "react-dom";
 import { AtSign, Bell, CheckCheck, ClipboardCheck, LogIn, MessageSquare, Truck, X, type LucideIcon } from "lucide-react";
 import { api } from "./api";
 import type { Inbox, Notification, NotificationKind } from "./types";
-import { secondaryButton } from "./ui";
 
 /**
  * The signed-in person's notifications: tagged on a delivery, a delivery waiting for approval, a
- * decision or a comment on one they are involved in. One store, so the bell and the dashboard card
- * always agree; the shell refreshes it every half minute and on every page change.
+ * decision or a comment on one they are involved in. One store, so the bell and the dashboard
+ * line always agree; the shell refreshes it every half minute and on every page change.
  */
 
 let inbox: Inbox = { unread: 0, items: [] };
@@ -110,92 +109,127 @@ export function InboxList({ items, onOpen }: { items: Notification[]; onOpen: (n
   );
 }
 
-/** The bell with the unread count; opens the inbox as a panel from the right. */
-export function InboxBell({ onOpen, tone = "light" }: { onOpen: (n: Notification) => void; tone?: "light" | "dark" }) {
+// Whether the inbox panel is open. One panel for the app (InboxPanel), opened by either bell
+// (phone header, sidebar) or the dashboard's latest-notification line.
+let panelOpen = false;
+const panelListeners = new Set<() => void>();
+function setPanelOpen(open: boolean) {
+  panelOpen = open;
+  panelListeners.forEach((l) => l());
+}
+export const openInbox = () => setPanelOpen(true);
+
+function usePanelOpen() {
+  return useSyncExternalStore(
+    (l) => {
+      panelListeners.add(l);
+      return () => panelListeners.delete(l);
+    },
+    () => panelOpen,
+  );
+}
+
+/** The bell with the unread count. */
+export function InboxBell({ tone = "light" }: { tone?: "light" | "dark" }) {
+  const { unread } = useInbox();
+  return (
+    <button
+      type="button"
+      onClick={openInbox}
+      aria-label={unread ? `Inbox, ${unread} unread` : "Inbox"}
+      title="Inbox"
+      className={`relative rounded-xl p-2 ${tone === "dark" ? "text-white/80 hover:bg-white/10 hover:text-white" : "border border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+    >
+      <Bell aria-hidden className="h-5 w-5" />
+      {unread > 0 && (
+        <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-bold leading-5 text-white">
+          {unread > 99 ? "99+" : unread}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** The inbox as a panel from the right. Render once, from the shell. */
+export function InboxPanel({ onOpen }: { onOpen: (n: Notification) => void }) {
   const { unread, items } = useInbox();
-  const [open, setOpen] = useState(false);
+  const open = usePanelOpen();
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
     closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPanelOpen(false);
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label={unread ? `Inbox, ${unread} unread` : "Inbox"}
-        title="Inbox"
-        className={`relative rounded-xl p-2 ${tone === "dark" ? "text-white/80 hover:bg-white/10 hover:text-white" : "border border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+  if (!open) return null;
+  // In the body: the phone header's blur would trap a fixed panel rendered inside it.
+  return createPortal(
+    <div className="fixed inset-0 z-50 print:hidden">
+      <div className="absolute inset-0 bg-brand-950/40" onClick={() => setPanelOpen(false)} />
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="Inbox"
+        className="absolute inset-y-0 right-0 flex w-full max-w-sm flex-col bg-white text-ink shadow-2xl"
       >
-        <Bell aria-hidden className="h-5 w-5" />
-        {unread > 0 && (
-          <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-bold leading-5 text-white">
-            {unread > 99 ? "99+" : unread}
-          </span>
-        )}
-      </button>
-      {/* In the body, not here: the phone header's blur would trap a fixed panel inside the header. */}
-      {open &&
-        createPortal(
-        <div className="fixed inset-0 z-50 print:hidden">
-          <div className="absolute inset-0 bg-brand-950/40" onClick={() => setOpen(false)} />
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-label="Inbox"
-            className="absolute inset-y-0 right-0 flex w-full max-w-sm flex-col bg-white text-ink shadow-2xl"
-          >
-            <header className="flex items-center gap-2 border-b border-line px-4 py-3">
-              <h2 className="flex-1 text-lg font-bold text-brand-950">Inbox</h2>
-              {unread > 0 && (
-                <button type="button" onClick={() => void markRead()} className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-brand-700 hover:bg-brand-50">
-                  <CheckCheck aria-hidden className="h-4 w-4" /> Mark all read
-                </button>
-              )}
-              <button ref={closeRef} type="button" onClick={() => setOpen(false)} aria-label="Close the inbox" className="rounded-lg p-1.5 text-muted hover:bg-slate-100">
-                <X aria-hidden className="h-5 w-5" />
-              </button>
-            </header>
-            <div className="flex-1 overflow-y-auto">
-              <InboxList
-                items={items}
-                onOpen={(n) => {
-                  setOpen(false);
-                  onOpen(n);
-                }}
-              />
-            </div>
-          </section>
-        </div>,
-        document.body,
-      )}
-    </>
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <h2 className="flex-1 text-lg font-bold text-brand-950">Inbox</h2>
+          {unread > 0 && (
+            <button type="button" onClick={() => void markRead()} className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-brand-700 hover:bg-brand-50">
+              <CheckCheck aria-hidden className="h-4 w-4" /> Mark all read
+            </button>
+          )}
+          <button ref={closeRef} type="button" onClick={() => setPanelOpen(false)} aria-label="Close the inbox" className="rounded-lg p-1.5 text-muted hover:bg-slate-100">
+            <X aria-hidden className="h-5 w-5" />
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto">
+          <InboxList
+            items={items}
+            onOpen={(n) => {
+              setPanelOpen(false);
+              onOpen(n);
+            }}
+          />
+        </div>
+      </section>
+    </div>,
+    document.body,
   );
 }
 
-/** The latest few notifications, for the dashboard. */
-export function InboxCard({ onOpen }: { onOpen: (n: Notification) => void }) {
+/** For the dashboard: just the newest unread notification, one line. Nothing when all is read. */
+export function LatestNotification({ onOpen }: { onOpen: (n: Notification) => void }) {
   const { unread, items } = useInbox();
+  const latest = items.find((n) => !n.read);
+  if (!latest) return null;
+  const { icon: Icon, label } = KIND[latest.kind];
   return (
-    <section aria-labelledby="inbox-card-title" className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
-      <div className="flex items-center gap-2 border-b border-line px-5 py-3">
-        <Bell aria-hidden className="h-4 w-4 text-brand-600" />
-        <h2 id="inbox-card-title" className="flex-1 font-bold text-brand-950">
-          Inbox {unread > 0 && <span className="ml-1 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">{unread} new</span>}
-        </h2>
-        {unread > 0 && (
-          <button type="button" className={`${secondaryButton} px-2.5 py-1 text-xs`} onClick={() => void markRead()}>
-            Mark all read
-          </button>
-        )}
-      </div>
-      <InboxList items={items.slice(0, 5)} onOpen={onOpen} />
-    </section>
+    <div className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-2.5 shadow-sm">
+      <button
+        type="button"
+        onClick={() => {
+          void markRead([latest.id]);
+          onOpen(latest);
+        }}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+          <Icon aria-hidden className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs text-muted">
+            <span className="font-semibold">{label}</span> · {ago(latest.created_at)}
+          </span>
+          <span className="block truncate text-sm font-medium text-ink">{latest.body}</span>
+        </span>
+      </button>
+      <button type="button" onClick={openInbox} className="shrink-0 rounded-lg px-2 py-1 text-sm font-semibold text-brand-700 hover:bg-brand-50">
+        {unread > 1 ? `+${unread - 1} more` : "Inbox"}
+      </button>
+    </div>
   );
 }

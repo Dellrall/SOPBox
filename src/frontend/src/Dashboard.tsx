@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowRight, CheckCircle2, Circle, Clock, PackageX, ScanL
 import { api } from "./api";
 import { DeliveriesChart, LowStockBars } from "./DashboardCharts";
 import { useMascot } from "./Mascot";
-import { InboxCard } from "./Inbox";
+import { LatestNotification } from "./Inbox";
 import type { PageId } from "./App";
 import type { DashboardSummary, Me, Notification, PurchaseOrder } from "./types";
 import { Empty, ErrorNote, PageTitle, SectionTitle, StatusBadge, cardClass, panelClass, primaryButton, secondaryButton, when } from "./ui";
@@ -261,7 +261,7 @@ export default function Dashboard({
         </button>
       )}
 
-      <InboxCard onOpen={onOpenNotification} />
+      <LatestNotification onOpen={onOpenNotification} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat

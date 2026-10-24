@@ -22,7 +22,7 @@ import Approvals from "./Approvals";
 import AuthPage from "./AuthPage";
 import Landing from "./Landing";
 import Dashboard from "./Dashboard";
-import { InboxBell, useInboxRefresh } from "./Inbox";
+import { InboxBell, InboxPanel, useInboxRefresh } from "./Inbox";
 import { describeSignIn } from "./signin";
 import Products from "./Products";
 import PurchaseOrders from "./PurchaseOrders";
@@ -312,7 +312,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
               {pending} waiting
             </button>
           )}
-          <InboxBell onOpen={openNotification} />
+          <InboxBell />
         </div>
       </header>
 
@@ -333,7 +333,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
           </div>
           {/* On phones the bell is in the top bar instead. */}
           <div className="ml-auto hidden lg:block">
-            <InboxBell onOpen={openNotification} tone="dark" />
+            <InboxBell tone="dark" />
           </div>
           <button aria-label="Close the menu" onClick={() => setMenuOpen(false)} className="ml-auto rounded-lg p-1.5 hover:bg-white/10 lg:hidden">
             <X aria-hidden className="h-5 w-5" />
@@ -386,6 +386,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
 
       <main id="main" className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
         <LastSignIn me={me} onReview={() => go("settings")} />
+        <InboxPanel onOpen={openNotification} />
         {/* Receive stays mounted so a half-filled delivery survives a look at another page. */}
         <div hidden={page !== "receive"}>
           <Receive
