@@ -326,21 +326,42 @@ def low_stock_draft(conn: psycopg.Connection, ws: int, actor: str, data: LowStoc
     Quantities already on open orders (drafts, and issued orders still outstanding) are taken
     off, so pressing the button twice does not order the same shortfall twice.
     """
-    _check_supplier(conn, ws, data.supplier_id)
+    supplier = _check_supplier(conn, ws, data.supplier_id)
     on_order: dict[int, int] = {}
+    covering: dict[int, list[str]] = {}  # product -> the open orders that already cover it
     for order in list_orders(conn, ws):
         if order.status == "cancelled":
             continue
         for line in order.lines:
             still = line.ordered_base_qty if order.status == "draft" else line.outstanding_base_qty
             on_order[line.product_id] = on_order.get(line.product_id, 0) + still
+            if still > 0:
+                covering.setdefault(line.product_id, []).append(f"{order.reference} ({order.status})")
+    low = [p for p in catalogue.list_products(conn, ws, active_only=True) if p.low_stock]
+    # A supplier with a product list only gets an order for what they sell.
+    sells = set(supplier.product_ids)
+    mine = [p for p in low if not sells or p.id in sells]
     lines = []
-    for p in catalogue.list_products(conn, ws, active_only=True):
+    for p in mine:
         short = p.min_stock - p.stock - on_order.get(p.id, 0)
-        if p.low_stock and short > 0:
+        if short > 0:
             lines.append((p.id, short, p.base_unit, short))
     if not lines:
-        raise InvalidRequestError("nothing needs reordering: every low-stock product is already on an open order")
+        if not low:
+            raise InvalidRequestError("nothing needs reordering: no product is below its minimum")
+        if not mine:
+            raise InvalidRequestError(
+                f"nothing needs reordering from {supplier.name}: none of the low-stock products "
+                f"({', '.join(p.name for p in low)}) is on their product list. Pick another supplier, "
+                "or add the products to this supplier"
+            )
+        covered = "; ".join(
+            f"{p.name} on {', '.join(dict.fromkeys(covering.get(p.id, [])))}" for p in mine
+        )
+        raise InvalidRequestError(
+            f"nothing needs reordering: every low-stock product is already on an open order ({covered}). "
+            "Issue or receive those orders, or cancel one to draft it again"
+        )
     order_id = _insert_order(
         conn, ws, actor, data.supplier_id, data.order_date or date.today(), None,
         "Drafted from low stock.", lines,
