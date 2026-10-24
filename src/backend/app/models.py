@@ -356,6 +356,8 @@ class StocktakeProductOut(BaseModel):
     category: str
     base_unit: str
     stock: int
+    bundle_unit: str | None  # the largest pack size, counted as whole bundles
+    bundle_qty: int | None
 
 
 class DashboardDeliveryOut(BaseModel):

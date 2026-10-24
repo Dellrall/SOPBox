@@ -566,12 +566,7 @@ def download_stocktake_template(user: StocktakeReader, conn: Conn):
 
 @app.get("/api/stocktakes/products", response_model=list[StocktakeProductOut])
 def list_stocktake_products(user: StocktakeReader, conn: Conn):
-    return conn.execute(
-        "SELECT p.id, p.name, c.name AS category, p.base_unit, p.stock "
-        "FROM products p JOIN categories c ON c.id = p.category_id "
-        "WHERE p.workspace_id = %s AND NOT p.archived ORDER BY lower(p.name)",
-        (user.workspace_id,),
-    ).fetchall()
+    return stocktakes.list_products(conn, user.workspace_id)
 
 
 @app.post("/api/stocktakes/preview", response_model=StocktakePreview)

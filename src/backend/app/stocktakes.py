@@ -23,48 +23,75 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _products(conn: psycopg.Connection, workspace_id: int) -> list[dict[str, Any]]:
+def list_products(conn: psycopg.Connection, workspace_id: int) -> list[dict[str, Any]]:
+    """Active products by category, each with its bundle: the largest pack size, if it has one."""
     return conn.execute(
-        "SELECT p.id, p.name, c.name AS category, p.base_unit, p.stock "
+        "SELECT p.id, p.name, c.name AS category, p.base_unit, p.stock, "
+        "b.unit AS bundle_unit, b.base_qty AS bundle_qty "
         "FROM products p JOIN categories c ON c.id = p.category_id "
-        "WHERE p.workspace_id = %s AND NOT p.archived ORDER BY lower(p.name)",
+        "LEFT JOIN LATERAL (SELECT unit, base_qty FROM pack_units WHERE product_id = p.id "
+        "ORDER BY base_qty DESC, unit LIMIT 1) b ON TRUE "
+        "WHERE p.workspace_id = %s AND NOT p.archived ORDER BY lower(c.name), lower(p.name)",
         (workspace_id,),
     ).fetchall()
 
 
+HEADERS = ["Product ID", "Product Name", "Bundle Count", "Bundle Unit", "Loose Count", "Base Unit"]
+_BAND = PatternFill("solid", fgColor="1F7A35")
+_HEAD = PatternFill("solid", fgColor="174C3C")
+_NO_BUNDLE = PatternFill("solid", fgColor="E5E7EB")
+
+
 def build_template(conn: psycopg.Connection, workspace_id: int) -> bytes:
-    """Return a blind-count workbook: product identity is prefilled, quantities are not."""
+    """A blind-count workbook, one section per category. Products are prefilled, counts are not."""
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Count sheet"
     instructions = workbook.create_sheet("Instructions")
-    products = _products(conn, workspace_id)
 
-    headers = ["Product ID", "Product Name", "Category", "Counted Stock", "Base Unit"]
-    sheet.append(headers)
-    for cell in sheet[1]:
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = PatternFill("solid", fgColor="174C3C")
-        cell.alignment = Alignment(vertical="center")
-    sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = f"A1:E{max(1, len(products) + 1)}"
-    for column, width in {"A": 14, "B": 34, "C": 22, "D": 18, "E": 16}.items():
+    for column, width in {"A": 12, "B": 34, "C": 16, "D": 14, "E": 16, "F": 14}.items():
         sheet.column_dimensions[column].width = width
+    # Product ID identifies the row on upload; it stays hidden so the sheet reads like the shelf.
+    sheet.column_dimensions["A"].hidden = True
 
-    for product in products:
-        sheet.append([product["id"], product["name"], product["category"], None, product["base_unit"]])
-        # Treat names/categories as text even if a value begins with a formula character.
-        for cell in sheet[sheet.max_row][1:3]:
+    category = None
+    for product in list_products(conn, workspace_id):
+        if product["category"] != category:
+            category = product["category"]
+            if sheet.max_row > 1:
+                sheet.append([])
+            sheet.append([None, category])
+            band = sheet.max_row
+            sheet.merge_cells(start_row=band, start_column=2, end_row=band, end_column=6)
+            title = sheet.cell(band, 2)
+            title.data_type = "s"
+            title.font = Font(bold=True, color="FFFFFF")
+            title.fill = _BAND
+            title.alignment = Alignment(horizontal="center")
+            sheet.append(HEADERS)
+            for cell in sheet[sheet.max_row]:
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = _HEAD
+        sheet.append(
+            [product["id"], product["name"], None, product["bundle_unit"], None, product["base_unit"]]
+        )
+        row = sheet[sheet.max_row]
+        # Treat names and units as text even if a value begins with a formula character.
+        for cell in (row[1], row[3], row[5]):
             cell.data_type = "s"
+        if product["bundle_unit"] is None:
+            row[2].fill = _NO_BUNDLE
+    if category is None:
+        sheet.append(HEADERS)  # no products yet: still a sheet that uploads
 
-    instructions.title = "Instructions"
     instructions.append(["Stock Count Instructions"])
-    instructions.append(["1. Count one total quantity per product, using its Base Unit."])
-    instructions.append(["2. Enter physical quantities in Counted Stock."])
-    instructions.append(["3. Leave a quantity blank if the product was not counted."])
-    instructions.append(["4. Enter 0 only when you counted the product and confirmed none is on hand."])
-    instructions.append(["5. Do not change Product ID or add duplicate product rows."])
-    instructions.append(["6. Upload this workbook in Stock Count, review the counts, then save the stocktake."])
+    instructions.append(["1. Products are grouped by category. Count each one on the shelf."])
+    instructions.append(["2. Bundle Count: whole bundles (Bundle Unit). Loose Count: single items (Base Unit)."])
+    instructions.append(["3. Extra loose items are fine: 12 loose with 10 per box is saved as 1 box + 2."])
+    instructions.append(["4. Leave both counts blank if the product was not counted."])
+    instructions.append(["5. Enter 0 only when you counted the product and found none."])
+    instructions.append(["6. Do not add rows or move products between sections."])
+    instructions.append(["7. Upload this workbook in Stock Count, review the totals, then save the stocktake."])
     instructions.column_dimensions["A"].width = 100
     instructions["A1"].font = Font(bold=True, size=14, color="174C3C")
     for row in range(2, instructions.max_row + 1):
@@ -75,7 +102,7 @@ def build_template(conn: psycopg.Connection, workspace_id: int) -> bytes:
     return output.getvalue()
 
 
-def _rows_from_csv(content: bytes) -> tuple[list[str], list[tuple[int, list[Any]]]]:
+def _rows_from_csv(content: bytes) -> list[tuple[int, list[Any]]]:
     try:
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
@@ -87,10 +114,10 @@ def _rows_from_csv(content: bytes) -> tuple[list[str], list[tuple[int, list[Any]
         raise InvalidRequestError("the uploaded CSV is not valid") from exc
     if not rows:
         raise InvalidRequestError("the uploaded count sheet is empty")
-    return rows[0], [(index + 2, row) for index, row in enumerate(rows[1:])]
+    return [(index + 1, row) for index, row in enumerate(rows)]
 
 
-def _rows_from_xlsx(content: bytes) -> tuple[list[str], list[tuple[int, list[Any]]]]:
+def _rows_from_xlsx(content: bytes) -> list[tuple[int, list[Any]]]:
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             entries = archive.infolist()
@@ -103,37 +130,42 @@ def _rows_from_xlsx(content: bytes) -> tuple[list[str], list[tuple[int, list[Any
         raise InvalidRequestError("the uploaded file is not a valid Excel workbook") from exc
 
     sheet = workbook["Count sheet"] if "Count sheet" in workbook.sheetnames else workbook.active
-    iterator = sheet.iter_rows(values_only=True)
-    try:
-        headers = list(next(iterator))
-    except StopIteration as exc:
-        raise InvalidRequestError("the uploaded count sheet is empty") from exc
-    rows = [(index, list(row)) for index, row in enumerate(iterator, start=2)]
+    rows = [(index, list(row)) for index, row in enumerate(sheet.iter_rows(values_only=True), start=1)]
     workbook.close()
-    return headers, rows
+    if not rows:
+        raise InvalidRequestError("the uploaded count sheet is empty")
+    return rows
 
 
-def _header_indexes(headers: list[Any]) -> tuple[int, int]:
-    normalized = {
-        str(value or "").strip().casefold().replace("_", " ").replace("-", " "): index
-        for index, value in enumerate(headers)
+def _norm(value: Any) -> str:
+    return str(value or "").strip().casefold().replace("_", " ").replace("-", " ")
+
+
+def _header_indexes(row: list[Any]) -> dict[str, int] | None:
+    """Column positions if this row is a header row (it names Product ID), else None.
+
+    A sheet may repeat its header per category section. "Counted Stock" (one total in base
+    units) is still read from sheets made before bundle and loose columns existed.
+    """
+    names = {_norm(value): index for index, value in enumerate(row)}
+    found = {
+        key: next((names[n] for n in options if n in names), None)
+        for key, options in {
+            "id": ("product id", "id"),
+            "bundles": ("bundle count", "bundles"),
+            "loose": ("loose count", "loose"),
+            "total": ("counted stock", "counted quantity", "physical count", "quantity"),
+        }.items()
     }
-    id_index = next(
-        (normalized[name] for name in ("product id", "id") if name in normalized), None
-    )
-    count_index = next(
-        (
-            normalized[name]
-            for name in ("counted stock", "counted quantity", "physical count", "quantity")
-            if name in normalized
-        ),
-        None,
-    )
-    if id_index is None or count_index is None:
-        raise InvalidRequestError(
-            "the count sheet needs Product ID and Counted Stock columns"
-        )
-    return id_index, count_index
+    if found["id"] is None:
+        return None
+    if found["bundles"] is None and found["loose"] is None and found["total"] is None:
+        raise InvalidRequestError("the count sheet needs Bundle Count and Loose Count columns")
+    return {key: index for key, index in found.items() if index is not None}
+
+
+def _blank(value: Any) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
 
 
 def _number(value: Any, *, field: str, row_number: int) -> int:
@@ -165,25 +197,30 @@ def preview_import(
         raise InvalidRequestError("upload a non-empty file smaller than 5 MB")
     suffix = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if suffix == "csv":
-        headers, rows = _rows_from_csv(content)
+        rows = _rows_from_csv(content)
     elif suffix == "xlsx":
-        headers, rows = _rows_from_xlsx(content)
+        rows = _rows_from_xlsx(content)
     else:
         raise InvalidRequestError("upload an .xlsx or .csv count sheet")
     if len(rows) > MAX_UPLOAD_ROWS:
         raise InvalidRequestError("the count sheet contains too many rows")
 
-    id_index, count_index = _header_indexes(headers)
-    products = {int(p["id"]): p for p in _products(conn, workspace_id)}
+    products = {int(p["id"]): p for p in list_products(conn, workspace_id)}
     counted: list[dict[str, Any]] = []
     seen: set[int] = set()
+    columns: dict[str, int] | None = None
     for row_number, row in rows:
-        if len(row) <= max(id_index, count_index):
+        header = _header_indexes(row)
+        if header is not None:
+            columns = header
             continue
-        raw_count = row[count_index]
-        if raw_count is None or (isinstance(raw_count, str) and not raw_count.strip()):
+        if columns is None:
+            continue  # a title above the first header row
+        cell = lambda key: row[columns[key]] if key in columns and columns[key] < len(row) else None  # noqa: E731
+        raw = {key: cell(key) for key in ("bundles", "loose", "total")}
+        if all(_blank(value) for value in raw.values()) or _blank(cell("id")):
             continue  # blank is deliberately different from an explicit zero
-        product_id = _number(row[id_index], field="Product ID", row_number=row_number)
+        product_id = _number(cell("id"), field="Product ID", row_number=row_number)
         if product_id in seen:
             raise InvalidRequestError(f"row {row_number}: product {product_id} appears more than once")
         seen.add(product_id)
@@ -192,7 +229,16 @@ def preview_import(
             raise InvalidRequestError(
                 f"row {row_number}: product {product_id} is not active in this workspace"
             )
-        quantity = _number(raw_count, field="Counted Stock", row_number=row_number)
+        if not _blank(raw["total"]):
+            quantity = _number(raw["total"], field="Counted Stock", row_number=row_number)
+        else:
+            bundles = 0 if _blank(raw["bundles"]) else _number(raw["bundles"], field="Bundle Count", row_number=row_number)
+            loose = 0 if _blank(raw["loose"]) else _number(raw["loose"], field="Loose Count", row_number=row_number)
+            if bundles and not product["bundle_qty"]:
+                raise InvalidRequestError(
+                    f"row {row_number}: {product['name']} has no bundle size; count it in Loose Count"
+                )
+            quantity = bundles * (product["bundle_qty"] or 0) + loose
         counted.append(
             {
                 "product_id": product_id,

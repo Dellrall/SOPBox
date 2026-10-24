@@ -24,10 +24,40 @@ const localDate = () => {
 const formatDifference = (value: number, unit: string) =>
   `${value > 0 ? "+" : ""}${value} ${unit}`;
 
+/** What was typed for one product: whole bundles and loose base units. */
+type Count = { bundles: string; loose: string };
+type Bundled = Pick<StocktakeProduct, "base_unit" | "bundle_unit" | "bundle_qty">;
+
+const isWhole = (text: string) => /^\d+$/.test(text.trim());
+const blank = (text: string | undefined) => (text ?? "").trim() === "";
+
+/** The counted total in base units: null when nothing was typed, NaN when it is not whole numbers. */
+function totalOf(product: StocktakeProduct, count: Count | undefined): number | null {
+  if (!count || (blank(count.bundles) && blank(count.loose))) return null;
+  const typed = [count.bundles, count.loose].filter((t) => !blank(t));
+  if (!typed.every(isWhole)) return NaN;
+  const bundles = blank(count.bundles) ? 0 : Number(count.bundles);
+  return bundles * (product.bundle_qty ?? 0) + (blank(count.loose) ? 0 : Number(count.loose));
+}
+
+/** A total split into whole bundles and loose units: always the fewest loose units. */
+function split(total: number, product: Bundled): Count {
+  if (!product.bundle_qty) return { bundles: "", loose: String(total) };
+  return { bundles: String(Math.floor(total / product.bundle_qty)), loose: String(total % product.bundle_qty) };
+}
+
+/** "4 box + 3 pkt (43 pkt)" for bundled products, "43 pkt" otherwise. */
+function formatQty(total: number, product: Bundled | undefined, unit: string): string {
+  if (!product?.bundle_qty || !product.bundle_unit) return `${total} ${unit}`;
+  const { bundles, loose } = split(total, product);
+  const parts = [Number(bundles) ? `${bundles} ${product.bundle_unit}` : "", Number(loose) ? `${loose} ${unit}` : ""].filter(Boolean);
+  return `${parts.join(" + ") || `0 ${unit}`}${Number(bundles) ? ` (${total} ${unit})` : ""}`;
+}
+
 export default function Stocktake({ canEdit }: { canEdit: boolean }) {
   const [products, setProducts] = useState<StocktakeProduct[]>([]);
   const [history, setHistory] = useState<Awaited<ReturnType<typeof api.stocktakes>>>([]);
-  const [counts, setCounts] = useState<Record<number, string>>({});
+  const [counts, setCounts] = useState<Record<number, Count>>({});
   const [countDate, setCountDate] = useState(localDate());
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
@@ -60,16 +90,31 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
     );
   }, [products, search]);
 
-  const counted = products.filter((product) => (counts[product.id] ?? "").trim() !== "");
-  const invalidProduct = counted.find((product) => {
-    const number = Number(counts[product.id]);
-    return !Number.isSafeInteger(number) || number < 0;
-  });
+  const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  const counted = products.filter((product) => totalOf(product, counts[product.id]) !== null);
+  const invalidProduct = counted.find((product) => !Number.isSafeInteger(totalOf(product, counts[product.id])));
 
-  function setCount(productId: number, value: string) {
+  // Products under their category, in the order the server sends them (by category, then name).
+  const sections = useMemo(() => {
+    const out: { category: string; items: StocktakeProduct[] }[] = [];
+    for (const p of visibleProducts) {
+      if (out[out.length - 1]?.category !== p.category) out.push({ category: p.category, items: [] });
+      out[out.length - 1].items.push(p);
+    }
+    return out;
+  }, [visibleProducts]);
+
+  function setCount(productId: number, patch: Partial<Count>) {
     setReviewing(false);
     setNotice("");
-    setCounts((current) => ({ ...current, [productId]: value }));
+    setCounts((current) => ({ ...current, [productId]: { ...(current[productId] ?? { bundles: "", loose: "" }), ...patch } }));
+  }
+
+  /** Loose units that make up whole bundles move into the bundle count. */
+  function rollUp(product: StocktakeProduct) {
+    const total = totalOf(product, counts[product.id]);
+    if (!product.bundle_qty || total === null || !Number.isSafeInteger(total)) return;
+    if (Number(counts[product.id]?.loose || 0) >= product.bundle_qty) setCount(product.id, split(total, product));
   }
 
   async function downloadTemplate() {
@@ -97,8 +142,11 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
     setReviewing(false);
     try {
       const preview = await api.previewStocktake(file);
-      const next: Record<number, string> = {};
-      for (const line of preview.lines) next[line.product_id] = String(line.counted_stock);
+      const next: Record<number, Count> = {};
+      for (const line of preview.lines) {
+        const product = byId.get(line.product_id);
+        next[line.product_id] = product ? split(line.counted_stock, product) : { bundles: "", loose: String(line.counted_stock) };
+      }
       setCounts(next);
       setNotice(`${preview.lines.length} counted products loaded. Review the quantities before saving.`);
     } catch (err) {
@@ -109,8 +157,8 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
   }
 
   const reviewLines: StocktakePreviewLine[] = counted.flatMap((product) => {
-    const quantity = Number(counts[product.id]);
-    if (!Number.isSafeInteger(quantity) || quantity < 0) return [];
+    const quantity = totalOf(product, counts[product.id]);
+    if (quantity === null || !Number.isSafeInteger(quantity)) return [];
     return [
       {
         product_id: product.id,
@@ -168,7 +216,7 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
     <div className="space-y-6">
       <PageTitle
         title="Stock Count"
-        subtitle="Count the total quantity for each product in its base unit. Blank counts stay unchanged; enter 0 only when you counted zero."
+        subtitle="Count each product as whole bundles plus loose items. Extra loose items are rolled into bundles. Blank counts stay unchanged; enter 0 only when you counted zero."
       >
         {canEdit && (
           <button type="button" className={secondaryButton} disabled={busy} onClick={() => void downloadTemplate()}>
@@ -192,7 +240,7 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
         <section className={`${cardClass} space-y-4`}>
           <div>
             <SectionTitle>New stocktake</SectionTitle>
-            <p className="mt-1 text-sm text-muted">Enter the physical total. The system quantity is shown in the review step.</p>
+            <p className="mt-1 text-sm text-muted">Enter what is on the shelf. The system quantity is shown in the review step.</p>
           </div>
 
           <div className="flex flex-wrap items-end gap-3">
@@ -237,42 +285,80 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-line">
-            <table className="w-full min-w-[36rem] text-left text-sm">
+            <table className="w-full min-w-[40rem] text-left text-sm">
               <thead className="bg-surface text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Product</th>
-                  <th className="px-3 py-2 font-semibold">Category</th>
-                  <th className="px-3 py-2 font-semibold">Physical count</th>
+                  <th className="px-3 py-2 font-semibold">Bundles</th>
+                  <th className="px-3 py-2 font-semibold">Loose</th>
+                  <th className="px-3 py-2 font-semibold">In hand</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line bg-white">
-                {visibleProducts.map((product) => (
-                  <tr key={product.id}>
-                    <td className="px-3 py-2.5 font-medium text-ink">{product.name}</td>
-                    <td className="px-3 py-2.5 text-muted">{product.category}</td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <input
-                          aria-label={`Physical count for ${product.name}`}
-                          className={`${inputClass} max-w-40`}
-                          type="number"
-                          min="0"
-                          step="1"
-                          inputMode="numeric"
-                          value={counts[product.id] ?? ""}
-                          onChange={(event) => setCount(product.id, event.target.value)}
-                        />
-                        <span className="text-xs text-muted">{product.base_unit}</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {visibleProducts.length === 0 && (
+              {sections.map((section) => (
+                <tbody key={section.category} className="divide-y divide-line bg-white">
                   <tr>
-                    <td colSpan={3} className="px-3 py-5 text-center text-muted">No products match this search.</td>
+                    <th colSpan={4} scope="colgroup" className="bg-brand-700 px-3 py-1.5 text-center text-sm font-semibold text-white">
+                      {section.category}
+                    </th>
                   </tr>
-                )}
-              </tbody>
+                  {section.items.map((product) => {
+                    const count = counts[product.id];
+                    const total = totalOf(product, count);
+                    return (
+                      <tr key={product.id}>
+                        <td className="px-3 py-2.5 font-medium text-ink">{product.name}</td>
+                        <td className="px-3 py-2.5">
+                          {product.bundle_unit ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                aria-label={`Bundles of ${product.name}`}
+                                className={`${inputClass} max-w-24`}
+                                inputMode="numeric"
+                                value={count?.bundles ?? ""}
+                                onChange={(event) => setCount(product.id, { bundles: event.target.value })}
+                              />
+                              <span className="text-xs text-muted">
+                                {product.bundle_unit} <span className="whitespace-nowrap">({product.bundle_qty} {product.base_unit})</span>
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted">No bundle size</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <input
+                              aria-label={`Loose ${product.base_unit} of ${product.name}`}
+                              className={`${inputClass} max-w-24`}
+                              inputMode="numeric"
+                              value={count?.loose ?? ""}
+                              onChange={(event) => setCount(product.id, { loose: event.target.value })}
+                              onBlur={() => rollUp(product)}
+                            />
+                            <span className="text-xs text-muted">{product.base_unit}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-sm">
+                          {total === null ? (
+                            <span className="text-muted">Not counted</span>
+                          ) : Number.isSafeInteger(total) ? (
+                            <span className="font-semibold text-ink">{formatQty(total, product, product.base_unit)}</span>
+                          ) : (
+                            <span className="text-red-700">Whole numbers only</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              ))}
+              {visibleProducts.length === 0 && (
+                <tbody>
+                  <tr>
+                    <td colSpan={4} className="px-3 py-5 text-center text-muted">No products match this search.</td>
+                  </tr>
+                </tbody>
+              )}
             </table>
           </div>
 
@@ -300,7 +386,7 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
           </div>
 
           {invalidProduct && (
-            <ErrorNote message={`${invalidProduct.name}: enter a whole number of 0 or more.`} />
+            <ErrorNote message={`${invalidProduct.name}: enter whole numbers of 0 or more.`} />
           )}
 
           {reviewing && (
@@ -328,8 +414,8 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
                     {reviewLines.map((line) => (
                       <tr key={line.product_id}>
                         <td className="px-3 py-2 font-medium">{line.product_name}</td>
-                        <td className="px-3 py-2">{line.expected_stock} {line.base_unit}</td>
-                        <td className="px-3 py-2">{line.counted_stock} {line.base_unit}</td>
+                        <td className="px-3 py-2">{formatQty(line.expected_stock, byId.get(line.product_id), line.base_unit)}</td>
+                        <td className="px-3 py-2">{formatQty(line.counted_stock, byId.get(line.product_id), line.base_unit)}</td>
                         <td className={`px-3 py-2 font-semibold ${line.difference < 0 ? "text-red-700" : line.difference > 0 ? "text-emerald-700" : "text-muted"}`}>
                           {changeValue(line)}
                         </td>
@@ -404,8 +490,8 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
                 {selected.lines.map((line) => (
                   <tr key={line.id}>
                     <td className="py-2 pr-3 font-medium">{line.product_name}</td>
-                    <td className="py-2 pr-3">{line.expected_stock} {line.base_unit}</td>
-                    <td className="py-2 pr-3">{line.counted_stock} {line.base_unit}</td>
+                    <td className="py-2 pr-3">{formatQty(line.expected_stock, line.product_id === null ? undefined : byId.get(line.product_id), line.base_unit)}</td>
+                    <td className="py-2 pr-3">{formatQty(line.counted_stock, line.product_id === null ? undefined : byId.get(line.product_id), line.base_unit)}</td>
                     <td className={`py-2 font-semibold ${line.difference < 0 ? "text-red-700" : line.difference > 0 ? "text-emerald-700" : "text-muted"}`}>
                       {formatDifference(line.difference, line.base_unit)}
                     </td>

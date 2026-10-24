@@ -61,47 +61,76 @@ def test_explicit_zero_is_saved_and_stale_counts_are_rejected(client, catalogue_
     assert len(client.get("/api/stocktakes").json()) == 2
 
 
-def test_excel_template_is_blind_and_upload_preview_ignores_blank_counts(client, catalogue_ids):
-    product_id = catalogue_ids["fries"]
+def _upload(client, workbook):
+    data = BytesIO()
+    workbook.save(data)
+    return client.post(
+        "/api/stocktakes/preview",
+        files={"file": ("count.xlsx", data.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+
+
+def _row_of(sheet, product_id):
+    return next(row[0].row for row in sheet.iter_rows() if row[0].value == product_id)
+
+
+def test_excel_template_is_blind_and_grouped_by_category(client, catalogue_ids):
     response = client.get("/api/stocktakes/template.xlsx")
     assert response.status_code == 200
     workbook = load_workbook(BytesIO(response.content), data_only=True)
     assert {"Count sheet", "Instructions"}.issubset(workbook.sheetnames)
-    sheet = workbook["Count sheet"]
-    assert [cell.value for cell in sheet[1]] == [
-        "Product ID",
-        "Product Name",
-        "Category",
-        "Counted Stock",
-        "Base Unit",
+    rows = [[cell.value for cell in row] for row in workbook["Count sheet"].iter_rows()]
+    header = ["Product ID", "Product Name", "Bundle Count", "Bundle Unit", "Loose Count", "Base Unit"]
+    assert rows == [
+        [None, "Frozen", None, None, None, None],
+        header,
+        [catalogue_ids["sausage"], "Frozen sausage", None, None, None, "pcs"],
+        [None] * 6,
+        [None, "Packaging", None, None, None, None],
+        header,
+        [catalogue_ids["fries"], "Fries tray", None, "bdl", None, "pcs"],
     ]
-    row_number = next(row[0].row for row in sheet.iter_rows(min_row=2) if row[0].value == product_id)
-    assert sheet.cell(row_number, 4).value is None
-    sheet.cell(row_number, 4, 0)
-    uploaded = BytesIO()
-    workbook.save(uploaded)
 
-    preview = client.post(
-        "/api/stocktakes/preview",
-        files={
-            "file": (
-                "count.xlsx",
-                uploaded.getvalue(),
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
-        },
-    )
+
+def test_bundles_and_loose_become_one_total_and_blanks_are_skipped(client, catalogue_ids):
+    fries, sausage = catalogue_ids["fries"], catalogue_ids["sausage"]
+    workbook = load_workbook(BytesIO(client.get("/api/stocktakes/template.xlsx").content))
+    sheet = workbook["Count sheet"]
+    sheet.cell(_row_of(sheet, fries), 3, 2)  # 2 bdl of 250
+    sheet.cell(_row_of(sheet, fries), 5, 260)  # more loose than a bundle: still counted
+    preview = _upload(client, workbook)  # sausage left blank: not counted
     assert preview.status_code == 200, preview.text
     assert preview.json()["lines"] == [
         {
-            "product_id": product_id,
+            "product_id": fries,
             "product_name": "Fries tray",
             "base_unit": "pcs",
             "expected_stock": 0,
-            "counted_stock": 0,
-            "difference": 0,
+            "counted_stock": 760,
+            "difference": 760,
         }
     ]
+
+    sheet.cell(_row_of(sheet, sausage), 5, 0)  # explicit zero is a count
+    assert [l["product_id"] for l in _upload(client, workbook).json()["lines"]] == [sausage, fries]
+
+    sheet.cell(_row_of(sheet, sausage), 3, 1)  # sausage has no bundle size
+    refused = _upload(client, workbook)
+    assert refused.status_code == 422
+    assert "no bundle size" in refused.json()["detail"]
+
+
+def test_old_single_total_sheets_still_upload(client, catalogue_ids):
+    csv = f"Product ID,Product Name,Counted Stock\n{catalogue_ids['fries']},Fries tray,12\n"
+    resp = client.post("/api/stocktakes/preview", files={"file": ("count.csv", csv.encode(), "text/csv")})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["lines"][0]["counted_stock"] == 12
+
+
+def test_stocktake_products_carry_their_bundle(client, catalogue_ids):
+    rows = {r["id"]: r for r in client.get("/api/stocktakes/products").json()}
+    assert (rows[catalogue_ids["fries"]]["bundle_unit"], rows[catalogue_ids["fries"]]["bundle_qty"]) == ("bdl", 250)
+    assert rows[catalogue_ids["sausage"]]["bundle_unit"] is None
 
 
 def test_staff_section_access_is_enforced_on_stocktake_and_catalogue_apis(
