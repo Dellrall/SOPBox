@@ -333,6 +333,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
             canEditProducts={sectionAllowed(me, "products", true)}
             canViewRecords={sectionAllowed(me, "records")}
             canViewApprovals={canViewApprovals}
+            canViewPurchasing={sectionAllowed(me, "purchasing")}
           />
         )}
         {page === "records" && <Records key={visit} />}
