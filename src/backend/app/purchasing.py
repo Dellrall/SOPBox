@@ -50,20 +50,36 @@ def _get_supplier(conn: psycopg.Connection, ws: int, supplier_id: int) -> Suppli
     return Supplier(**row)
 
 
+def _check_products(conn: psycopg.Connection, ws: int, product_ids: list[int]) -> None:
+    """Every product a supplier is linked to must be one of this workspace's products."""
+    if not product_ids:
+        return
+    found = conn.execute(
+        "SELECT count(*) AS n FROM products WHERE workspace_id = %s AND id = ANY(%s)", (ws, product_ids)
+    ).fetchone()["n"]
+    if found != len(product_ids):
+        raise InvalidRequestError("one of the chosen products does not exist")
+
+
 def create_supplier(conn: psycopg.Connection, ws: int, data: SupplierIn) -> Supplier:
+    product_ids = data.product_ids or []
+    _check_products(conn, ws, product_ids)
     row = conn.execute(
-        "INSERT INTO suppliers (workspace_id, name, contact, phone, email) "
-        "VALUES (%s, %s, %s, %s, %s) RETURNING *",
-        (ws, data.name, data.contact, data.phone, data.email),
+        "INSERT INTO suppliers (workspace_id, name, contact, phone, email, product_ids) "
+        "VALUES (%s, %s, %s, %s, %s, %s) RETURNING *",
+        (ws, data.name, data.contact, data.phone, data.email, product_ids),
     ).fetchone()
     return Supplier(**row)
 
 
 def update_supplier(conn: psycopg.Connection, ws: int, supplier_id: int, data: SupplierIn) -> Supplier:
+    if data.product_ids is not None:
+        _check_products(conn, ws, data.product_ids)
     row = conn.execute(
-        "UPDATE suppliers SET name = %s, contact = %s, phone = %s, email = %s "
+        "UPDATE suppliers SET name = %s, contact = %s, phone = %s, email = %s, "
+        "product_ids = COALESCE(%s, product_ids) "
         "WHERE id = %s AND workspace_id = %s RETURNING *",
-        (data.name, data.contact, data.phone, data.email, supplier_id, ws),
+        (data.name, data.contact, data.phone, data.email, data.product_ids, supplier_id, ws),
     ).fetchone()
     if row is None:
         raise NotFoundError(f"supplier {supplier_id} not found")

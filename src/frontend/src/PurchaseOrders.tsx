@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, FilePlus2, PackageCheck, Plus, Printer, Send, Sparkles, Trash2, Truck, XCircle } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, FilePlus2, Search, PackageCheck, Plus, Printer, Send, Sparkles, Trash2, Truck, XCircle } from "lucide-react";
 import { api } from "./api";
 import ProductPicker from "./ProductPicker";
-import type { Product, PurchaseOrder, PurchaseOrderIn, PurchaseOrderStatus, ReceivingStatus, Supplier } from "./types";
+import type { Product, PurchaseOrder, PurchaseOrderIn, PurchaseOrderStatus, ReceivingStatus, Supplier, SupplierIn } from "./types";
 import {
   Empty,
   ErrorNote,
@@ -59,25 +59,190 @@ const today = () => new Date().toLocaleDateString("en-CA");
 
 // ---- suppliers ----------------------------------------------------------------------------------
 
-function Suppliers({ suppliers, onChanged }: { suppliers: Supplier[]; onChanged: () => void }) {
-  const blank = { name: "", contact: "", phone: "", email: "" };
-  const [form, setForm] = useState(blank);
-  const [editing, setEditing] = useState<number | null>(null);
+const BLANK_SUPPLIER: SupplierIn = { name: "", contact: "", phone: "", email: "", product_ids: [] };
+
+/** Pick the products a supplier sells: search by product or category, or tick a whole category. */
+function SupplierProducts({
+  id,
+  products,
+  value,
+  onChange,
+}: {
+  id: string;
+  products: Product[];
+  value: number[];
+  onChange: (ids: number[]) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const chosen = new Set(value);
+  const q = query.trim().toLowerCase();
+  const shown = products.filter(
+    (p) => (!p.archived || chosen.has(p.id)) && (!q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)),
+  );
+  const groups = new Map<string, Product[]>();
+  for (const p of shown) groups.set(p.category, [...(groups.get(p.category) ?? []), p]);
+  const toggle = (ids: number[], on: boolean) => {
+    const next = new Set(value);
+    ids.forEach((pid) => (on ? next.add(pid) : next.delete(pid)));
+    onChange([...next]);
+  };
+
+  return (
+    <fieldset className="space-y-2 sm:col-span-2">
+      <legend className={labelClass}>
+        Products they supply <span className="font-normal text-muted">({value.length} chosen)</span>
+      </legend>
+      <label className="sr-only" htmlFor={`${id}-find`}>
+        Find a product or category
+      </label>
+      <input
+        id={`${id}-find`}
+        type="search"
+        placeholder="Type a product or category…"
+        className={inputClass}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {products.length === 0 ? (
+        <p className="text-sm text-muted">Add products under Products &amp; SOP first.</p>
+      ) : groups.size === 0 ? (
+        <p className="text-sm text-muted">No product or category matches “{query}”.</p>
+      ) : (
+        <div className="max-h-64 space-y-3 overflow-y-auto rounded-xl border border-line bg-white p-3">
+          {[...groups].map(([category, items]) => {
+            const all = items.every((p) => chosen.has(p.id));
+            return (
+              <div key={category}>
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">{category}</h4>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-brand-700 hover:underline"
+                    onClick={() => toggle(items.map((p) => p.id), !all)}
+                  >
+                    {all ? "Clear" : "Select all"}
+                    <span className="sr-only"> in {category}</span>
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {items.map((p) => {
+                    const on = chosen.has(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => toggle([p.id], !on)}
+                        className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                          on ? "bg-brand-600 text-white" : "bg-slate-50 text-slate-700 ring-1 ring-line hover:bg-slate-100"
+                        }`}
+                      >
+                        {on && <Check aria-hidden className="h-3.5 w-3.5" />}
+                        {p.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </fieldset>
+  );
+}
+
+/** Supplier details and products: opens under the supplier being edited, or at the bottom to add one. */
+function SupplierForm({
+  id,
+  initial,
+  products,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  id: string;
+  initial: SupplierIn;
+  products: Product[];
+  submitLabel: string;
+  onSubmit: (form: SupplierIn) => Promise<void>;
+  onCancel?: () => void;
+}) {
+  const [form, setForm] = useState(initial);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(0); // remounts the product picker so its search clears too
 
   async function save(e: FormEvent) {
     e.preventDefault();
     setError("");
+    setBusy(true);
     try {
-      if (editing) await api.updateSupplier(editing, form);
-      else await api.createSupplier(form);
-      setForm(blank);
-      setEditing(null);
-      onChanged();
+      await onSubmit(form);
+      setForm(initial);
+      setSaved((n) => n + 1);
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
+
+  return (
+    <form onSubmit={(e) => void save(e)} className="grid gap-3 sm:grid-cols-2">
+      {(
+        [
+          ["name", "Supplier name", "text", true],
+          ["contact", "Contact person", "text", false],
+          ["phone", "Phone", "tel", false],
+          ["email", "Email", "email", false],
+        ] as const
+      ).map(([key, label, type, required]) => (
+        <div key={key}>
+          <label className={labelClass} htmlFor={`${id}-${key}`}>
+            {label}
+          </label>
+          <input
+            id={`${id}-${key}`}
+            type={type}
+            required={required}
+            maxLength={key === "email" ? 254 : 120}
+            className={inputClass}
+            value={form[key]}
+            onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+          />
+        </div>
+      ))}
+      <SupplierProducts key={saved} id={id} products={products} value={form.product_ids} onChange={(product_ids) => setForm({ ...form, product_ids })} />
+      <div className="sm:col-span-2">
+        <ErrorNote message={error} />
+      </div>
+      <div className="flex gap-2 sm:col-span-2">
+        <button type="submit" className={primaryButton} disabled={busy}>
+          {submitLabel}
+        </button>
+        {onCancel && (
+          <button type="button" className={secondaryButton} onClick={onCancel}>
+            Cancel
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+function Suppliers({ suppliers, products, onChanged }: { suppliers: Supplier[]; products: Product[]; onChanged: () => void }) {
+  const [editing, setEditing] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const names = new Map(products.map((p) => [p.id, p.name]));
+  // Matches the name, contact details, or anything they supply ("who sells Coke?").
+  const q = query.trim().toLowerCase();
+  const shown = q
+    ? suppliers.filter((s) =>
+        [s.name, s.contact, s.phone, s.email, ...s.product_ids.map((pid) => names.get(pid) ?? "")].some((t) => t.toLowerCase().includes(q)),
+      )
+    : suppliers;
 
   async function archive(s: Supplier) {
     try {
@@ -91,79 +256,92 @@ function Suppliers({ suppliers, onChanged }: { suppliers: Supplier[]; onChanged:
   return (
     <section className={`${cardClass} space-y-4`}>
       <SectionTitle>Suppliers</SectionTitle>
+      <ErrorNote message={error} />
       {suppliers.length > 0 && (
+        <div className="relative">
+          <label className="sr-only" htmlFor="supplier-search">
+            Search suppliers
+          </label>
+          <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input
+            id="supplier-search"
+            type="search"
+            placeholder="Search by supplier, contact or product…"
+            className={`${inputClass} pl-9`}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+      )}
+      {q && shown.length === 0 && <p className="text-sm text-muted">No supplier matches “{query}”.</p>}
+      {shown.length > 0 && (
         <ul className="divide-y divide-line">
-          {suppliers.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-              <span>
-                <span className={`font-semibold ${s.archived ? "text-muted line-through" : ""}`}>{s.name}</span>
-                <span className="block text-sm text-muted">
-                  {[s.contact, s.phone, s.email].filter(Boolean).join(" · ") || "No contact details"}
-                </span>
-              </span>
-              <span className="flex gap-2">
-                <button
-                  className={secondaryButton}
-                  onClick={() => {
-                    setEditing(s.id);
-                    setForm({ name: s.name, contact: s.contact, phone: s.phone, email: s.email });
-                  }}
-                >
-                  Edit
-                </button>
-                <button className={secondaryButton} onClick={() => void archive(s)}>
-                  {s.archived ? "Restore" : "Archive"}
-                </button>
-              </span>
-            </li>
-          ))}
+          {shown.map((s) => {
+            const open = editing === s.id;
+            const sells = s.product_ids.map((pid) => names.get(pid)).filter(Boolean) as string[];
+            return (
+              <li key={s.id} className="py-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className={`font-semibold ${s.archived ? "text-muted line-through" : ""}`}>{s.name}</span>
+                    <span className="block text-sm text-muted">
+                      {[s.contact, s.phone, s.email].filter(Boolean).join(" · ") || "No contact details"}
+                    </span>
+                    {sells.length > 0 && (
+                      <span className="mt-1 block text-sm text-slate-700">
+                        Supplies {sells.slice(0, 4).join(", ")}
+                        {sells.length > 4 && ` +${sells.length - 4} more`}
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex gap-2">
+                    <button
+                      className={secondaryButton}
+                      aria-expanded={open}
+                      onClick={() => setEditing(open ? null : s.id)}
+                    >
+                      {open ? "Close" : "Edit"}
+                      <ChevronDown aria-hidden className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`} />
+                    </button>
+                    <button className={secondaryButton} onClick={() => void archive(s)}>
+                      {s.archived ? "Restore" : "Archive"}
+                    </button>
+                  </span>
+                </div>
+                {open && (
+                  <div className="mt-3 rounded-2xl border border-brand-200 bg-brand-50/40 p-4">
+                    <SupplierForm
+                      id={`supplier-${s.id}`}
+                      initial={{ name: s.name, contact: s.contact, phone: s.phone, email: s.email, product_ids: s.product_ids }}
+                      products={products}
+                      submitLabel="Save supplier"
+                      onSubmit={async (form) => {
+                        await api.updateSupplier(s.id, form);
+                        setEditing(null);
+                        onChanged();
+                      }}
+                      onCancel={() => setEditing(null)}
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
-      <form onSubmit={(e) => void save(e)} className="grid gap-3 sm:grid-cols-2">
-        {(
-          [
-            ["name", "Supplier name", "text", true],
-            ["contact", "Contact person", "text", false],
-            ["phone", "Phone", "tel", false],
-            ["email", "Email", "email", false],
-          ] as const
-        ).map(([key, label, type, required]) => (
-          <div key={key}>
-            <label className={labelClass} htmlFor={`supplier-${key}`}>
-              {label}
-            </label>
-            <input
-              id={`supplier-${key}`}
-              type={type}
-              required={required}
-              maxLength={key === "email" ? 254 : 120}
-              className={inputClass}
-              value={form[key]}
-              onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-            />
-          </div>
-        ))}
-        <div className="flex gap-2 sm:col-span-2">
-          <button type="submit" className={primaryButton}>
-            {editing ? "Save supplier" : "Add supplier"}
-          </button>
-          {editing && (
-            <button
-              type="button"
-              className={secondaryButton}
-              onClick={() => {
-                setEditing(null);
-                setForm(blank);
-              }}
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-        <div className="sm:col-span-2">
-          <ErrorNote message={error} />
-        </div>
-      </form>
+      <div className="space-y-3 border-t border-line pt-4">
+        <h3 className="text-sm font-semibold text-brand-950">Add a supplier</h3>
+        <SupplierForm
+          id="supplier-new"
+          initial={BLANK_SUPPLIER}
+          products={products}
+          submitLabel="Add supplier"
+          onSubmit={async (form) => {
+            await api.createSupplier(form);
+            onChanged();
+          }}
+        />
+      </div>
     </section>
   );
 }
@@ -589,7 +767,7 @@ export default function PurchaseOrders({
         />
         {view.kind === "new" && (
           <div className="mt-5">
-            <Suppliers suppliers={suppliers} onChanged={load} />
+            <Suppliers suppliers={suppliers} products={products} onChanged={load} />
           </div>
         )}
       </div>
@@ -668,7 +846,7 @@ export default function PurchaseOrders({
         </ul>
       )}
 
-      {canEdit && <Suppliers suppliers={suppliers} onChanged={load} />}
+      {canEdit && <Suppliers suppliers={suppliers} products={products} onChanged={load} />}
     </div>
   );
 }

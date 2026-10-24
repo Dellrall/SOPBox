@@ -61,6 +61,41 @@ def test_suppliers_can_be_added_edited_and_archived(client, supplier_id):
     assert client.patch(f"/api/suppliers/{supplier_id}", json={"archived": True}).json()["archived"] is True
 
 
+def test_a_supplier_lists_the_products_it_sells(client, catalogue_ids):
+    ids = catalogue_ids
+    made = client.post("/api/suppliers", json={"name": "Cold Co", "product_ids": [ids["fries"], ids["sausage"], ids["fries"]]})
+    assert made.status_code == 201, made.text
+    sid = made.json()["id"]
+    assert made.json()["product_ids"] == [ids["fries"], ids["sausage"]]  # duplicates dropped
+
+    # Editing contact details without the list keeps it; sending a list replaces it.
+    kept = client.put(f"/api/suppliers/{sid}", json={"name": "Cold Co", "phone": "012"})
+    assert kept.json()["product_ids"] == [ids["fries"], ids["sausage"]]
+    changed = client.put(f"/api/suppliers/{sid}", json={"name": "Cold Co", "product_ids": [ids["sausage"]]})
+    assert changed.json()["product_ids"] == [ids["sausage"]]
+    listed = {s["id"]: s for s in client.get("/api/suppliers").json()}
+    assert listed[sid]["product_ids"] == [ids["sausage"]]
+
+
+def test_a_supplier_cannot_list_unknown_or_another_workspaces_products(client, catalogue_ids):
+    assert client.post("/api/suppliers", json={"name": "Ghost", "product_ids": [999999]}).status_code in (400, 422)
+    other = sign_up("Other Cafe", "otherowner")
+    resp = other.post("/api/suppliers", json={"name": "Thief", "product_ids": [catalogue_ids["fries"]]})
+    assert resp.status_code in (400, 422)
+    assert "product" in resp.text
+
+
+def test_deleting_a_product_takes_it_off_supplier_lists(client, catalogue_ids):
+    product = client.get(f"/api/products/{catalogue_ids['fries']}").json()
+    spare = client.post("/api/products", json={**{k: product[k] for k in ("category_id", "base_unit", "min_stock", "sop")}, "name": "Spare", "pack_units": []})
+    assert spare.status_code == 201, spare.text
+    spare_id = spare.json()["id"]
+    sid = client.post("/api/suppliers", json={"name": "Cold Co", "product_ids": [spare_id, catalogue_ids["fries"]]}).json()["id"]
+    assert client.delete(f"/api/products/{spare_id}").status_code == 204
+    listed = {s["id"]: s for s in client.get("/api/suppliers").json()}
+    assert listed[sid]["product_ids"] == [catalogue_ids["fries"]]
+
+
 def test_a_supplier_name_is_unique(client, supplier_id):
     resp = client.post("/api/suppliers", json={"name": "fresh mart"})
     assert resp.status_code == 409

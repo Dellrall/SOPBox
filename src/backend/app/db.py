@@ -110,6 +110,8 @@ CREATE TABLE IF NOT EXISTS suppliers (
     archived BOOLEAN NOT NULL DEFAULT FALSE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS suppliers_name_key ON suppliers (workspace_id, lower(name));
+-- The products a supplier sells, picked from the catalogue.
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS product_ids BIGINT[] NOT NULL DEFAULT '{{}}';
 -- Quantity-only purchase orders: what was ordered, not what it cost.
 CREATE TABLE IF NOT EXISTS purchase_orders (
     id {_ID},

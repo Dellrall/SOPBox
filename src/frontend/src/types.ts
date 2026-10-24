@@ -290,6 +290,7 @@ export type Supplier = {
   phone: string;
   email: string;
   archived: boolean;
+  product_ids: number[]; // what they sell, from the catalogue
 };
 export type SupplierIn = Omit<Supplier, "id" | "archived">;
 
