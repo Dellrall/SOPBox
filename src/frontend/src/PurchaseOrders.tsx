@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, FilePlus2, PackageCheck, Plus, Printer, Send, Sparkles, Trash2, Truck, XCircle } from "lucide-react";
 import { api } from "./api";
+import ProductPicker from "./ProductPicker";
 import type { Product, PurchaseOrder, PurchaseOrderIn, PurchaseOrderStatus, ReceivingStatus, Supplier } from "./types";
 import {
   Empty,
@@ -276,19 +277,12 @@ function OrderForm({
                 <label className="sr-only" htmlFor={`po-product-${l.key}`}>
                   Product, line {i + 1}
                 </label>
-                <select
+                <ProductPicker
                   id={`po-product-${l.key}`}
-                  className={inputClass}
+                  options={products}
                   value={l.productId}
-                  onChange={(e) => setLine(l.key, { productId: e.target.value, unit: unitsOf(e.target.value).slice(-1)[0] ?? "" })}
-                >
-                  <option value="">Choose a product…</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(productId) => setLine(l.key, { productId, unit: unitsOf(productId).slice(-1)[0] ?? "" })}
+                />
               </div>
               <div>
                 <label className="sr-only" htmlFor={`po-qty-${l.key}`}>
