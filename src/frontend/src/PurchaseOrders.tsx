@@ -272,8 +272,9 @@ function OrderForm({
         {lines.map((l, i) => {
           const units = unitsOf(l.productId);
           return (
-            <div key={l.key} className="grid grid-cols-[1fr_6rem_7rem_auto] items-end gap-2">
-              <div>
+            // Phone: product on its own row so its name is readable, quantity and unit below.
+            <div key={l.key} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-2 sm:grid-cols-[minmax(0,1fr)_5rem_6rem_auto]">
+              <div className="col-span-3 sm:col-span-1">
                 <label className="sr-only" htmlFor={`po-product-${l.key}`}>
                   Product, line {i + 1}
                 </label>
