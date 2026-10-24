@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Circle, Clock, PackageX, ScanLine, ThumbsUp, type LucideIcon } from "lucide-react";
 import { api } from "./api";
+import { DeliveriesChart, LowStockBars } from "./DashboardCharts";
 import type { PageId } from "./App";
 import type { DashboardSummary, Me } from "./types";
 import { Empty, ErrorNote, PageTitle, SectionTitle, StatusBadge, cardClass, panelClass, primaryButton, secondaryButton, when } from "./ui";
@@ -145,6 +146,8 @@ export default function Dashboard({
         <Stat label="Low-stock products" value={low.length} icon={AlertTriangle} tone={low.length ? "bg-amber-50 text-amber-700" : "bg-brand-50 text-brand-700"} />
       </div>
 
+      <DeliveriesChart activity={data.recent_activity} />
+
       <div className="grid gap-6 lg:grid-cols-5">
         <section className="space-y-3 lg:col-span-3">
           <div className="flex items-center justify-between">
@@ -175,16 +178,7 @@ export default function Dashboard({
           {low.length === 0 ? (
             <Empty>Nothing is below its minimum.</Empty>
           ) : (
-            <ul className={`${panelClass} divide-y divide-line text-sm`}>
-              {low.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-2 px-5 py-3">
-                  <span className="font-semibold">{p.name}</span>
-                  <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-600/20">
-                    {p.stock} / {p.min_stock} {p.base_unit}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <LowStockBars products={low} />
           )}
         </section>
       </div>
