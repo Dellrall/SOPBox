@@ -2,9 +2,10 @@ import { useEffect, useState, type FormEvent } from "react";
 import { BellRing, Camera, ClipboardCheck, ScrollText, ShieldCheck, Thermometer } from "lucide-react";
 import { api } from "./api";
 import type { PublicPath } from "./App";
-import type { Me } from "./types";
+import type { KitchenScreen, Me } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton } from "./ui";
 import { SdgFooter } from "./Sdg";
+import { KitchenSignIn, OtherSignIns } from "./OtherSignIns";
 import { USERNAME_HINT, USERNAME_PATTERN, cleanUsername, usernameProblem } from "./username";
 
 type Mode = "signin" | "register";
@@ -40,6 +41,13 @@ export default function AuthPage({
   const [dropped, setDropped] = useState(false); // a typed character was not allowed in a username
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // On a kitchen tablet, people tap their name and type a PIN instead.
+  const [kitchen, setKitchen] = useState<KitchenScreen | null>(null);
+  const [usePassword, setUsePassword] = useState(false);
+  useEffect(() => {
+    api.kitchenScreen().then(setKitchen).catch(() => setKitchen(null));
+  }, []);
+  const onTablet = mode === "signin" && kitchen !== null && !usePassword;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -142,7 +150,9 @@ export default function AuthPage({
             {tab("register", "Create a workspace")}
           </div>
 
-          <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-4">
+          {onTablet && <KitchenSignIn screen={kitchen} onSignedIn={onSignedIn} onUsePassword={() => setUsePassword(true)} />}
+
+          <form hidden={onTablet} onSubmit={(e) => void submit(e)} className="mt-6 space-y-4">
             {mode === "register" && (
               <>
                 <div>
@@ -217,7 +227,8 @@ export default function AuthPage({
               {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create workspace"}
             </button>
           </form>
-          {mode === "signin" && (
+          {mode === "signin" && !onTablet && <OtherSignIns onSignedIn={onSignedIn} />}
+          {mode === "signin" && !onTablet && (
             <p className="mt-6 rounded-xl border border-line bg-white px-4 py-3 text-sm text-muted">
               <strong className="text-ink">Staff or manager?</strong> Your owner creates your account. Ask
               them for your username and password.

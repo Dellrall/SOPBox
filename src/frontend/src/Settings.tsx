@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
+import { KitchenTablets, SignInSecurity } from "./Security";
 import type { Me, WorkspaceSettings } from "./types";
 import { ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton } from "./ui";
 
@@ -167,9 +168,11 @@ function Workspace() {
 export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me: Me) => void }) {
   return (
     <div className="space-y-5">
-      <PageTitle title="Settings" subtitle="Your profile, your password and, for owners, the workspace." />
+      <PageTitle title="Settings" subtitle="Your profile, how you sign in and, for owners, the workspace." />
       <Profile me={me} onChanged={onMeChanged} />
+      <SignInSecurity />
       <Password />
+      {me.role !== "staff" && <KitchenTablets />}
       {me.role === "owner" && <Workspace />}
     </div>
   );

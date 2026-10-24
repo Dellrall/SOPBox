@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { AtSign, Bell, CheckCheck, ClipboardCheck, MessageSquare, Truck, X, type LucideIcon } from "lucide-react";
+import { AtSign, Bell, CheckCheck, ClipboardCheck, LogIn, MessageSquare, Truck, X, type LucideIcon } from "lucide-react";
 import { api } from "./api";
 import type { Inbox, Notification, NotificationKind } from "./types";
 import { secondaryButton } from "./ui";
@@ -63,6 +63,7 @@ const KIND: Record<NotificationKind, { icon: LucideIcon; label: string }> = {
   approval_needed: { icon: ClipboardCheck, label: "Needs approval" },
   decided: { icon: Truck, label: "Decision" },
   comment: { icon: MessageSquare, label: "Comment" },
+  sign_in: { icon: LogIn, label: "New sign-in" },
 };
 
 const ago = (iso: string) => {

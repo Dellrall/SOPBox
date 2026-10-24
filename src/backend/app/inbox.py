@@ -101,7 +101,8 @@ def accountability(conn: psycopg.Connection, ws: int) -> list[Accountability]:
             count(a.id) FILTER (WHERE a.action LIKE 'po.%%') AS purchase_orders,
             count(a.id) FILTER (WHERE a.action = 'delivery.photo_comment') AS comments,
             (SELECT count(*) FROM delivery_tags t WHERE t.user_id = u.id) AS tagged,
-            max(a.at) AS last_active
+            max(a.at) AS last_active,
+            (SELECT max(s.at) FROM sign_ins s WHERE s.user_id = u.id) AS last_sign_in
         FROM users u LEFT JOIN audit_log a ON a.actor_id = u.id AND a.workspace_id = u.workspace_id
         WHERE u.workspace_id = %s
         GROUP BY u.id

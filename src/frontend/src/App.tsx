@@ -23,6 +23,7 @@ import AuthPage from "./AuthPage";
 import Landing from "./Landing";
 import Dashboard from "./Dashboard";
 import { InboxBell, useInboxRefresh } from "./Inbox";
+import { describeSignIn } from "./signin";
 import Products from "./Products";
 import PurchaseOrders from "./PurchaseOrders";
 import Receive from "./Receive";
@@ -139,6 +140,53 @@ export default function App() {
   return <Shell me={me} onMeChanged={setMe} onSignedOut={() => setMe(null)} />;
 }
 
+/**
+ * "Your last sign-in was …" once per session, so a sign-in the person did not make stands out.
+ * New devices and methods also land in their inbox.
+ */
+function LastSignIn({ me, onReview }: { me: Me; onReview: () => void }) {
+  const last = me.previous_sign_in;
+  const key = last ? `sopbox-seen-sign-in-${last.id}` : "";
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return !last || sessionStorage.getItem(key) === "1";
+    } catch {
+      return !last;
+    }
+  });
+  if (hidden || !last) return null;
+  const hide = () => {
+    try {
+      sessionStorage.setItem(key, "1");
+    } catch {
+      /* shown again next time; harmless */
+    }
+    setHidden(true);
+  };
+  return (
+    <div role="status" className="mb-5 flex items-start gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm shadow-sm print:hidden">
+      <ShieldCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+      <p className="flex-1 text-slate-700">
+        Welcome back, {me.display_name.split(/\s+/)[0]}. Your last sign-in was <strong className="text-ink">{describeSignIn(last)}</strong>.{" "}
+        Not you?{" "}
+        <button
+          type="button"
+          className="font-semibold text-brand-700 underline"
+          onClick={() => {
+            hide();
+            onReview();
+          }}
+        >
+          Review sign-ins
+        </button>
+      </p>
+      <button type="button" onClick={hide} aria-label="Dismiss" className="rounded-lg p-1 text-muted hover:bg-slate-100">
+        <X aria-hidden className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 /** What the helpers do on a page that has nothing going on. */
 const IDLE: Record<PageId, Scene> = {
   dashboard: { who: "cabbage", action: "wave" },
@@ -154,7 +202,11 @@ const IDLE: Record<PageId, Scene> = {
 };
 
 function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me) => void; onSignedOut: () => void }) {
-  const [page, setPage] = useState<PageId>(() => firstPage(me));
+  // Connecting Google or Telegram comes back to /settings.
+  const [page, setPage] = useState<PageId>(() => (window.location.pathname === "/settings" ? "settings" : firstPage(me)));
+  useEffect(() => {
+    if (window.location.pathname !== "/") window.history.replaceState(null, "", "/");
+  }, []);
   const [menuOpen, setMenuOpen] = useState(false);
   // Swipe left on the open menu (or the dimmed page beside it) to close it; the menu follows the finger.
   const swipeStart = useRef<{ x: number; y: number; sideways: boolean | null } | null>(null);
@@ -333,6 +385,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
       </aside>
 
       <main id="main" className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
+        <LastSignIn me={me} onReview={() => go("settings")} />
         {/* Receive stays mounted so a half-filled delivery survives a look at another page. */}
         <div hidden={page !== "receive"}>
           <Receive
