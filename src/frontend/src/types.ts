@@ -1,6 +1,39 @@
 // Mirrors src/backend/app/models.py. Keep the two in step when the API changes.
 
 export type Role = "owner" | "manager" | "staff";
+export type AccessLevel = "none" | "view" | "edit";
+export type SectionKey =
+  | "dashboard"
+  | "receive"
+  | "records"
+  | "products"
+  | "purchasing"
+  | "approvals"
+  | "activity"
+  | "stocktake";
+export type SectionAccess = Record<SectionKey, AccessLevel>;
+
+export const SECTION_ACCESS_AREAS: { key: SectionKey; label: string }[] = [
+  { key: "dashboard", label: "Dashboard" },
+  { key: "receive", label: "Receiving check" },
+  { key: "records", label: "Delivery records" },
+  { key: "products", label: "Products & SOP" },
+  { key: "purchasing", label: "Purchase orders" },
+  { key: "approvals", label: "Approvals" },
+  { key: "activity", label: "Activity log" },
+  { key: "stocktake", label: "Stock Count" },
+];
+
+export const DEFAULT_STAFF_ACCESS: SectionAccess = {
+  dashboard: "view",
+  receive: "edit",
+  records: "view",
+  products: "view",
+  purchasing: "none",
+  approvals: "none",
+  activity: "none",
+  stocktake: "view",
+};
 
 export type Me = {
   id: number;
@@ -8,6 +41,7 @@ export type Me = {
   email: string | null;
   display_name: string;
   role: Role;
+  section_access: SectionAccess;
   workspace: { id: number; name: string };
 };
 
@@ -17,6 +51,7 @@ export type UserOut = {
   email: string | null;
   display_name: string;
   role: Role;
+  section_access: SectionAccess;
   active: boolean;
   created_at: string;
 };
@@ -27,6 +62,7 @@ export type UserCreateIn = {
   email?: string;
   role: "manager" | "staff";
   password: string;
+  section_access?: SectionAccess;
 };
 
 export type UserUpdateIn = {
@@ -35,6 +71,7 @@ export type UserUpdateIn = {
   role?: "manager" | "staff";
   active?: boolean;
   password?: string;
+  section_access?: SectionAccess;
 };
 
 export type RegisterIn = {
@@ -166,6 +203,73 @@ export type AuditEntry = {
   action: string;
   delivery_id: number | null;
   detail: string;
+};
+
+export type StocktakeLineIn = {
+  product_id: number;
+  expected_stock: number;
+  counted_stock: number;
+};
+
+export type StocktakeCreateIn = {
+  count_date: string;
+  notes: string;
+  lines: StocktakeLineIn[];
+};
+
+export type StocktakeLine = {
+  id: number;
+  product_id: number | null;
+  product_name: string;
+  base_unit: string;
+  expected_stock: number;
+  counted_stock: number;
+  difference: number;
+};
+
+export type Stocktake = {
+  id: number;
+  reference: string;
+  count_date: string;
+  counted_by: string;
+  created_at: string;
+  notes: string;
+  line_count: number;
+  changed_count: number;
+};
+
+export type StocktakeDetail = Stocktake & { lines: StocktakeLine[] };
+export type StocktakePreviewLine = Omit<StocktakeLine, "id" | "product_id"> & { product_id: number };
+export type StocktakePreview = { lines: StocktakePreviewLine[] };
+export type StocktakeProduct = {
+  id: number;
+  name: string;
+  category: string;
+  base_unit: string;
+  stock: number;
+};
+
+export type DashboardSummary = {
+  product_count: number;
+  delivery_count: number;
+  pending_count: number;
+  accepted_count: number;
+  rejected_count: number;
+  returned_count: number;
+  recent_deliveries: {
+    id: number;
+    supplier: string;
+    status: DeliveryStatus;
+    created_at: string;
+    purchase_order: string | null;
+  }[];
+  low_stock_products: {
+    id: number;
+    name: string;
+    stock: number;
+    min_stock: number;
+    base_unit: string;
+  }[];
 };
 
 // ---- purchasing ----

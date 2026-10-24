@@ -348,6 +348,7 @@ function OrderForm({
 function OrderDetail({
   order,
   canEdit,
+  canReceiveAccess,
   onBack,
   onEdit,
   onChanged,
@@ -355,6 +356,7 @@ function OrderDetail({
 }: {
   order: PurchaseOrder;
   canEdit: boolean;
+  canReceiveAccess: boolean;
   onBack: () => void;
   onEdit: () => void;
   onChanged: (order: PurchaseOrder) => void;
@@ -374,7 +376,7 @@ function OrderDetail({
     }
   }
 
-  const canReceive = order.status === "issued" && order.receiving_status !== "fully_received";
+  const canReceive = canReceiveAccess && order.status === "issued" && order.receiving_status !== "fully_received";
   return (
     <div className="space-y-5">
       <button className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline print:hidden" onClick={onBack}>
@@ -503,7 +505,15 @@ function OrderDetail({
 
 type View = { kind: "list" } | { kind: "new" } | { kind: "edit"; order: PurchaseOrder } | { kind: "detail"; order: PurchaseOrder };
 
-export default function PurchaseOrders({ canEdit, onReceive }: { canEdit: boolean; onReceive: (orderId: number) => void }) {
+export default function PurchaseOrders({
+  canEdit,
+  canReceive,
+  onReceive,
+}: {
+  canEdit: boolean;
+  canReceive: boolean;
+  onReceive: (orderId: number) => void;
+}) {
   const [orders, setOrders] = useState<PurchaseOrder[] | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -557,6 +567,7 @@ export default function PurchaseOrders({ canEdit, onReceive }: { canEdit: boolea
         <OrderDetail
           order={view.order}
           canEdit={canEdit}
+          canReceiveAccess={canReceive}
           onBack={() => setView({ kind: "list" })}
           onEdit={() => setView({ kind: "edit", order: view.order })}
           onChanged={(o) => {

@@ -1,0 +1,1 @@
+- [Python package installs on Replit](python-package-installs.md) — this workspace needs writable-target installs rather than system or user-site pip installs.

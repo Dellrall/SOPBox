@@ -8,9 +8,8 @@ from collections import defaultdict
 
 import psycopg
 
-from app.auditlog import audit
 from app.errors import InvalidRequestError, NotFoundError
-from app.models import Category, CategoryIn, PackUnit, Product, ProductIn, StockCountIn
+from app.models import Category, CategoryIn, PackUnit, Product, ProductIn
 
 _PRODUCT_SELECT = """
 SELECT p.*, c.name AS category, c.temp_min_c AS cat_min, c.temp_max_c AS cat_max
@@ -219,38 +218,6 @@ def set_archived(conn: psycopg.Connection, ws: int, product_id: int, archived: b
     if cur.rowcount == 0:
         raise NotFoundError(f"product {product_id} not found")
     return get_product(conn, ws, product_id)
-
-
-def count_stock(conn: psycopg.Connection, ws: int, actor: str, data: StockCountIn) -> list[Product]:
-    """Set stock to what was counted on the shelf. Every difference is logged with before and after."""
-    ids = [line.product_id for line in data.lines]
-    if len(set(ids)) != len(ids):
-        raise InvalidRequestError("each product can appear once in a count")
-    with conn.transaction():
-        # Locked so a delivery accepted at the same moment is not lost under the count.
-        rows = conn.execute(
-            "SELECT id, name, base_unit, stock FROM products "
-            "WHERE workspace_id = %s AND id = ANY(%s) AND NOT archived ORDER BY id FOR UPDATE",
-            (ws, ids),
-        ).fetchall()
-        found = {r["id"]: r for r in rows}
-        missing = [i for i in ids if i not in found]
-        if missing:
-            raise NotFoundError(f"product {missing[0]} not found")
-        changed = 0
-        for line in data.lines:
-            r = found[line.product_id]
-            if r["stock"] == line.counted:
-                continue
-            conn.execute("UPDATE products SET stock = %s WHERE id = %s", (line.counted, r["id"]))
-            audit(
-                conn, ws, actor, "stock.counted", None,
-                f"{r['name']}: {r['stock']} → {line.counted} {r['base_unit']}",
-            )
-            changed += 1
-        if changed == 0:
-            audit(conn, ws, actor, "stock.counted", None, f"{len(ids)} counted, all matched")
-    return list_products(conn, ws, active_only=True)
 
 
 def delete_product(conn: psycopg.Connection, ws: int, product_id: int) -> None:
