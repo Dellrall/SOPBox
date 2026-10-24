@@ -7,16 +7,15 @@
 > A phone app for small food and beverage outlets that checks every supplier delivery at the back door: AI reads the delivery order, rules decide pass or fail, and a manager approves every exception.
 
 ---
-
 ## Team Information
 
 | Field                  | Details                                     |
 | ---------------------- | ------------------------------------------- |
-| **Team Name**          | _TBC_                                       |
+| **Team Name**          |"Hack into Google, No Mistake"                                      |
 | **Team Domain**        | Domain 2                                    |
 | **SDG Track (1–17)**   | SDG 12 — Responsible Consumption and Production (target 12.3, food waste); also supports SDG 8 |
-| **Team Leader**        | _TBC_                                       |
-| **University**         | _TBC_                                       |
+| **Team Leader**        | Lye Wei Lun                                      |
+| **University**         | Tunku Abdul Rahman University of Management and Technology                                       |
 | **Number of Members**  | 5                                           |
 
 ## Links
@@ -26,9 +25,8 @@
 | GitHub Repository | https://github.com/Dellrall/SDCIdea26          |
 | Live Demo         | https://sopbox.replit.app                      |
 | RunPod Endpoint   | https://api.runpod.ai/v2/sriet0cftztbik        |
-| Slide Deck        | _TBC_                                          |
+| Slide Deck        |https://docs.google.com/presentation/d/19grJuodMn0e-vGj9hfSoVCfKdqcKE-roTmU2JJK2dPU/edit?usp=sharing|
 | Demo Video        | _TBC_                                          |
-
 ---
 
 ## Overview
