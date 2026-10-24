@@ -148,9 +148,9 @@ export default function Dashboard({
     !data
       ? null
       : waiting > 0
-        ? { who: "carrot", action: "worry", text: `${waiting} ${waiting === 1 ? "delivery is" : "deliveries are"} waiting for a manager.` }
+        ? { who: "carrot", action: "worry", text: `${waiting} ${waiting === 1 ? "delivery is" : "deliveries are"} waiting for a manager.`, to: canViewApprovals ? "approvals" : undefined }
         : lowCount > 0
-          ? { who: "cabbage", action: "count", text: `${lowCount} ${lowCount === 1 ? "product is" : "products are"} below minimum. Time to order?` }
+          ? { who: "cabbage", action: "count", text: `${lowCount} ${lowCount === 1 ? "product is" : "products are"} below minimum. Time to order?`, to: canViewPurchasing ? "purchasing" : undefined }
           : data.delivery_count > 0
             ? { who: "crew", action: "cheer", text: "Nothing waiting and nothing low. Nice work!" }
             : { who: "cabbage", action: "wave", text: "Hi! Add your products, then check your first delivery." },

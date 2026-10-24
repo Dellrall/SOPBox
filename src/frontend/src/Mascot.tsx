@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { MessageCircle, X } from "lucide-react";
+import type { PageId } from "./App";
 
 /**
  * The cabbage, carrot and fish from the logo, keeping the user company: whichever page is open
@@ -11,7 +12,8 @@ import { MessageCircle, X } from "lucide-react";
 export type Who = "cabbage" | "carrot" | "fish" | "crew";
 /** "type", "pet" and "sad" are the dock's own reactions (typing, being clicked, an error on screen); pages use the rest. */
 export type Action = "wave" | "read" | "probe" | "carry" | "count" | "write" | "cheer" | "worry" | "sleep" | "type" | "pet" | "sad" | "walk";
-export type Scene = { who: Who; action: Action; text?: string; progress?: number };
+/** `to` marks an alert: left-clicking the helper opens that page. */
+export type Scene = { who: Who; action: Action; text?: string; progress?: number; to?: PageId };
 
 let current: Scene | null = null;
 const listeners = new Set<() => void>();
@@ -40,7 +42,7 @@ export function useMascotSad(message: string) {
 
 /** Show this scene while the calling component is on screen. */
 export function useMascot(scene: Scene | null) {
-  const key = scene ? `${scene.who}|${scene.action}|${scene.text ?? ""}|${scene.progress ?? ""}` : "";
+  const key = scene ? `${scene.who}|${scene.action}|${scene.text ?? ""}|${scene.progress ?? ""}|${scene.to ?? ""}` : "";
   useEffect(() => {
     publish(scene);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -382,9 +384,10 @@ const PET_LINES = ["Hehe, that tickles!", "Purr… thank you!", "More please!", 
 
 /**
  * The corner dock: the current scene with a speech bubble and, when known, a progress bar.
- * Typing anywhere makes the helper drum along like Bongo Cat; clicking it pets it.
+ * Typing anywhere makes the helper drum along like Bongo Cat. Clicking it opens the page an alert
+ * points to; right-clicking (long-press on touch) pets it.
  */
-export function MascotDock({ fallback }: { fallback: Scene }) {
+export function MascotDock({ fallback, go }: { fallback: Scene; go: (page: PageId) => void }) {
   const scene = useSyncExternalStore(
     (l) => {
       listeners.add(l);
@@ -444,6 +447,8 @@ export function MascotDock({ fallback }: { fallback: Scene }) {
   // Petting and typing cheer it up for a moment; otherwise an error on screen makes it sad.
   const action: Action = petLine ? "pet" : typing ? "type" : error ? "sad" : scene.action;
   const text = petLine || (tucked ? "" : error ? `Oh no… ${error}` : scene.text);
+  // An error on screen takes over the bubble, so the alert's link waits until it is gone.
+  const target = error ? undefined : scene.to;
 
   let bubble: ReactNode = null;
   if (text)
@@ -507,11 +512,15 @@ export function MascotDock({ fallback }: { fallback: Scene }) {
       )}
       <button
         type="button"
-        onClick={pet}
+        onClick={() => target && go(target)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          pet();
+        }}
         ref={homeRef}
-        className={`pointer-events-auto cursor-grab rounded-full ${roam ? "invisible" : ""} focus-visible:outline-2 focus-visible:outline-brand-600 active:cursor-grabbing`}
-        aria-label="Pet the helper"
-        title="Pet me!"
+        className={`pointer-events-auto rounded-full ${target ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"} ${roam ? "invisible" : ""} focus-visible:outline-2 focus-visible:outline-brand-600`}
+        aria-label={target ? "Open what the helper is pointing at" : "The helper (right-click to pet)"}
+        title={target ? "Click to go there · right-click to pet me" : "Right-click to pet me!"}
       >
         <MascotFigure who={scene.who} action={action} paw={paw} size={tucked ? 48 : 64} />
       </button>

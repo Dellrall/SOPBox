@@ -355,7 +355,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
         {page === "team" && me.role === "owner" && <Team key={visit} />}
         {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}
       </main>
-      <MascotDock fallback={IDLE[page]} />
+      <MascotDock fallback={IDLE[page]} go={go} />
     </div>
   );
 }
