@@ -114,6 +114,21 @@ test.describe("phone layout", () => {
     }
   });
 
+  test("the inbox opens over the page, not inside the header", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("header").getByRole("button", { name: /inbox|notification/i }).first().tap();
+    const inbox = page.getByRole("dialog", { name: "Inbox" });
+    await expect(inbox).toBeVisible();
+    const box = (await inbox.boundingBox())!;
+    const screen = page.viewportSize()!;
+    expect(box.height, "the inbox should fill the screen's height").toBeGreaterThanOrEqual(screen.height - 1);
+    // Nothing on the page sits on top of it.
+    const top = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[role="dialog"]') !== null, [box.x + box.width / 2, box.y + box.height / 2]);
+    expect(top).toBe(true);
+    await page.getByRole("button", { name: "Close the inbox" }).tap();
+    await expect(inbox).toBeHidden();
+  });
+
   test("stock count categories start minimised and open with a tap", async ({ page }) => {
     await page.goto("/");
     await openPage(page, "Stock Count");
