@@ -14,15 +14,21 @@ const outcomeOf = (status: DeliveryStatus): Outcome =>
   status === "accepted" ? "accepted" : status === "pending_approval" ? "waiting" : "refused";
 
 const DAYS = 14;
+const MIN_DAYS = 7;
 
 type Day = { label: string; short: string; counts: Record<Outcome, number>; total: number };
 
-/** The last 14 calendar days in the viewer's time zone, oldest first, with each day's outcomes. */
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+/** Calendar days in the viewer's time zone, oldest first, with each day's outcomes. From the first
+ *  delivery in the window, so a new workspace is not mostly empty days: at least 7, at most 14. */
 function lastDays(activity: DashboardSummary["recent_activity"]): Day[] {
   const days: Day[] = [];
   const index = new Map<string, Day>();
   const today = new Date();
-  for (let i = DAYS - 1; i >= 0; i--) {
+  const first = Math.min(today.getTime(), ...activity.map((a) => startOfDay(new Date(a.created_at)).getTime()));
+  const span = Math.min(DAYS, Math.max(MIN_DAYS, Math.round((startOfDay(today).getTime() - first) / 86_400_000) + 1));
+  for (let i = span - 1; i >= 0; i--) {
     const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
     const day: Day = {
       label: d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }),
@@ -45,6 +51,7 @@ function lastDays(activity: DashboardSummary["recent_activity"]): Day[] {
 /** Stacked bars: deliveries checked each day, split by what happened to them. */
 export function DeliveriesChart({ activity }: { activity: DashboardSummary["recent_activity"] }) {
   const days = lastDays(activity);
+  const n = days.length;
   const [hover, setHover] = useState<number | null>(null);
   const total = days.reduce((n, d) => n + d.total, 0);
   const max = Math.max(1, ...days.map((d) => d.total));
@@ -54,7 +61,7 @@ export function DeliveriesChart({ activity }: { activity: DashboardSummary["rece
   return (
     <section className={`${panelClass} p-5`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-base font-bold text-brand-950">Deliveries checked, last 14 days</h2>
+        <h2 className="text-base font-bold text-brand-950">Deliveries checked, last {n} days</h2>
         <p className="text-sm text-muted">{total} in total</p>
       </div>
       <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600" aria-hidden>
@@ -75,7 +82,7 @@ export function DeliveriesChart({ activity }: { activity: DashboardSummary["rece
           <div className="absolute inset-x-0 top-0 h-40 border-y border-[#e7e9e6]">
             <div className="absolute inset-x-0 top-1/2 border-t border-[#e7e9e6]" />
           </div>
-          <div className="relative grid h-40 grid-cols-[repeat(14,minmax(0,1fr))]">
+          <div className="relative grid h-40" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
             {days.map((d, i) => (
               <div
                 key={d.label}
@@ -94,17 +101,17 @@ export function DeliveriesChart({ activity }: { activity: DashboardSummary["rece
               </div>
             ))}
           </div>
-          <div className="mt-1.5 grid grid-cols-[repeat(14,minmax(0,1fr))] text-center text-[11px] text-slate-500">
+          <div className="mt-1.5 grid text-center text-[11px] text-slate-500" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
             {days.map((d, i) => (
               <span key={d.label} className="whitespace-nowrap">
-                {(DAYS - 1 - i) % 3 === 0 ? d.short : ""}
+                {(n - 1 - i) % (n > MIN_DAYS ? 3 : 1) === 0 ? d.short : ""}
               </span>
             ))}
           </div>
           {shown && hover !== null && (
             <div
               className="pointer-events-none absolute top-0 z-10 w-44 rounded-lg border border-line bg-white p-2.5 text-xs shadow-lg"
-              style={hover < DAYS / 2 ? { left: `${((hover + 1) / DAYS) * 100}%` } : { right: `${100 - (hover / DAYS) * 100}%` }}
+              style={hover < n / 2 ? { left: `${((hover + 1) / n) * 100}%` } : { right: `${100 - (hover / n) * 100}%` }}
             >
               <p className="font-semibold text-ink">{shown.label}</p>
               {OUTCOMES.map((o) => (
