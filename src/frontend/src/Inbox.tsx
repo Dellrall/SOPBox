@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { AtSign, Bell, CheckCheck, ClipboardCheck, LogIn, MessageSquare, Truck, X, type LucideIcon } from "lucide-react";
 import { api } from "./api";
 import type { Inbox, Notification, NotificationKind } from "./types";
@@ -139,7 +140,9 @@ export function InboxBell({ onOpen, tone = "light" }: { onOpen: (n: Notification
           </span>
         )}
       </button>
-      {open && (
+      {/* In the body, not here: the phone header's blur would trap a fixed panel inside the header. */}
+      {open &&
+        createPortal(
         <div className="fixed inset-0 z-50 print:hidden">
           <div className="absolute inset-0 bg-brand-950/40" onClick={() => setOpen(false)} />
           <section
@@ -169,7 +172,8 @@ export function InboxBell({ onOpen, tone = "light" }: { onOpen: (n: Notification
               />
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
