@@ -50,7 +50,7 @@
 | Live Demo         | https://sopbox.replit.app                      |
 | RunPod Endpoint   | https://api.runpod.ai/v2/sriet0cftztbik        |
 | Slide Deck        |https://docs.google.com/presentation/d/19grJuodMn0e-vGj9hfSoVCfKdqcKE-roTmU2JJK2dPU/edit?usp=sharing|
-| Demo Video        | _TBC_                                          |
+| Demo Video        |https://youtu.be/mJNwTxj6-pY                                        |
 ---
 
 ## 🧭 Overview
