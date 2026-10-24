@@ -35,17 +35,21 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Update dev database"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd src/frontend && npm ci && npm run build && cd ../backend && python -m pip install -r requirements.txt && python -m uvicorn app.main:app --host 0.0.0.0 --port 5000 --proxy-headers --forwarded-allow-ips='*'"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd src/frontend && npm ci && npm run build && cd ../backend && PYTHON_TARGET=\"${PYTHONUSERBASE:-$(cd ../.. && pwd)/.pythonlibs}/lib/python3.12/site-packages\" && mkdir -p \"$PYTHON_TARGET\" && python -m pip install --upgrade --target=\"$PYTHON_TARGET\" -r requirements.txt && PYTHONPATH=\"$PYTHON_TARGET${PYTHONPATH:+:$PYTHONPATH}\" python -m uvicorn app.main:app --host 0.0.0.0 --port 5000 --proxy-headers --forwarded-allow-ips='*'"
+waitForPort = 5000
 
 # Run this (or Run) before Publish. Publish makes production's tables match development's, so a
 # development database behind the code would make it propose dropping production data.
@@ -55,9 +59,16 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd src/backend && python -m pip install -q -r requirements.txt && python -m app.migrate"
+args = "cd src/backend && PYTHON_TARGET=\"${PYTHONUSERBASE:-$(cd ../.. && pwd)/.pythonlibs}/lib/python3.12/site-packages\" && mkdir -p \"$PYTHON_TARGET\" && python -m pip install --upgrade --target=\"$PYTHON_TARGET\" -r requirements.txt && PYTHONPATH=\"$PYTHON_TARGET${PYTHONPATH:+:$PYTHONPATH}\" python -m app.migrate"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [userenv]
 
 [userenv.shared]
 RUNPOD_ENDPOINT_ID = "sriet0cftztbik"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
