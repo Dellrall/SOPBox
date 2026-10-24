@@ -126,3 +126,5 @@
 @keyframes mascot-tear { 0% { transform: translateY(0); opacity: 1 } 100% { transform: translateY(9px); opacity: 0 } }
 .mascot-droop { animation: mascot-droop 2.4s ease-in-out infinite; transform-origin: 50% 100% }
 .mascot-tear { animation: mascot-tear 1.3s ease-in infinite }
+@keyframes mascot-run { 0%, 100% { transform: translateY(0) rotate(-6deg) } 50% { transform: translateY(-7px) rotate(6deg) } }
+.mascot-run { animation: mascot-run 0.28s ease-in-out infinite; transform-origin: 50% 100% }

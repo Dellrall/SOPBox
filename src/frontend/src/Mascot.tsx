@@ -10,7 +10,7 @@ import { MessageCircle, X } from "lucide-react";
 
 export type Who = "cabbage" | "carrot" | "fish" | "crew";
 /** "type", "pet" and "sad" are the dock's own reactions (typing, being clicked, an error on screen); pages use the rest. */
-export type Action = "wave" | "read" | "probe" | "carry" | "count" | "write" | "cheer" | "worry" | "sleep" | "type" | "pet" | "sad";
+export type Action = "wave" | "read" | "probe" | "carry" | "count" | "write" | "cheer" | "worry" | "sleep" | "type" | "pet" | "sad" | "walk";
 export type Scene = { who: Who; action: Action; text?: string; progress?: number };
 
 let current: Scene | null = null;
@@ -241,6 +241,7 @@ const MOTION: Record<Action, string> = {
   type: "",
   pet: "mascot-squish",
   sad: "mascot-droop",
+  walk: "mascot-run",
 };
 
 /** One character, or the whole crew side by side. No frame: it stands on the page. */
@@ -277,6 +278,106 @@ function readTucked() {
   }
 }
 
+const IDLE_MS = 20_000;
+const LOOK_MS = 2600;
+
+/** Where the helper is while it explores the page, in viewport pixels. */
+type Roam = { x: number; y: number; facing: 1 | -1; action: Action; text: string; ms: number; home: boolean };
+
+/** What the helper does when it stops on a part of the page. */
+function perchOn(el: Element): Pick<Roam, "action" | "text"> {
+  const tag = el.tagName;
+  if (tag === "BUTTON") return { action: "wave", text: "Ooh, a button! I won't press it…" };
+  if (/^H[1-3]$/.test(tag)) return { action: "read", text: "Reading the headlines…" };
+  if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return { action: "write", text: "Doodling a little…" };
+  if (tag === "IMG") return { action: "cheer", text: "What a nice kitchen!" };
+  if (el.getAttribute("role") === "meter" || tag === "TABLE") return { action: "count", text: "Counting things…" };
+  return { action: "sleep", text: "Just a short nap…" };
+}
+
+const PERCHES = "main h1, main h2, main h3, main button, main input, main select, main img, main [role=meter]";
+const SIZE = 64;
+
+/**
+ * After a while with no mouse, touch, scroll or key, the helper looks around, says no one is
+ * around, and wanders the page sitting on headings, buttons and pictures. Any activity sends it
+ * running back home. It never clicks anything and never catches the pointer.
+ */
+function useRoam(home: React.RefObject<HTMLElement | null>) {
+  const [roam, setRoam] = useState<Roam | null>(null);
+  const roaming = useRef(false);
+  const pos = useRef({ x: 0, y: 0 });
+  const timer = useRef(0);
+
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const homeSpot = () => {
+      const r = home.current?.getBoundingClientRect();
+      return r ? { x: r.right - SIZE, y: r.bottom - SIZE } : { x: window.innerWidth - SIZE - 16, y: window.innerHeight - SIZE - 16 };
+    };
+    const go = (next: Omit<Roam, "facing">) => {
+      const facing: 1 | -1 = next.x < pos.current.x - 4 ? -1 : 1;
+      pos.current = { x: next.x, y: next.y };
+      setRoam({ ...next, facing });
+    };
+    const wander = () => {
+      const spots = [...document.querySelectorAll(PERCHES)].filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width >= 40 && r.top > SIZE + 8 && r.top < window.innerHeight - 20 && r.left >= 0 && r.right <= window.innerWidth;
+      });
+      if (!spots.length) {
+        timer.current = window.setTimeout(wander, 3000);
+        return;
+      }
+      const el = spots[Math.floor(Math.random() * spots.length)];
+      const r = el.getBoundingClientRect();
+      const x = Math.max(4, Math.min(window.innerWidth - SIZE - 4, r.left + Math.random() * Math.max(0, r.width - SIZE)));
+      const y = r.top - SIZE + 6; // sitting on the top edge
+      const ms = Math.min(2600, Math.max(700, Math.hypot(x - pos.current.x, y - pos.current.y) * 3));
+      go({ x, y, action: "walk", text: "", ms, home: false });
+      timer.current = window.setTimeout(() => {
+        go({ x, y, ...perchOn(el), ms: 0, home: false });
+        timer.current = window.setTimeout(wander, 2500 + Math.random() * 2000);
+      }, ms);
+    };
+    const start = () => {
+      roaming.current = true;
+      const spot = homeSpot();
+      pos.current = spot;
+      // Look one way, then the other, then set off.
+      const look = (facing: 1 | -1) => setRoam({ ...spot, facing, action: "read", text: "Hmm… no one is around. I'm going to explore a bit!", ms: 0, home: true });
+      look(-1);
+      timer.current = window.setTimeout(() => {
+        look(1);
+        timer.current = window.setTimeout(() => {
+          look(-1);
+          timer.current = window.setTimeout(wander, LOOK_MS / 3);
+        }, LOOK_MS / 3);
+      }, LOOK_MS / 3);
+    };
+    const back = () => {
+      clearTimeout(timer.current);
+      if (roaming.current) {
+        roaming.current = false;
+        const spot = homeSpot();
+        go({ ...spot, action: "walk", text: "Oh! You're back!", ms: 450, home: false });
+        // Its own timer, so more activity during the dash home can't leave it stranded.
+        window.setTimeout(() => setRoam(null), 500);
+      }
+      timer.current = window.setTimeout(start, IDLE_MS);
+    };
+    const events = ["pointermove", "pointerdown", "keydown", "wheel", "touchstart", "scroll"] as const;
+    events.forEach((e) => window.addEventListener(e, back, { capture: true, passive: true }));
+    timer.current = window.setTimeout(start, IDLE_MS);
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, back, { capture: true }));
+      clearTimeout(timer.current);
+    };
+  }, [home]);
+
+  return roam;
+}
+
 const PET_LINES = ["Hehe, that tickles!", "Purr… thank you!", "More please!", "You're the best boss!", "Aww ♥"];
 
 /**
@@ -304,6 +405,8 @@ export function MascotDock({ fallback }: { fallback: Scene }) {
   const [petLine, setPetLine] = useState("");
   const typingTimer = useRef(0);
   const petTimer = useRef(0);
+  const homeRef = useRef<HTMLButtonElement>(null);
+  const roam = useRoam(homeRef);
 
   useEffect(() => {
     // `input` fires for every edit in any field, including phone keyboards that send no key codes.
@@ -367,8 +470,30 @@ export function MascotDock({ fallback }: { fallback: Scene }) {
     );
 
   return (
+    <>
+    {roam && (
+      // The explorer: decorative only, never catches the pointer.
+      <div
+        aria-hidden
+        data-mascot-roam
+        className="pointer-events-none fixed left-0 top-0 z-30 print:hidden"
+        style={{
+          transform: `translate(${roam.x}px, ${roam.y}px)`,
+          transition: roam.ms ? `transform ${roam.ms}ms cubic-bezier(.45,.05,.35,1)` : "none",
+        }}
+      >
+        {roam.text && (
+          <div className="mascot-pop absolute bottom-full right-0 mb-1 w-max max-w-56 rounded-2xl bg-white px-3 py-1.5 text-xs font-medium text-ink shadow-lg ring-1 ring-line">
+            {roam.text}
+          </div>
+        )}
+        <div style={{ transform: `scaleX(${roam.facing})`, transition: "transform 150ms" }}>
+          <MascotFigure who={scene.who === "crew" ? "cabbage" : scene.who} action={roam.action} size={SIZE} />
+        </div>
+      </div>
+    )}
     <div className="pointer-events-none fixed bottom-2 right-2 z-20 flex items-end gap-1 print:hidden sm:bottom-4 sm:right-4">
-      {bubble}
+      {!roam && bubble}
       {tucked && !petLine && (scene.text || error) && (
         <button
           type="button"
@@ -383,12 +508,14 @@ export function MascotDock({ fallback }: { fallback: Scene }) {
       <button
         type="button"
         onClick={pet}
-        className="pointer-events-auto cursor-grab rounded-full focus-visible:outline-2 focus-visible:outline-brand-600 active:cursor-grabbing"
+        ref={homeRef}
+        className={`pointer-events-auto cursor-grab rounded-full ${roam ? "invisible" : ""} focus-visible:outline-2 focus-visible:outline-brand-600 active:cursor-grabbing`}
         aria-label="Pet the helper"
         title="Pet me!"
       >
         <MascotFigure who={scene.who} action={action} paw={paw} size={tucked ? 48 : 64} />
       </button>
     </div>
+    </>
   );
 }
