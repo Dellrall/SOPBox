@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useMascotSad } from "./Mascot";
 import { Inbox } from "lucide-react";
 import type { DeliveryStatus } from "./types";
 
@@ -34,6 +35,7 @@ export function StatusBadge({ status }: { status: DeliveryStatus }) {
 }
 
 export function ErrorNote({ message }: { message: string }) {
+  useMascotSad(message);
   if (!message) return null;
   return (
     <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-800">

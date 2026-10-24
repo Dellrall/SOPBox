@@ -120,3 +120,9 @@
 @media (prefers-reduced-motion: reduce) {
   [class*="mascot-"] { animation: none !important }
 }
+@keyframes mascot-squish { 0%, 100% { transform: scale(1) } 30% { transform: scale(1.12, 0.86) } 60% { transform: scale(0.94, 1.08) } }
+.mascot-squish { animation: mascot-squish 0.5s ease-in-out infinite; transform-origin: 50% 100% }
+@keyframes mascot-droop { 0%, 100% { transform: translateY(2px) scale(1, 0.97) } 50% { transform: translateY(3px) scale(1.01, 0.95) } }
+@keyframes mascot-tear { 0% { transform: translateY(0); opacity: 1 } 100% { transform: translateY(9px); opacity: 0 } }
+.mascot-droop { animation: mascot-droop 2.4s ease-in-out infinite; transform-origin: 50% 100% }
+.mascot-tear { animation: mascot-tear 1.3s ease-in infinite }

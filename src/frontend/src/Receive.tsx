@@ -232,7 +232,8 @@ export default function Receive({
           : filled > 0
             ? { who: "cabbage", action: "carry", text: `${filled} of ${lines.length} ${lines.length === 1 ? "line" : "lines"} ready. Probe the cold items before you submit.`, progress: filled / lines.length }
             : null;
-  useMascot(scene);
+  // This page stays mounted (hidden) to keep unsaved work, so it only speaks while it is shown.
+  useMascot(active ? scene : null);
 
   const title = <PageTitle title="Receiving check" subtitle="Record a delivery as it arrives. Each line is checked against its product's rules." />;
 
@@ -456,7 +457,7 @@ export default function Receive({
           Add a line
         </button>
 
-        <ErrorNote message={error} />
+        <ErrorNote message={active ? error : ""} />
 
         <button type="submit" className={`${primaryButton} w-full`} disabled={busy !== ""}>
           {busy === "submitting" ? "Checking…" : "Check and submit delivery"}
