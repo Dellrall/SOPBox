@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 import { KitchenTablets, SignInSecurity } from "./Security";
+import { setStocktakeStartsExpanded, stocktakeStartsExpanded } from "./Stocktake";
 import type { Me, WorkspaceSettings } from "./types";
 import { ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton } from "./ui";
 
@@ -165,12 +166,38 @@ function Workspace() {
   );
 }
 
+/** Choices about how pages look, kept on this device. */
+function Display() {
+  const [expanded, setExpanded] = useState(stocktakeStartsExpanded);
+  return (
+    <section className={`${cardClass} space-y-3`}>
+      <SectionTitle>Display</SectionTitle>
+      <label className="flex items-start gap-3 text-sm">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-5 w-5 accent-brand-700"
+          checked={expanded}
+          onChange={(e) => {
+            setExpanded(e.target.checked);
+            setStocktakeStartsExpanded(e.target.checked);
+          }}
+        />
+        <span>
+          <span className="font-semibold text-ink">Open every category on Stock counts</span>
+          <span className="block text-muted">Off: categories start minimised, and you tap one to count it. Saved on this device.</span>
+        </span>
+      </label>
+    </section>
+  );
+}
+
 export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me: Me) => void }) {
   return (
     <div className="space-y-5">
       <PageTitle title="Settings" subtitle="Your profile, how you sign in and, for owners, the workspace." />
       <Profile me={me} onChanged={onMeChanged} />
       <SignInSecurity />
+      <Display />
       <Password />
       {me.role !== "staff" && <KitchenTablets />}
       {me.role === "owner" && <Workspace />}

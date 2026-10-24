@@ -16,6 +16,25 @@ import {
   secondaryButton,
 } from "./ui";
 
+const EXPAND_KEY = "sopbox-stocktake-expanded";
+
+/** Settings choice, kept on this device: start a stock count with every category open. */
+export function stocktakeStartsExpanded(): boolean {
+  try {
+    return localStorage.getItem(EXPAND_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setStocktakeStartsExpanded(expanded: boolean) {
+  try {
+    localStorage.setItem(EXPAND_KEY, expanded ? "1" : "0");
+  } catch {
+    /* storage blocked: the default (folded) applies */
+  }
+}
+
 const localDate = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -102,8 +121,9 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  // Categories folded away so a long catalogue stays readable. A search shows every match.
-  const [folded, setFolded] = useState<Set<string>>(new Set());
+  // Categories open for counting. They start folded so a long catalogue stays readable, unless
+  // the person turned that off in Settings (null: not touched yet). A search shows every match.
+  const [opened, setOpened] = useState<Set<string> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -141,6 +161,8 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
     }
     return out;
   }, [visibleProducts]);
+  const [startExpanded] = useState(stocktakeStartsExpanded);
+  const isOpen = (category: string) => (opened ? opened.has(category) : startExpanded);
 
   function setCount(productId: number, patch: Partial<Count>) {
     setReviewing(false);
@@ -333,10 +355,10 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
 
           {sections.length > 1 && !search.trim() && (
             <div className="flex flex-wrap justify-end gap-3 text-sm font-semibold text-brand-700">
-              <button type="button" className="hover:underline" onClick={() => setFolded(new Set(sections.map((x) => x.category)))}>
+              <button type="button" className="hover:underline" onClick={() => setOpened(new Set())}>
                 Collapse all
               </button>
-              <button type="button" className="hover:underline" onClick={() => setFolded(new Set())}>
+              <button type="button" className="hover:underline" onClick={() => setOpened(new Set(sections.map((x) => x.category)))}>
                 Expand all
               </button>
             </div>
@@ -351,7 +373,7 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
               <span>In hand</span>
             </div>
             {sections.map((section) => {
-              const open = Boolean(search.trim()) || !folded.has(section.category);
+              const open = Boolean(search.trim()) || isOpen(section.category);
               const done = section.items.filter((p) => totalOf(p, counts[p.id]) !== null).length;
               return (
               <section key={section.category} aria-label={section.category}>
@@ -359,14 +381,12 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
                   <button
                     type="button"
                     aria-expanded={open}
-                    onClick={() =>
-                      setFolded((f) => {
-                        const next = new Set(f);
-                        if (next.has(section.category)) next.delete(section.category);
-                        else next.add(section.category);
-                        return next;
-                      })
-                    }
+                    onClick={() => {
+                      const next = new Set(sections.map((x) => x.category).filter(isOpen));
+                      if (open) next.delete(section.category);
+                      else next.add(section.category);
+                      setOpened(next);
+                    }}
                     className="flex w-full items-center justify-between gap-2 border-t border-brand-800 bg-brand-700 px-3 py-2 text-left text-sm font-semibold text-white hover:bg-brand-800"
                   >
                     <span className="flex items-center gap-2">
