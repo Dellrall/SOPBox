@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useMascot, type Scene } from "./Mascot";
 import { Camera, Loader2 } from "lucide-react";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
@@ -217,6 +218,22 @@ export default function Receive({
     setError("");
   }
 
+  const filled = lines.filter((l) => (l.productId || l.name.trim()) && l.quantity.trim() && l.unit.trim()).length;
+  const held = result ? result.lines.filter((l) => !l.passed).length : 0;
+  const scene: Scene | null =
+    busy === "reading"
+      ? { who: "fish", action: "read", text: "Reading the delivery order… (up to a few minutes if the AI was asleep)" }
+      : busy === "submitting"
+        ? { who: "carrot", action: "probe", text: `Checking ${lines.length} ${lines.length === 1 ? "line" : "lines"}: temperature, quantity, pack size…` }
+        : result
+          ? result.status === "accepted"
+            ? { who: "crew", action: "cheer", text: `Delivery #${result.id} passed every check. Stock updated!` }
+            : { who: "carrot", action: "worry", text: `${held} ${held === 1 ? "line needs" : "lines need"} a manager. I've told them.` }
+          : filled > 0
+            ? { who: "cabbage", action: "carry", text: `${filled} of ${lines.length} ${lines.length === 1 ? "line" : "lines"} ready. Probe the cold items before you submit.`, progress: filled / lines.length }
+            : null;
+  useMascot(scene);
+
   const title = <PageTitle title="Receiving check" subtitle="Record a delivery as it arrives. Each line is checked against its product's rules." />;
 
   if (!canEdit) {
@@ -238,6 +255,7 @@ export default function Receive({
       </div>
     );
   }
+
 
   if (result) {
     return (

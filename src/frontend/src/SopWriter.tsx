@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { api } from "./api";
+import { useMascot } from "./Mascot";
 import type { ProductIn, SopDraft } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
@@ -38,6 +39,21 @@ export default function SopWriter({
       setBusy(false);
     }
   }
+
+  const issues = draft?.issues.length ?? 0;
+  useMascot(
+    !open
+      ? null
+      : busy
+        ? { who: "fish", action: "write", text: "Writing your SOP, then the carrot checks it against your notes…" }
+        : draft
+          ? !draft.checked
+            ? { who: "carrot", action: "worry", text: "I couldn't check this one. Please read every step." }
+            : issues
+              ? { who: "carrot", action: "probe", text: `I found ${issues} ${issues === 1 ? "thing" : "things"} to look at before you use it.` }
+              : { who: "crew", action: "cheer", text: "Checked: every step comes from your notes." }
+          : { who: "fish", action: "wave", text: "Type your notes and I'll turn them into steps." },
+  );
 
   if (!open)
     return (

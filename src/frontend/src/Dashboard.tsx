@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Circle, Clock, PackageX, ScanLine, ThumbsUp, type LucideIcon } from "lucide-react";
 import { api } from "./api";
 import { DeliveriesChart, LowStockBars } from "./DashboardCharts";
+import { useMascot } from "./Mascot";
 import type { PageId } from "./App";
 import type { DashboardSummary, Me } from "./types";
 import { Empty, ErrorNote, PageTitle, SectionTitle, StatusBadge, cardClass, panelClass, primaryButton, secondaryButton, when } from "./ui";
@@ -67,6 +68,20 @@ export default function Dashboard({
         .then((users) => setHasTeam(users.some((u) => u.role !== "owner")))
         .catch(() => setHasTeam(false));
   }, [me.role]);
+
+  const waiting = data?.pending_count ?? 0;
+  const lowCount = data?.low_stock_products.length ?? 0;
+  useMascot(
+    !data
+      ? null
+      : waiting > 0
+        ? { who: "carrot", action: "worry", text: `${waiting} ${waiting === 1 ? "delivery is" : "deliveries are"} waiting for a manager.` }
+        : lowCount > 0
+          ? { who: "cabbage", action: "count", text: `${lowCount} ${lowCount === 1 ? "product is" : "products are"} below minimum. Time to order?` }
+          : data.delivery_count > 0
+            ? { who: "crew", action: "cheer", text: "Nothing waiting and nothing low. Nice work!" }
+            : { who: "cabbage", action: "wave", text: "Hi! Add your products, then check your first delivery." },
+  );
 
   if (error) return <ErrorNote message={error} />;
   if (!data) return <p className="text-muted">Loading…</p>;
