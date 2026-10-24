@@ -164,7 +164,7 @@ npm run test:ui                        # 28 phone UI tests (320px and 360px scre
 - **Database:** **Replit PostgreSQL** stores every workspace's data. Row Level Security keeps each business's data separate inside the database.
 - **Secrets:** the RunPod, Telegram and Google keys are kept in **Replit Secrets**, never in the code.
 
-📄 Proof of use: [`submission/SDC2026__Hack into Google, No mistake__Replit_POU.pdf`](submission/SDC2026__Hack%20into%20Google%2C%20No%20mistake__Replit_POU.pdf)
+📄 Proof of use: [`submission/SDC2026_Hack into Google, No Mistake_Replit_POU.pdf`](submission/SDC2026_Hack%20into%20Google%2C%20No%20Mistake_Replit_POU.pdf)
 
 ## How We Use RunPod *(Required)*
 
@@ -183,7 +183,7 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
          "messages": [{"role": "user", "content": "Write 3 steps for receiving frozen chicken."}]}}}'
 ```
 
-📄 Proof of use: [`submission/SDC2026__Hack into Google, No mistake__Runpod_POU.pdf`](submission/SDC2026__Hack%20into%20Google%2C%20No%20mistake__Runpod_POU.pdf)
+📄 Proof of use: [`submission/SDC2026_Hack into Google, No Mistake_Runpod_POU.pdf`](submission/SDC2026_Hack%20into%20Google%2C%20No%20Mistake_Runpod_POU.pdf)
 
 ---
 
@@ -229,8 +229,8 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 - [x] Demo video link added
 - [x] Replit used, with proof of use in `submission/`
 - [x] RunPod used, with proof of use in `submission/`
-- [x] Preliminary submission completed (`SDC2026_TeamName_Preliminary.pdf`)
-- [x] Technology declaration completed (`SDC2026_TeamName_TechDeclaration.pdf`)
+- [x] Preliminary submission completed (`SDC2026_Hack into Google, No Mistake_Preliminary.pdf`)
+- [x] Technology declaration completed (`SDC2026_Hack into Google, No Mistake_TechDeclaration.pdf`)
 - [x] Submission files renamed with your team name (replace `TeamName`)
 - [x] "How to Run" steps verified
 - [x] No API keys or secrets committed to the repository
