@@ -30,6 +30,7 @@ import Settings from "./Settings";
 import Stocktake from "./Stocktake";
 import Team from "./Team";
 import { MascotDock, type Scene } from "./Mascot";
+import { SdgFooter } from "./Sdg";
 import type { Me, Role, SectionKey } from "./types";
 import { ROLE_LABEL } from "./ui";
 
@@ -314,7 +315,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
         </div>
       </aside>
 
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
+      <main id="main" className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
         {/* Receive stays mounted so a half-filled delivery survives a look at another page. */}
         <div hidden={page !== "receive"}>
           <Receive
@@ -354,6 +355,10 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
         {page === "stocktake" && <Stocktake key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "team" && me.role === "owner" && <Team key={visit} />}
         {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}
+        {/* Pushed to the bottom on short pages. */}
+        <div className="mt-auto pt-12">
+          <SdgFooter className="border-t border-line pt-5" />
+        </div>
       </main>
       <MascotDock fallback={IDLE[page]} />
     </div>

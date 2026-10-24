@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { PublicPath } from "./App";
 import DeliveryDemo from "./DeliveryDemo";
+import { SDGS, SdgFooter } from "./Sdg";
 
 // Light green on deep green: dark text keeps it readable (contrast above 4.5:1).
 const ctaButton =
@@ -79,6 +80,9 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
             </a>
             <a href="#features" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:text-white sm:block">
               Features
+            </a>
+            <a href="#sdgs" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:text-white md:block">
+              SDGs
             </a>
             <a {...link("/signin")} className="rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">
               Sign in
@@ -159,6 +163,44 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
         </div>
       </section>
 
+      <section id="sdgs" aria-labelledby="sdgs-title" className="mx-auto max-w-6xl scroll-mt-6 px-5 pt-20 sm:px-8">
+        <p className="text-sm font-bold uppercase tracking-wider text-brand-600">Sustainable Development Goals</p>
+        <h2 id="sdgs-title" className="mt-2 max-w-2xl text-3xl font-extrabold text-brand-950 sm:text-4xl">
+          Less food wasted, better work in small kitchens
+        </h2>
+        <ul className="mt-10 space-y-5">
+          {SDGS.map((s) => (
+            <li key={s.goal} className="rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                <img src={s.icon} alt={`SDG ${s.goal}: ${s.title}`} width={112} height={112} loading="lazy" className="h-28 w-28 shrink-0 rounded-md" />
+                <div>
+                  <h3 className="text-xl font-bold text-brand-950">
+                    Goal {s.goal}: {s.title}
+                  </h3>
+                  <p className="mt-1 text-muted">{s.statement}</p>
+                  <a href={s.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-semibold text-brand-700 hover:underline">
+                    About Goal {s.goal} at un.org
+                  </a>
+                </div>
+              </div>
+              <ul className="mt-6 grid gap-4 lg:grid-cols-2">
+                {s.targets.map((t) => (
+                  <li key={t.id} className="rounded-xl bg-surface p-4">
+                    <p className="text-sm font-bold text-brand-950">Target {t.id}</p>
+                    <blockquote cite={s.url} className="mt-1 text-sm italic leading-relaxed text-muted">
+                      {t.text}
+                    </blockquote>
+                    <p className="mt-2 text-sm leading-relaxed text-ink">
+                      <strong className="text-brand-700">How SOPBox helps:</strong> {t.fit}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section aria-labelledby="cta-title" className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
         <div className="hero-pattern flex flex-col items-start gap-6 rounded-3xl px-8 py-12 text-white sm:px-12 lg:flex-row lg:items-center">
           <div className="flex-1">
@@ -190,6 +232,9 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
             <Smartphone aria-hidden className="h-4 w-4" /> Works in any phone browser, no app to install
           </span>
           <span className="sm:ml-auto">AI runs on RunPod. Rules and approvals stay in your hands.</span>
+        </div>
+        <div className="mx-auto max-w-6xl border-t border-line px-5 py-5 sm:px-8">
+          <SdgFooter />
         </div>
       </footer>
     </div>
