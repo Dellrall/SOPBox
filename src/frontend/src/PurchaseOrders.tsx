@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Check, ChevronDown, FilePlus2, Search, PackageCheck, Plus, Printer, Send, Sparkles, Trash2, Truck, XCircle } from "lucide-react";
 import { api } from "./api";
 import SearchSelect from "./SearchSelect";
-import type { Product, PurchaseOrder, PurchaseOrderIn, PurchaseOrderStatus, ReceivingStatus, Supplier, SupplierIn } from "./types";
+import type { LowStockSupplier, Product, PurchaseOrder, PurchaseOrderIn, PurchaseOrderStatus, ReceivingStatus, Supplier, SupplierIn } from "./types";
 import {
   Empty,
   ErrorNote,
@@ -695,6 +695,8 @@ export default function PurchaseOrders({
   const [filter, setFilter] = useState<PurchaseOrderStatus | "">("");
   const [view, setView] = useState<View>({ kind: "list" });
   const [draftSupplier, setDraftSupplier] = useState("");
+  // Only the suppliers a low-stock draft would order something from.
+  const [lowSuppliers, setLowSuppliers] = useState<LowStockSupplier[] | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -707,7 +709,8 @@ export default function PurchaseOrders({
         setError("");
       })
       .catch((e: Error) => setError(e.message));
-  }, [filter]);
+    if (canEdit) api.lowStockSuppliers().then(setLowSuppliers).catch(() => setLowSuppliers(null));
+  }, [filter, canEdit]);
   useEffect(load, [load]);
 
   const open = (order: PurchaseOrder) => {
@@ -720,9 +723,9 @@ export default function PurchaseOrders({
     setError("");
     setNotice("");
     try {
-      const made = await api.lowStockDraft(Number(draftSupplier || suppliers.find((s) => !s.archived)?.id), today());
+      const made = await api.lowStockDraft(Number(chosenLow?.supplier_id), today());
+      open(made); // clears the notice, so set it after
       setNotice(`${made.reference} drafted from low stock. Check it, then issue it.`);
-      open(made);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -777,6 +780,7 @@ export default function PurchaseOrders({
   }
 
   const activeSuppliers = suppliers.filter((s) => !s.archived);
+  const chosenLow = lowSuppliers?.find((s) => String(s.supplier_id) === draftSupplier) ?? lowSuppliers?.[0];
   return (
     <div className="space-y-5">
       <PageTitle title="Purchase orders" subtitle="What you ordered from each supplier, and how much of it has arrived. Quantities only.">
@@ -787,20 +791,31 @@ export default function PurchaseOrders({
         )}
       </PageTitle>
 
-      {canEdit && activeSuppliers.length > 0 && (
+      {canEdit && lowSuppliers && lowSuppliers.length === 0 && activeSuppliers.length > 0 && (
+        <p className="flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm text-muted">
+          <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-brand-600" />
+          Nothing to draft from low stock: no product is below its minimum, or every shortfall is already on an open order.
+        </p>
+      )}
+      {canEdit && lowSuppliers && chosenLow && (
         <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
           <Sparkles aria-hidden className="mb-2.5 h-5 w-5 text-amber-700" />
           <div className="min-w-56 flex-1">
             <label className={labelClass} htmlFor="low-stock-supplier">
-              Draft an order for everything below its minimum
+              Draft an order for what is below its minimum
             </label>
             <SearchSelect
               id="low-stock-supplier"
               noun="suppliers"
-              options={activeSuppliers.map((s) => ({ value: String(s.id), label: s.name }))}
-              value={draftSupplier || String(activeSuppliers[0].id)}
+              options={lowSuppliers.map((s) => ({
+                value: String(s.supplier_id),
+                label: `${s.name} · ${s.products.length} low`,
+                group: s.has_product_list ? "Matches their product list" : "No product list set",
+              }))}
+              value={String(chosenLow.supplier_id)}
               onChange={setDraftSupplier}
             />
+            <p className="mt-1.5 text-sm text-amber-900">Will order: {chosenLow.products.join(", ")}</p>
           </div>
           <button className={secondaryButton} onClick={() => void draftFromLowStock()}>
             Draft from low stock

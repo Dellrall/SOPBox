@@ -14,6 +14,8 @@ from app.auditlog import audit
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.models import (
     LowStockDraftIn,
+    LowStockSupplier,
+    Product,
     PurchaseOrder,
     PurchaseOrderIn,
     PurchaseOrderLine,
@@ -320,13 +322,14 @@ def cancel_order(conn: psycopg.Connection, ws: int, actor: str, order_id: int, r
     return get_order(conn, ws, order_id)
 
 
-def low_stock_draft(conn: psycopg.Connection, ws: int, actor: str, data: LowStockDraftIn) -> PurchaseOrder:
-    """A draft order for every low-stock product, for what brings it back to its minimum.
+def _shortfalls(
+    conn: psycopg.Connection, ws: int
+) -> tuple[list[Product], dict[int, int], dict[int, list[str]]]:
+    """Low-stock products, how much of each is still to order, and the open orders covering each.
 
     Quantities already on open orders (drafts, and issued orders still outstanding) are taken
     off, so pressing the button twice does not order the same shortfall twice.
     """
-    supplier = _check_supplier(conn, ws, data.supplier_id)
     on_order: dict[int, int] = {}
     covering: dict[int, list[str]] = {}  # product -> the open orders that already cover it
     for order in list_orders(conn, ws):
@@ -338,14 +341,32 @@ def low_stock_draft(conn: psycopg.Connection, ws: int, actor: str, data: LowStoc
             if still > 0:
                 covering.setdefault(line.product_id, []).append(f"{order.reference} ({order.status})")
     low = [p for p in catalogue.list_products(conn, ws, active_only=True) if p.low_stock]
+    short = {p.id: p.min_stock - p.stock - on_order.get(p.id, 0) for p in low}
+    return low, {k: v for k, v in short.items() if v > 0}, covering
+
+
+def low_stock_suppliers(conn: psycopg.Connection, ws: int) -> list[LowStockSupplier]:
+    """The active suppliers a low-stock draft would order something from: those whose product
+    list has a product still to order, then those with no list (offered everything low)."""
+    low, short, _ = _shortfalls(conn, ws)
+    needed = [p for p in low if p.id in short]
+    out = []
+    for s in list_suppliers(conn, ws):
+        sells = set(s.product_ids)
+        names = [p.name for p in needed if not sells or p.id in sells]
+        if not s.archived and names:
+            out.append(LowStockSupplier(supplier_id=s.id, name=s.name, products=names, has_product_list=bool(sells)))
+    return sorted(out, key=lambda x: not x.has_product_list)
+
+
+def low_stock_draft(conn: psycopg.Connection, ws: int, actor: str, data: LowStockDraftIn) -> PurchaseOrder:
+    """A draft order for every low-stock product, for what brings it back to its minimum."""
+    supplier = _check_supplier(conn, ws, data.supplier_id)
+    low, short, covering = _shortfalls(conn, ws)
     # A supplier with a product list only gets an order for what they sell.
     sells = set(supplier.product_ids)
     mine = [p for p in low if not sells or p.id in sells]
-    lines = []
-    for p in mine:
-        short = p.min_stock - p.stock - on_order.get(p.id, 0)
-        if short > 0:
-            lines.append((p.id, short, p.base_unit, short))
+    lines = [(p.id, short[p.id], p.base_unit, short[p.id]) for p in mine if p.id in short]
     if not lines:
         if not low:
             raise InvalidRequestError("nothing needs reordering: no product is below its minimum")

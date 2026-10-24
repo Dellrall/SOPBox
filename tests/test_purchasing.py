@@ -357,6 +357,26 @@ def test_low_stock_draft_only_orders_what_the_supplier_sells(client, catalogue_i
     assert [l["product_name"] for l in made.json()["lines"]] == ["Frozen sausage"]
 
 
+
+def test_low_stock_suppliers_lists_only_who_has_something_to_order(client, catalogue_ids, supplier_id):
+    ids = catalogue_ids
+    client.post("/api/suppliers", json={"name": "Fry House", "product_ids": [ids["fries"]]})
+    client.post("/api/suppliers", json={"name": "Sausage Co", "product_ids": [ids["sausage"]]})
+    gone = client.post("/api/suppliers", json={"name": "Old Mart"}).json()
+    client.patch(f"/api/suppliers/{gone['id']}", json={"archived": True})
+
+    got = client.get("/api/purchase-orders/low-stock-suppliers").json()
+    # Only sausage is low: Fry House (fries only) and the archived supplier are left out;
+    # the specific match comes before the supplier with no product list.
+    assert [(s["name"], s["products"], s["has_product_list"]) for s in got] == [
+        ("Sausage Co", ["Frozen sausage"], True),
+        ("Fresh Mart", ["Frozen sausage"], False),
+    ]
+
+    # Once the shortfall is on an open order, nobody has anything left to draft.
+    client.post("/api/purchase-orders/low-stock-draft", json={"supplier_id": got[0]["supplier_id"]})
+    assert client.get("/api/purchase-orders/low-stock-suppliers").json() == []
+
 # ---- isolation ----------------------------------------------------------------------------------
 
 
