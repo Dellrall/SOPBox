@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Eye, FileUp, RefreshCw, X } from "lucide-react";
+import { Download, FileUp, X } from "lucide-react";
 import { api } from "./api";
-import type { StocktakeDetail, StocktakePreviewLine, StocktakeProduct } from "./types";
+import StocktakeHistory from "./StocktakeHistory";
+import type { StocktakeDetail, StocktakeLine, StocktakePreviewLine, StocktakeProduct } from "./types";
 import {
-  Empty,
   ErrorNote,
   PageTitle,
   SectionTitle,
@@ -13,7 +13,6 @@ import {
   labelClass,
   primaryButton,
   secondaryButton,
-  when,
 } from "./ui";
 
 const localDate = () => {
@@ -52,6 +51,42 @@ function formatQty(total: number, product: Bundled | undefined, unit: string): s
   const { bundles, loose } = split(total, product);
   const parts = [Number(bundles) ? `${bundles} ${product.bundle_unit}` : "", Number(loose) ? `${loose} ${unit}` : ""].filter(Boolean);
   return `${parts.join(" + ") || `0 ${unit}`}${Number(bundles) ? ` (${total} ${unit})` : ""}`;
+}
+
+type ChangeLine = Omit<StocktakeLine, "id"> & { key: number };
+
+/** System, counted and difference per product: a row on wide screens, a small card on phones. */
+function ChangeRows({ lines, products }: { lines: ChangeLine[]; products: Map<number, Bundled> }) {
+  return (
+    <ul className="divide-y divide-line rounded-lg border border-line bg-white text-sm">
+      <li className="hidden grid-cols-[minmax(0,1.4fr)_1fr_1fr_8rem] gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted md:grid">
+        <span>Product</span>
+        <span>System</span>
+        <span>Counted</span>
+        <span>Difference</span>
+      </li>
+      {lines.map((line) => {
+        const product = line.product_id === null ? undefined : products.get(line.product_id);
+        const tone = line.difference < 0 ? "text-red-700" : line.difference > 0 ? "text-emerald-700" : "text-muted";
+        return (
+          <li key={line.key} className="grid grid-cols-2 gap-x-3 gap-y-1 px-3 py-2.5 md:grid-cols-[minmax(0,1.4fr)_1fr_1fr_8rem]">
+            <span className="font-medium text-ink">{line.product_name}</span>
+            <span className={`text-right font-semibold md:order-last md:text-left ${tone}`}>
+              {line.difference === 0 ? "No change" : formatDifference(line.difference, line.base_unit)}
+            </span>
+            <span className="text-slate-600">
+              <span className="text-xs text-muted md:hidden">System </span>
+              {formatQty(line.expected_stock, product, line.base_unit)}
+            </span>
+            <span className="text-right text-slate-600 md:text-left">
+              <span className="text-xs text-muted md:hidden">Counted </span>
+              {formatQty(line.counted_stock, product, line.base_unit)}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 export default function Stocktake({ canEdit }: { canEdit: boolean }) {
@@ -209,9 +244,6 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
     }
   }
 
-  const changeValue = (line: StocktakePreviewLine) =>
-    line.difference === 0 ? "No change" : formatDifference(line.difference, line.base_unit);
-
   return (
     <div className="space-y-6">
       <PageTitle
@@ -284,61 +316,54 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
             </label>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-line">
-            <table className="w-full min-w-[40rem] text-left text-sm">
-              <thead className="bg-surface text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className="px-3 py-2 font-semibold">Product</th>
-                  <th className="px-3 py-2 font-semibold">Bundles</th>
-                  <th className="px-3 py-2 font-semibold">Loose</th>
-                  <th className="px-3 py-2 font-semibold">In hand</th>
-                </tr>
-              </thead>
-              {sections.map((section) => (
-                <tbody key={section.category} className="divide-y divide-line bg-white">
-                  <tr>
-                    <th colSpan={4} scope="colgroup" className="bg-brand-700 px-3 py-1.5 text-center text-sm font-semibold text-white">
-                      {section.category}
-                    </th>
-                  </tr>
+          {/* Phones get one card per product; wider screens line the same cells up as columns. */}
+          <div className="overflow-hidden rounded-xl border border-line">
+            <div className="hidden grid-cols-[minmax(0,1fr)_11rem_9rem_10rem] gap-3 bg-surface px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted md:grid">
+              <span>Product</span>
+              <span>Bundles</span>
+              <span>Loose</span>
+              <span>In hand</span>
+            </div>
+            {sections.map((section) => (
+              <section key={section.category} aria-label={section.category}>
+                <h3 className="bg-brand-700 px-3 py-1.5 text-center text-sm font-semibold text-white">{section.category}</h3>
+                <ul className="divide-y divide-line bg-white">
                   {section.items.map((product) => {
                     const count = counts[product.id];
                     const total = totalOf(product, count);
                     return (
-                      <tr key={product.id}>
-                        <td className="px-3 py-2.5 font-medium text-ink">{product.name}</td>
-                        <td className="px-3 py-2.5">
-                          {product.bundle_unit ? (
-                            <div className="flex items-center gap-2">
-                              <input
-                                aria-label={`Bundles of ${product.name}`}
-                                className={`${inputClass} max-w-24`}
-                                inputMode="numeric"
-                                value={count?.bundles ?? ""}
-                                onChange={(event) => setCount(product.id, { bundles: event.target.value })}
-                              />
-                              <span className="text-xs text-muted">
-                                {product.bundle_unit} <span className="whitespace-nowrap">({product.bundle_qty} {product.base_unit})</span>
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted">No bundle size</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-2">
+                      <li key={product.id} className="grid grid-cols-2 items-center gap-x-3 gap-y-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_11rem_9rem_10rem]">
+                        <span className="col-span-2 font-medium text-ink md:col-span-1">{product.name}</span>
+                        {product.bundle_unit ? (
+                          <label className="flex items-center gap-2">
                             <input
-                              aria-label={`Loose ${product.base_unit} of ${product.name}`}
-                              className={`${inputClass} max-w-24`}
+                              aria-label={`Bundles of ${product.name}`}
+                              className={`${inputClass} w-20`}
                               inputMode="numeric"
-                              value={count?.loose ?? ""}
-                              onChange={(event) => setCount(product.id, { loose: event.target.value })}
-                              onBlur={() => rollUp(product)}
+                              value={count?.bundles ?? ""}
+                              onChange={(event) => setCount(product.id, { bundles: event.target.value })}
                             />
-                            <span className="text-xs text-muted">{product.base_unit}</span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5 text-sm">
+                            <span className="text-xs leading-tight text-muted">
+                              {product.bundle_unit}
+                              <span className="block whitespace-nowrap">= {product.bundle_qty} {product.base_unit}</span>
+                            </span>
+                          </label>
+                        ) : (
+                          <span className="text-xs text-muted">No bundle size</span>
+                        )}
+                        <label className="flex items-center gap-2">
+                          <input
+                            aria-label={`Loose ${product.base_unit} of ${product.name}`}
+                            className={`${inputClass} w-20`}
+                            inputMode="numeric"
+                            value={count?.loose ?? ""}
+                            onChange={(event) => setCount(product.id, { loose: event.target.value })}
+                            onBlur={() => rollUp(product)}
+                          />
+                          <span className="text-xs text-muted">{product.base_unit}</span>
+                        </label>
+                        <span className="col-span-2 text-sm md:col-span-1">
+                          <span className="mr-1 text-xs text-muted md:hidden">In hand:</span>
                           {total === null ? (
                             <span className="text-muted">Not counted</span>
                           ) : Number.isSafeInteger(total) ? (
@@ -346,20 +371,14 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
                           ) : (
                             <span className="text-red-700">Whole numbers only</span>
                           )}
-                        </td>
-                      </tr>
+                        </span>
+                      </li>
                     );
                   })}
-                </tbody>
-              ))}
-              {visibleProducts.length === 0 && (
-                <tbody>
-                  <tr>
-                    <td colSpan={4} className="px-3 py-5 text-center text-muted">No products match this search.</td>
-                  </tr>
-                </tbody>
-              )}
-            </table>
+                </ul>
+              </section>
+            ))}
+            {visibleProducts.length === 0 && <p className="px-3 py-5 text-center text-muted">No products match this search.</p>}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -400,30 +419,10 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
                   <X aria-hidden className="h-4 w-4" />
                 </button>
               </div>
-              <div className="overflow-x-auto rounded-lg border border-line bg-white">
-                <table className="w-full min-w-[32rem] text-left text-sm">
-                  <thead className="border-b border-line text-xs uppercase text-muted">
-                    <tr>
-                      <th className="px-3 py-2">Product</th>
-                      <th className="px-3 py-2">System</th>
-                      <th className="px-3 py-2">Counted</th>
-                      <th className="px-3 py-2">Difference</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {reviewLines.map((line) => (
-                      <tr key={line.product_id}>
-                        <td className="px-3 py-2 font-medium">{line.product_name}</td>
-                        <td className="px-3 py-2">{formatQty(line.expected_stock, byId.get(line.product_id), line.base_unit)}</td>
-                        <td className="px-3 py-2">{formatQty(line.counted_stock, byId.get(line.product_id), line.base_unit)}</td>
-                        <td className={`px-3 py-2 font-semibold ${line.difference < 0 ? "text-red-700" : line.difference > 0 ? "text-emerald-700" : "text-muted"}`}>
-                          {changeValue(line)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ChangeRows
+                lines={reviewLines.map((line) => ({ ...line, key: line.product_id }))}
+                products={byId}
+              />
               <button type="button" className={primaryButton} disabled={busy} onClick={() => void saveStocktake()}>
                 {busy ? "Saving…" : "Confirm and save stocktake"}
               </button>
@@ -432,76 +431,20 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
         </section>
       )}
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <SectionTitle>Stocktake history</SectionTitle>
-            <p className="mt-1 text-sm text-muted">Saved counts and stock adjustments, newest first.</p>
-          </div>
-          <button type="button" className={secondaryButton} onClick={() => void load()}>
-            <RefreshCw aria-hidden className="h-4 w-4" /> Refresh
-          </button>
-        </div>
-        {history.length === 0 ? (
-          <Empty>No stocktakes have been saved.</Empty>
-        ) : (
-          <ul className={`${cardClass} divide-y divide-line`}>
-            {history.map((stocktake) => (
-              <li key={stocktake.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div>
-                  <p className="font-semibold text-brand-950">{stocktake.reference} · {stocktake.count_date}</p>
-                  <p className="text-sm text-muted">
-                    {stocktake.counted_by} · {stocktake.line_count} counted · {stocktake.changed_count} changed
-                    {" · "}{when(stocktake.created_at)}
-                  </p>
-                </div>
-                <button type="button" className={secondaryButton} onClick={() => void showDetails(stocktake.id)}>
-                  <Eye aria-hidden className="h-4 w-4" /> Details
-                </button>
-              </li>
-            ))}
-          </ul>
+      <StocktakeHistory
+        history={history}
+        selected={selected}
+        onOpen={(id) => void showDetails(id)}
+        onClose={() => setSelected(null)}
+        onRefresh={() => void load()}
+      >
+        {selected && (
+          <ChangeRows
+            lines={selected.lines.map((line) => ({ ...line, key: line.id }))}
+            products={byId}
+          />
         )}
-      </section>
-
-      {selected && (
-        <section className={`${cardClass} space-y-4`}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <SectionTitle>{selected.reference} · {selected.count_date}</SectionTitle>
-              <p className="mt-1 text-sm text-muted">
-                Counted by {selected.counted_by} · {selected.line_count} products · {when(selected.created_at)}
-              </p>
-              {selected.notes && <p className="mt-2 text-sm text-ink">{selected.notes}</p>}
-            </div>
-            <button className={secondaryButton} onClick={() => setSelected(null)}>Close</button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[32rem] text-left text-sm">
-              <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className="py-2 pr-3">Product</th>
-                  <th className="py-2 pr-3">System</th>
-                  <th className="py-2 pr-3">Counted</th>
-                  <th className="py-2">Difference</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {selected.lines.map((line) => (
-                  <tr key={line.id}>
-                    <td className="py-2 pr-3 font-medium">{line.product_name}</td>
-                    <td className="py-2 pr-3">{formatQty(line.expected_stock, line.product_id === null ? undefined : byId.get(line.product_id), line.base_unit)}</td>
-                    <td className="py-2 pr-3">{formatQty(line.counted_stock, line.product_id === null ? undefined : byId.get(line.product_id), line.base_unit)}</td>
-                    <td className={`py-2 font-semibold ${line.difference < 0 ? "text-red-700" : line.difference > 0 ? "text-emerald-700" : "text-muted"}`}>
-                      {formatDifference(line.difference, line.base_unit)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+      </StocktakeHistory>
     </div>
   );
 }
