@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ClipboardCheck,
+  ClipboardList,
   History,
   LayoutDashboard,
   LogOut,
@@ -26,6 +27,7 @@ import PurchaseOrders from "./PurchaseOrders";
 import Receive from "./Receive";
 import Records from "./Records";
 import Settings from "./Settings";
+import StockCount from "./StockCount";
 import Team from "./Team";
 import type { Me, Role } from "./types";
 import { ROLE_LABEL } from "./ui";
@@ -36,6 +38,7 @@ export type PageId =
   | "records"
   | "products"
   | "purchasing"
+  | "stock"
   | "approvals"
   | "activity"
   | "team"
@@ -46,6 +49,7 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[] }[] = [
   { id: "receive", label: "Receiving check", icon: ScanLine, roles: ["owner", "manager", "staff"] },
   { id: "records", label: "Delivery records", icon: Truck, roles: ["owner", "manager", "staff"] },
   { id: "products", label: "Products & SOP", icon: PackageSearch, roles: ["owner", "manager", "staff"] },
+  { id: "stock", label: "Stock count", icon: ClipboardList, roles: ["owner", "manager"] },
   { id: "purchasing", label: "Purchase orders", icon: ShoppingCart, roles: ["owner", "manager"] },
   { id: "approvals", label: "Approvals", icon: ClipboardCheck, roles: ["owner", "manager"] },
   { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager"] },
@@ -257,6 +261,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
             }}
           />
         )}
+        {page === "stock" && canDecide && <StockCount key={visit} />}
         {page === "approvals" && canDecide && <Approvals key={visit} onChanged={refreshPending} />}
         {page === "activity" && canDecide && <Activity key={visit} />}
         {page === "team" && me.role === "owner" && <Team key={visit} />}

@@ -26,6 +26,7 @@ from app.errors import (
 from app.extraction import extract_lines, extract_products
 from app.models import (
     ArchiveIn,
+    StockCountIn,
     CancelIn,
     LowStockDraftIn,
     PurchaseOrder,
@@ -317,6 +318,12 @@ def update_product(product_id: int, body: ProductIn, user: ManagerUp, conn: Conn
 def create_products(body: ProductsBulkIn, user: ManagerUp, conn: Conn):
     """Add several reviewed products together: all of them, or none if one is not valid."""
     return catalogue.create_products(conn, user.workspace_id, body.products)
+
+
+@app.post("/api/stock-counts", response_model=list[Product])
+def count_stock(body: StockCountIn, user: ManagerUp, conn: Conn):
+    """Record a shelf count. Stock becomes what was counted; deliveries add to it from there."""
+    return catalogue.count_stock(conn, user.workspace_id, user.display_name, body)
 
 
 @app.post("/api/products/read-sheet", response_model=list[ProductSuggestionOut])

@@ -159,7 +159,14 @@ def update_user(
     target = _get_user(conn, owner.workspace_id, user_id)
     if target.role == "owner":
         raise InvalidRequestError("the owner account cannot be changed here")
-    changes = data.model_dump(exclude_none=True)
+    # Only what actually changes is written and logged: a repeated click records nothing.
+    current = target.model_dump()
+    changes = {
+        k: v for k, v in data.model_dump(exclude_none=True).items()
+        if k == "password" or (current.get(k) or "") != (v or "")
+    }
+    if not changes:
+        return target
     try:
         _apply_user_changes(conn, owner, target, user_id, changes)
     except psycopg.errors.UniqueViolation as err:
@@ -191,8 +198,24 @@ def _apply_user_changes(
             conn.execute("DELETE FROM sessions WHERE user_id = %s", (user_id,))
         audit(
             conn, owner.workspace_id, owner.display_name, "user.updated", None,
-            f"{target.username}: {', '.join(sorted(changes))}",
+            f"{target.username}: {_describe(changes)}",
         )
+
+
+def _describe(changes: dict) -> str:
+    """What changed, in words, for the activity log. Never the password itself."""
+    parts = []
+    if "active" in changes:
+        parts.append("enabled" if changes["active"] else "disabled")
+    if "role" in changes:
+        parts.append(f"role set to {changes['role']}")
+    if "display_name" in changes:
+        parts.append(f"name set to {changes['display_name']}")
+    if "email" in changes:
+        parts.append("email changed" if changes["email"] else "email removed")
+    if "password" in changes:
+        parts.append("password reset")
+    return ", ".join(parts)
 
 
 # ---- workspace settings -----------------------------------------------------------------------

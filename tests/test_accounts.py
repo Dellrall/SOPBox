@@ -271,6 +271,17 @@ def test_user_changes_are_in_the_audit_log(client, make_user):
     assert ("Olive Owner", "user.created") in actions
 
 
+def test_the_log_says_what_changed_and_skips_repeated_clicks(client, make_user):
+    make_user("staff", "sam")
+    user_id = next(u["id"] for u in client.get("/api/users").json() if u["username"] == "sam")
+    client.patch(f"/api/users/{user_id}", json={"active": False})
+    client.patch(f"/api/users/{user_id}", json={"active": False})  # already disabled: nothing to log
+    client.patch(f"/api/users/{user_id}", json={"active": True, "role": "manager"})
+    client.patch(f"/api/users/{user_id}", json={"password": "a brand new password"})
+    details = [e["detail"] for e in client.get("/api/audit").json() if e["action"] == "user.updated"]
+    assert details == ["sam: password reset", "sam: enabled, role set to manager", "sam: disabled"]
+
+
 # ---- one workspace cannot see another ---------------------------------------------------------
 
 
