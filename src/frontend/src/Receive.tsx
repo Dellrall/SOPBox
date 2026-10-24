@@ -457,11 +457,12 @@ export default function Receive({
                     <input id={`unit-${line.key}`} className={inputClass} value={line.unit} onChange={(e) => update(line.key, { unit: e.target.value })} />
                   )}
                 </div>
-                <div>
+                {/* Full width on phones so the placeholder can be read. */}
+                <div className="col-span-2 sm:col-span-1">
                   <label className={labelClass} htmlFor={`temp-${line.key}`}>
                     Probe temperature (°C)
                   </label>
-                  <TempInput id={`temp-${line.key}`} value={line.temp} onChange={(temp) => update(line.key, { temp })} />
+                  <TempInput id={`temp-${line.key}`} className={`${inputClass} placeholder:text-sm`} placeholder="Leave empty if product is damaged" value={line.temp} onChange={(temp) => update(line.key, { temp })} />
                   {hint && <p className="mt-1 text-xs text-slate-600">{hint}</p>}
                 </div>
                 <div>

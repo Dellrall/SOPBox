@@ -268,7 +268,7 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
         {canEdit && (
           <button type="button" className={secondaryButton} disabled={busy} onClick={() => void downloadTemplate()}>
             <Download aria-hidden className="h-4 w-4" />
-            Blank Excel sheet
+            Stock Count Template
           </button>
         )}
       </PageTitle>
