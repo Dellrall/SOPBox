@@ -32,6 +32,7 @@ from app.models import (
     SopDraftIn,
     CancelIn,
     LowStockDraftIn,
+    LowStockSupplier,
     PurchaseOrder,
     PurchaseOrderIn,
     Supplier,
@@ -491,6 +492,12 @@ def list_purchase_orders(
     if user.role == "staff" and not auth.can_access_section(user, "purchasing"):
         status = "issued"
     return purchasing.list_orders(conn, user.workspace_id, status)
+
+
+@app.get("/api/purchase-orders/low-stock-suppliers", response_model=list[LowStockSupplier])
+def low_stock_suppliers(user: PurchasingEditor, conn: Conn):
+    """Who Draft from low stock can order from right now, and what each would get."""
+    return purchasing.low_stock_suppliers(conn, user.workspace_id)
 
 
 @app.get("/api/purchase-orders/{order_id}", response_model=PurchaseOrder)

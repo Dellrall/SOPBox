@@ -206,6 +206,9 @@ export type Delivery = {
 };
 
 // accept_passed: stock the lines that passed, send the failed ones back.
+/** A supplier that Draft from low stock would order from, and the low-stock products it would get. */
+export type LowStockSupplier = { supplier_id: number; name: string; products: string[]; has_product_list: boolean };
+
 export type Decision = "accept" | "accept_passed" | "reject" | "return";
 
 // The server records who decided from the signed-in user.

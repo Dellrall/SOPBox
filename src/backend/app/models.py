@@ -688,6 +688,15 @@ class CancelIn(_In):
     reason: str = Field(default="", max_length=500)
 
 
+class LowStockSupplier(BaseModel):
+    """A supplier that Draft from low stock would order something from, and what."""
+
+    supplier_id: int
+    name: str
+    products: list[str]  # the low-stock products it would order
+    has_product_list: bool  # False: no list set, so it is offered everything that is low
+
+
 class LowStockDraftIn(_In):
     supplier_id: int
     # The person's local date. The server may run in UTC, a day behind Malaysia before 08:00.
