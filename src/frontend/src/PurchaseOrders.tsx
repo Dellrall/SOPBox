@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Check, ChevronDown, FilePlus2, Search, PackageCheck, Plus, Printer, Send, Sparkles, Trash2, Truck, XCircle } from "lucide-react";
 import { api } from "./api";
-import ProductPicker from "./ProductPicker";
+import SearchSelect from "./SearchSelect";
 import type { Product, PurchaseOrder, PurchaseOrderIn, PurchaseOrderStatus, ReceivingStatus, Supplier, SupplierIn } from "./types";
 import {
   Empty,
@@ -423,13 +423,13 @@ function OrderForm({
           <label className={labelClass} htmlFor="po-supplier">
             Supplier
           </label>
-          <select id="po-supplier" className={inputClass} value={chosenSupplier} onChange={(e) => setSupplierId(e.target.value)}>
-            {active.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <SearchSelect
+            id="po-supplier"
+            noun="suppliers"
+            options={active.map((s) => ({ value: String(s.id), label: s.name }))}
+            value={chosenSupplier}
+            onChange={setSupplierId}
+          />
         </div>
         <div>
           <label className={labelClass} htmlFor="po-date">
@@ -456,9 +456,11 @@ function OrderForm({
                 <label className="sr-only" htmlFor={`po-product-${l.key}`}>
                   Product, line {i + 1}
                 </label>
-                <ProductPicker
+                <SearchSelect
                   id={`po-product-${l.key}`}
-                  options={products}
+                  noun="products"
+                  placeholder="Choose a product"
+                  options={products.map((p) => ({ value: String(p.id), label: p.name, group: p.category }))}
                   value={l.productId}
                   onChange={(productId) => setLine(l.key, { productId, unit: unitsOf(productId).slice(-1)[0] ?? "" })}
                 />
@@ -792,13 +794,13 @@ export default function PurchaseOrders({
             <label className={labelClass} htmlFor="low-stock-supplier">
               Draft an order for everything below its minimum
             </label>
-            <select id="low-stock-supplier" className={inputClass} value={draftSupplier} onChange={(e) => setDraftSupplier(e.target.value)}>
-              {activeSuppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <SearchSelect
+              id="low-stock-supplier"
+              noun="suppliers"
+              options={activeSuppliers.map((s) => ({ value: String(s.id), label: s.name }))}
+              value={draftSupplier || String(activeSuppliers[0].id)}
+              onChange={setDraftSupplier}
+            />
           </div>
           <button className={secondaryButton} onClick={() => void draftFromLowStock()}>
             Draft from low stock

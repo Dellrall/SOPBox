@@ -4,6 +4,7 @@ import { Camera, ImagePlus, Loader2, X } from "lucide-react";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
 import DeliveryPhotos from "./DeliveryPhotos";
+import SearchSelect from "./SearchSelect";
 import { imageToJpegBase64 } from "./image";
 import type { Delivery, Product, PurchaseOrder } from "./types";
 import {
@@ -413,19 +414,16 @@ export default function Receive({
                 <label className={labelClass} htmlFor={`product-${line.key}`}>
                   Product
                 </label>
-                <select
+                <SearchSelect
                   id={`product-${line.key}`}
-                  className={inputClass}
-                  value={line.productId ?? ""}
-                  onChange={(e) => chooseProduct(line, e.target.value)}
-                >
-                  <option value="">Not in the catalogue</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                  noun="products"
+                  options={[
+                    { value: "", label: "Not in the catalogue" },
+                    ...products.map((p) => ({ value: String(p.id), label: p.name, group: p.category })),
+                  ]}
+                  value={line.productId === null ? "" : String(line.productId)}
+                  onChange={(v) => chooseProduct(line, v)}
+                />
               </div>
               {!product && (
                 <div>
