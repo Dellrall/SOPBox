@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS delivery_lines (
     passed BOOLEAN NOT NULL,
     issues TEXT NOT NULL DEFAULT '[]'
 );
+-- A line sent back while the rest of its delivery was accepted ("accept the good lines").
+ALTER TABLE delivery_lines ADD COLUMN IF NOT EXISTS returned BOOLEAN NOT NULL DEFAULT FALSE;
 -- Photos of the stock taken while receiving, for the manager who approves it. JPEG, shrunk on the phone.
 CREATE TABLE IF NOT EXISTS delivery_photos (
     id {_ID},

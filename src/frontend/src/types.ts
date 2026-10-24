@@ -186,6 +186,8 @@ export type DeliveryLine = DeliveryLineIn & {
   received_base_qty: number | null;
   passed: boolean;
   issues: string[];
+  /** Sent back while the rest of the delivery was accepted. */
+  returned: boolean;
 };
 
 export type Delivery = {
@@ -203,7 +205,8 @@ export type Delivery = {
   photos: DeliveryPhoto[];
 };
 
-export type Decision = "accept" | "reject" | "return";
+// accept_passed: stock the lines that passed, send the failed ones back.
+export type Decision = "accept" | "accept_passed" | "reject" | "return";
 
 // The server records who decided from the signed-in user.
 export type DecisionIn = { decision: Decision; reason: string };

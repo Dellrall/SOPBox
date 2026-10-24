@@ -8,8 +8,8 @@ export default function DeliveryLines({ lines }: { lines: DeliveryLine[] }) {
         <li key={line.id} className="py-2 text-sm">
           <div className="flex items-baseline justify-between gap-2">
             <span className="font-medium">{line.name}</span>
-            <span className={line.passed ? "text-emerald-800" : "font-medium text-amber-900"}>
-              {line.passed ? "Passed" : "Needs a manager"}
+            <span className={line.returned ? "font-medium text-red-800" : line.passed ? "text-emerald-800" : "font-medium text-amber-900"}>
+              {line.returned ? "Returned to supplier" : line.passed ? "Passed" : "Needs a manager"}
             </span>
           </div>
           <p className="text-slate-600">

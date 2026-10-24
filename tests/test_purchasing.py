@@ -242,6 +242,52 @@ def test_a_rejected_delivery_does_not_count_against_the_order(client, catalogue_
     assert (line["received_base_qty"], line["pending_base_qty"], line["outstanding_base_qty"]) == (0, 0, 40)
 
 
+def test_accepting_the_good_lines_stocks_them_and_leaves_the_returned_ones_outstanding(
+    client, catalogue_ids, supplier_id
+):
+    ids = catalogue_ids
+    order = issued_order(client, ids, supplier_id)
+    fries_before = client.get(f"/api/products/{ids['fries']}").json()["stock"]
+    sausage_before = client.get(f"/api/products/{ids['sausage']}").json()["stock"]
+    mixed = receive(client, order["id"], [fries(ids, 2), sausage(ids, 40, temp_c=-2)]).json()
+    assert mixed["status"] == "pending_approval"
+
+    resp = client.post(
+        f"/api/deliveries/{mixed['id']}/decision", json={"decision": "accept_passed", "reason": "Sausage thawed"}
+    )
+    assert resp.status_code == 200, resp.text
+    done = resp.json()
+    assert done["status"] == "accepted"
+    assert [(l["name"], l["returned"]) for l in done["lines"]] == [("Fries tray", False), ("Frozen sausage", True)]
+    assert client.get(f"/api/products/{ids['fries']}").json()["stock"] == fries_before + 500
+    assert client.get(f"/api/products/{ids['sausage']}").json()["stock"] == sausage_before
+
+    after = client.get(f"/api/purchase-orders/{order['id']}").json()
+    assert after["receiving_status"] == "partially_received"
+    out = {l["product_name"]: l["outstanding_base_qty"] for l in after["lines"]}
+    assert out == {"Fries tray": 0, "Frozen sausage": 40}
+    log = client.get("/api/audit").json()
+    assert any(a["action"] == "delivery.partly_accepted" and "Frozen sausage" in a["detail"] for a in log)
+
+    # The replacement only needs the sausage, and completes the order.
+    rest = receive(client, order["id"], [sausage(ids, 40)]).json()
+    assert rest["status"] == "accepted"
+    assert client.get(f"/api/purchase-orders/{order['id']}").json()["receiving_status"] == "fully_received"
+
+
+def test_accepting_the_good_lines_needs_a_reason_and_a_good_line(client, catalogue_ids, supplier_id):
+    ids = catalogue_ids
+    order = issued_order(client, ids, supplier_id)
+    bad = receive(client, order["id"], [sausage(ids, 40, temp_c=-2)]).json()
+    url = f"/api/deliveries/{bad['id']}/decision"
+    assert client.post(url, json={"decision": "accept_passed"}).status_code == 422
+    resp = client.post(url, json={"decision": "accept_passed", "reason": "warm"})
+    assert resp.status_code == 422
+    assert "no line passed" in resp.json()["detail"]
+    # Nothing changed: it is still waiting.
+    assert client.get(f"/api/deliveries/{bad['id']}").json()["status"] == "pending_approval"
+
+
 def test_a_product_not_on_the_order_fails(client, catalogue_ids, supplier_id):
     ids = catalogue_ids
     order = issued_order(client, ids, supplier_id, lines=[{"product_id": ids["fries"], "quantity": 2, "unit": "bdl"}])

@@ -300,6 +300,7 @@ class DeliveryLine(BaseModel):
     received_base_qty: int | None
     passed: bool
     issues: list[str]
+    returned: bool = False  # sent back while the rest of the delivery was accepted
 
 
 class Delivery(BaseModel):
@@ -318,13 +319,14 @@ class Delivery(BaseModel):
 
 
 class DecisionIn(_In):
-    decision: Literal["accept", "reject", "return"]
+    # accept_passed: stock the lines that passed, send the failed ones back to the supplier.
+    decision: Literal["accept", "accept_passed", "reject", "return"]
     reason: str = Field(default="", max_length=500)
 
     @model_validator(mode="after")
     def _reason_needed(self) -> "DecisionIn":
         if self.decision != "accept" and not self.reason:
-            raise ValueError("a reason is required to reject or return a delivery")
+            raise ValueError("a reason is required to reject or return a delivery, or part of one")
         return self
 
 

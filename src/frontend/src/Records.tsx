@@ -50,7 +50,8 @@ function complaintText(d: Delivery): string {
   ];
   const bad = d.lines.filter((l) => !l.passed);
   out.push("", bad.length ? "Problems found:" : "Every line passed its checks.");
-  for (const l of bad) out.push(`- ${l.name}, ${l.quantity} ${l.unit}${l.temp_c === null ? "" : ` at ${l.temp_c} °C`}: ${l.issues.join("; ") || "needs a manager"}`);
+  for (const l of bad)
+    out.push(`- ${l.name}, ${l.quantity} ${l.unit}${l.temp_c === null ? "" : ` at ${l.temp_c} °C`}: ${l.issues.join("; ") || "needs a manager"}${l.returned ? " (returned to you)" : ""}`);
   if (d.photos.length) {
     out.push("", `Photos (${d.photos.length}, attached):`);
     d.photos.forEach((p, i) => {
@@ -314,6 +315,11 @@ export default function Records() {
                                 <span className={`rounded-full px-2 py-0.5 ${problems ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>
                                   {problems ? `${problems} with problems` : "All checks passed"}
                                 </span>
+                                {d.lines.some((l) => l.returned) && (
+                                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-red-800">
+                                    {d.lines.filter((l) => l.returned).length} returned
+                                  </span>
+                                )}
                                 {d.photos.length > 0 && (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-sky-800">
                                     <Camera aria-hidden className="h-3 w-3" /> {d.photos.length} {d.photos.length === 1 ? "photo" : "photos"}
