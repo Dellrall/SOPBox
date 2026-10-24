@@ -36,6 +36,14 @@ def test_a_forged_host_cannot_inject_markup(anon, tmp_path, monkeypatch):
     assert "<script>" not in resp.text
 
 
+def test_pages_and_data_are_compressed(anon, tmp_path, monkeypatch):
+    (tmp_path / "index.html").write_text("<p>app</p>" * 500)
+    monkeypatch.setattr(main, "FRONTEND_DIST", tmp_path)
+    resp = anon.get("/", headers={"accept-encoding": "gzip"})
+    assert resp.headers["content-encoding"] == "gzip" and resp.text.startswith("<p>app</p>")
+    assert "frame-ancestors 'none'" in resp.headers["Content-Security-Policy"]
+
+
 def test_sign_in_and_register_addresses_serve_the_app(anon, tmp_path, monkeypatch):
     (tmp_path / "index.html").write_text("app")
     monkeypatch.setattr(main, "FRONTEND_DIST", tmp_path)

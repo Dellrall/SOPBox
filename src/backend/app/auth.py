@@ -295,8 +295,7 @@ def current_user(request: Request, conn: Conn) -> CurrentUser:
 
 def act_as(conn: psycopg.Connection, user: CurrentUser) -> None:
     """Point the connection at this proven user's workspace, and log their actions as theirs."""
-    scope_to_workspace(conn, user.workspace_id)
-    scope_to_user(conn, user.id)
+    scope_to_user(conn, user.workspace_id, user.id)
 
 
 User = Annotated[CurrentUser, Depends(current_user)]

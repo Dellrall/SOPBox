@@ -374,15 +374,15 @@ def init_db() -> None:
         conn.execute("SELECT pg_advisory_lock(7461)")
         try:
             conn.execute(SCHEMA)
-            for table, condition in RLS_TABLES.items():
-                conn.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
-                # FORCE applies the policy to the table owner too, which is who the app connects as.
-                conn.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
-                conn.execute(f"DROP POLICY IF EXISTS workspace_isolation ON {table}")
-                conn.execute(
-                    f"CREATE POLICY workspace_isolation ON {table} USING ({condition}) "
-                    f"WITH CHECK ({condition})"
-                )
+            # One round trip for all the policies: this runs each time the app wakes up.
+            # FORCE applies a policy to the table owner too, which is who the app connects as.
+            conn.execute("".join(
+                f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;"
+                f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY;"
+                f"DROP POLICY IF EXISTS workspace_isolation ON {table};"
+                f"CREATE POLICY workspace_isolation ON {table} USING ({condition}) WITH CHECK ({condition});"
+                for table, condition in RLS_TABLES.items()
+            ))
         finally:
             conn.execute("SELECT pg_advisory_unlock(7461)")
 
@@ -395,8 +395,7 @@ def get_db() -> Iterator[psycopg.Connection]:
         finally:
             # The pool reuses this connection: forget which workspace and user it served.
             if not conn.closed:
-                conn.execute("RESET app.workspace_id")
-                conn.execute("RESET app.user_id")
+                conn.execute("RESET app.workspace_id; RESET app.user_id")
 
 
 def scope_to_workspace(conn: psycopg.Connection, workspace_id: int) -> None:
@@ -404,6 +403,10 @@ def scope_to_workspace(conn: psycopg.Connection, workspace_id: int) -> None:
     conn.execute("SELECT set_config('app.workspace_id', %s, false)", (str(workspace_id),))
 
 
-def scope_to_user(conn: psycopg.Connection, user_id: int) -> None:
-    """Tell the database who is signed in, so the audit log ties each action to their account."""
-    conn.execute("SELECT set_config('app.user_id', %s, false)", (str(user_id),))
+def scope_to_user(conn: psycopg.Connection, workspace_id: int, user_id: int) -> None:
+    """scope_to_workspace, and who is signed in so the audit log ties each action to their account.
+    One round trip for both, since every signed-in request does this."""
+    conn.execute(
+        "SELECT set_config('app.workspace_id', %s, false), set_config('app.user_id', %s, false)",
+        (str(workspace_id), str(user_id)),
+    )
