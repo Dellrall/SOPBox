@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Download, Search, Truck, X } from "lucide-react";
+import { Camera, ChevronDown, ClipboardCopy, Download, Search, Truck, X } from "lucide-react";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
+import DeliveryPhotos from "./DeliveryPhotos";
 import { CountCalendar, dayTitle, keyOf } from "./StocktakeHistory";
 import type { Delivery, DeliveryStatus } from "./types";
-import { Empty, ErrorNote, PageTitle, StatusBadge, inputClass, labelClass, panelClass, secondaryButton } from "./ui";
+import { Empty, ErrorNote, PageTitle, StatusBadge, STATUS_LABEL, inputClass, labelClass, panelClass, secondaryButton } from "./ui";
 
 // The API returns at most this many, newest first. Filtering happens here, on what was loaded.
 const LOAD = 200;
@@ -40,16 +41,37 @@ const dayOf = (iso: string) => {
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 const supplierOf = (d: Delivery) => d.supplier || "Unknown supplier";
 
+/** Plain text to paste into a message or email to the supplier: what went wrong, with the photo notes. */
+function complaintText(d: Delivery): string {
+  const date = new Date(d.created_at).toLocaleString(undefined, { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit" });
+  const out = [
+    `Delivery #${d.id} from ${supplierOf(d)}${d.purchase_order ? `, ${d.purchase_order}` : ""}, received ${date} by ${d.received_by}.`,
+    `Outcome: ${STATUS_LABEL(d.status)}${d.decision_reason ? `: ${d.decision_reason}` : ""}${d.decided_by ? ` (decided by ${d.decided_by})` : ""}.`,
+  ];
+  const bad = d.lines.filter((l) => !l.passed);
+  out.push("", bad.length ? "Problems found:" : "Every line passed its checks.");
+  for (const l of bad) out.push(`- ${l.name}, ${l.quantity} ${l.unit}${l.temp_c === null ? "" : ` at ${l.temp_c} °C`}: ${l.issues.join("; ") || "needs a manager"}`);
+  if (d.photos.length) {
+    out.push("", `Photos (${d.photos.length}, attached):`);
+    d.photos.forEach((p, i) => {
+      out.push(`${i + 1}. ${p.caption || "No description"}`);
+      for (const c of p.comments) out.push(`   ${c.author}: ${c.body}`);
+    });
+  }
+  return out.join("\n");
+}
+
 /** The filtered deliveries as a spreadsheet: one row per line. */
 function downloadCsv(rows: Delivery[]) {
   const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const out = [["Delivery", "Date", "Supplier", "Purchase order", "Status", "Received by", "Product", "Quantity", "Unit", "Temp °C", "Passed", "Problems", "Decided by", "Reason"]];
+  const out = [["Delivery", "Date", "Supplier", "Purchase order", "Status", "Received by", "Product", "Quantity", "Unit", "Temp °C", "Passed", "Problems", "Decided by", "Reason", "Photos"]];
   for (const d of rows)
     for (const l of d.lines)
       out.push([
         `#${d.id}`, d.created_at, supplierOf(d), d.purchase_order ?? "", d.status, d.received_by,
         l.name, String(l.quantity), l.unit, l.temp_c === null ? "" : String(l.temp_c), l.passed ? "yes" : "no",
         l.issues.join("; "), d.decided_by ?? "", d.decision_reason ?? "",
+        d.photos.map((p, i) => `${i + 1}. ${p.caption || "no description"}`).join("; "),
       ]);
   const blob = new Blob([out.map((r) => r.map(cell).join(",")).join("\r\n")], { type: "text/csv" });
   const a = document.createElement("a");
@@ -71,6 +93,18 @@ export default function Records() {
   const [day, setDay] = useState<string | null>(null);
   const [shown, setShown] = useState(PAGE);
   const [open, setOpen] = useState<number | null>(null);
+  const [copied, setCopied] = useState<number | null>(null);
+  const replace = (d: Delivery) => setAll((rows) => rows && rows.map((r) => (r.id === d.id ? d : r)));
+
+  async function copyComplaint(d: Delivery) {
+    try {
+      await navigator.clipboard.writeText(complaintText(d));
+      setCopied(d.id);
+      setError("");
+    } catch {
+      setError("This browser blocked copying. Select the text in the details instead.");
+    }
+  }
 
   useEffect(() => {
     api
@@ -280,6 +314,11 @@ export default function Records() {
                                 <span className={`rounded-full px-2 py-0.5 ${problems ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>
                                   {problems ? `${problems} with problems` : "All checks passed"}
                                 </span>
+                                {d.photos.length > 0 && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-sky-800">
+                                    <Camera aria-hidden className="h-3 w-3" /> {d.photos.length} {d.photos.length === 1 ? "photo" : "photos"}
+                                  </span>
+                                )}
                               </span>
                             </span>
                             <span className="flex shrink-0 flex-col items-end gap-2">
@@ -300,6 +339,13 @@ export default function Records() {
                                   {d.decision_reason && `: ${d.decision_reason}`}
                                 </p>
                               )}
+                              <DeliveryPhotos delivery={d} onChanged={replace} />
+                              <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <button type="button" className={secondaryButton} onClick={() => void copyComplaint(d)}>
+                                  <ClipboardCopy aria-hidden className="h-4 w-4" /> Copy complaint for supplier
+                                </button>
+                                {copied === d.id && <span className="text-sm font-semibold text-emerald-700" role="status">Copied. Paste it into your message and attach the photos.</span>}
+                              </div>
                             </div>
                           )}
                         </div>

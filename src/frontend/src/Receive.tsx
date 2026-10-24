@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useMascot, type Scene } from "./Mascot";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, ImagePlus, Loader2, X } from "lucide-react";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
+import DeliveryPhotos from "./DeliveryPhotos";
 import { imageToJpegBase64 } from "./image";
 import type { Delivery, Product, PurchaseOrder } from "./types";
 import {
@@ -16,6 +17,8 @@ import {
   primaryButton,
   secondaryButton,
 } from "./ui";
+
+const MAX_PHOTOS = 4;
 
 type Draft = {
   key: number;
@@ -71,6 +74,9 @@ export default function Receive({
   const [notice, setNotice] = useState("");
   const [result, setResult] = useState<Delivery | null>(null);
   const photoInput = useRef<HTMLInputElement>(null);
+  // Photos of the stock itself, for the manager who approves it (not read by the AI).
+  const [stockPhotos, setStockPhotos] = useState<{ key: number; data: string; caption: string }[]>([]);
+  const stockInput = useRef<HTMLInputElement>(null);
 
   // Receive stays mounted while you look at other pages, so reload the catalogue each time it is
   // opened: a manager may have added products or a delivery may have changed the stock.
@@ -170,6 +176,22 @@ export default function Receive({
     }
   }
 
+  async function addStockPhotos(files: FileList) {
+    setError("");
+    const room = MAX_PHOTOS - stockPhotos.length;
+    if (files.length > room) setError(`Up to ${MAX_PHOTOS} photos per delivery. The first ${room} were added.`);
+    try {
+      const added: typeof stockPhotos = [];
+      for (const file of [...files].slice(0, room))
+        added.push({ key: Date.now() + Math.random(), data: await imageToJpegBase64(file, 1280), caption: "" });
+      setStockPhotos((all) => [...all, ...added]);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      if (stockInput.current) stockInput.current.value = "";
+    }
+  }
+
   async function submit() {
     setError("");
 
@@ -200,7 +222,12 @@ export default function Receive({
     setBusy("submitting");
     try {
       setResult(
-        await api.createDelivery({ supplier: supplier.trim(), purchase_order_id: orderId, lines: payload }),
+        await api.createDelivery({
+          supplier: supplier.trim(),
+          purchase_order_id: orderId,
+          lines: payload,
+          photos: stockPhotos.map((p) => ({ data: p.data, caption: p.caption.trim() })),
+        }),
       );
     } catch (e) {
       setError((e as Error).message);
@@ -212,6 +239,7 @@ export default function Receive({
   function startAnother() {
     setResult(null);
     setLines([blankLine()]);
+    setStockPhotos([]);
     setSupplier("");
     setOrderId(null);
     setNotice("");
@@ -273,6 +301,7 @@ export default function Receive({
             : "A manager must decide before this stock is counted. They have been alerted."}
         </p>
         <DeliveryLines lines={result.lines} />
+        <DeliveryPhotos delivery={result} onChanged={setResult} />
         <button className={primaryButton} onClick={startAnother}>
           Receive another delivery
         </button>
@@ -456,6 +485,60 @@ export default function Receive({
         <button type="button" className={secondaryButton} onClick={() => setLines((all) => [...all, blankLine()])}>
           Add a line
         </button>
+
+        <fieldset className={`${cardClass} space-y-3`}>
+          <legend className="sr-only">Photos of the stock</legend>
+          <div>
+            <p className="font-semibold text-brand-950">Photos of the stock (optional)</p>
+            <p className="text-sm text-muted">
+              Show the manager what arrived: damage, leaks, labels, the probe reading. Up to {MAX_PHOTOS}. Say what each one shows.
+            </p>
+          </div>
+          {stockPhotos.length > 0 && (
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {stockPhotos.map((p, i) => (
+                <li key={p.key} className="overflow-hidden rounded-xl border border-line">
+                  <div className="relative">
+                    <img src={`data:image/jpeg;base64,${p.data}`} alt={`Stock photo ${i + 1}`} className="aspect-[4/3] w-full object-cover" />
+                    <button
+                      type="button"
+                      aria-label={`Remove photo ${i + 1}`}
+                      onClick={() => setStockPhotos((all) => all.filter((x) => x.key !== p.key))}
+                      className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 text-slate-700 shadow hover:bg-white"
+                    >
+                      <X aria-hidden className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <input
+                    className="w-full border-t border-line px-3 py-2 text-sm outline-none focus:bg-brand-50/50"
+                    aria-label={`What photo ${i + 1} shows`}
+                    placeholder="What does this show? e.g. 2 boxes crushed"
+                    maxLength={300}
+                    value={p.caption}
+                    onChange={(e) => setStockPhotos((all) => all.map((x) => (x.key === p.key ? { ...x, caption: e.target.value } : x)))}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+          {stockPhotos.length < MAX_PHOTOS && (
+            <>
+              <input
+                ref={stockInput}
+                id="stock-photos"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                className="sr-only"
+                onChange={(e) => e.target.files?.length && void addStockPhotos(e.target.files)}
+              />
+              <label htmlFor="stock-photos" className={`${secondaryButton} cursor-pointer`}>
+                <ImagePlus aria-hidden className="h-4 w-4" /> {stockPhotos.length ? "Add another photo" : "Add a photo of the stock"}
+              </label>
+            </>
+          )}
+        </fieldset>
 
         <ErrorNote message={active ? error : ""} />
 

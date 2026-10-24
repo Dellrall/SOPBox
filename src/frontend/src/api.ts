@@ -117,6 +117,9 @@ export const api = {
   deliveries: (status?: DeliveryStatus, limit = 50) =>
     get<Delivery[]>(`/deliveries?limit=${limit}${status ? `&status=${status}` : ""}`),
   decide: (id: number, body: DecisionIn) => post<Delivery>(`/deliveries/${id}/decision`, body),
+  photoUrl: (deliveryId: number, photoId: number) => `/api/deliveries/${deliveryId}/photos/${photoId}`,
+  commentOnPhoto: (deliveryId: number, photoId: number, body: string) =>
+    post<Delivery>(`/deliveries/${deliveryId}/photos/${photoId}/comments`, { body }),
   audit: (limit = 50) => get<AuditEntry[]>(`/audit?limit=${limit}`),
   dashboard: () => get<DashboardSummary>("/dashboard"),
 

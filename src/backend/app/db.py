@@ -100,6 +100,23 @@ CREATE TABLE IF NOT EXISTS delivery_lines (
     passed BOOLEAN NOT NULL,
     issues TEXT NOT NULL DEFAULT '[]'
 );
+-- Photos of the stock taken while receiving, for the manager who approves it. JPEG, shrunk on the phone.
+CREATE TABLE IF NOT EXISTS delivery_photos (
+    id {_ID},
+    delivery_id BIGINT NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+    data BYTEA NOT NULL,
+    caption TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS delivery_photos_delivery_idx ON delivery_photos (delivery_id);
+-- Staff and managers discussing a photo, e.g. for a complaint to the supplier.
+CREATE TABLE IF NOT EXISTS delivery_photo_comments (
+    id {_ID},
+    photo_id BIGINT NOT NULL REFERENCES delivery_photos(id) ON DELETE CASCADE,
+    author TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS delivery_photo_comments_photo_idx ON delivery_photo_comments (photo_id);
 CREATE TABLE IF NOT EXISTS suppliers (
     id {_ID},
     workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -207,6 +224,14 @@ RLS_TABLES = {
     "delivery_lines": (
         f"EXISTS (SELECT 1 FROM deliveries d WHERE d.id = delivery_lines.delivery_id "
         f"AND d.workspace_id = {_WS})"
+    ),
+    "delivery_photos": (
+        f"EXISTS (SELECT 1 FROM deliveries d WHERE d.id = delivery_photos.delivery_id "
+        f"AND d.workspace_id = {_WS})"
+    ),
+    "delivery_photo_comments": (
+        f"EXISTS (SELECT 1 FROM delivery_photos p JOIN deliveries d ON d.id = p.delivery_id "
+        f"WHERE p.id = delivery_photo_comments.photo_id AND d.workspace_id = {_WS})"
     ),
 }
 

@@ -174,7 +174,12 @@ export type DeliveryIn = {
   supplier: string;
   purchase_order_id?: number | null;
   lines: DeliveryLineIn[];
+  /** JPEG base64 of the stock as it arrived, with what the photo shows. Up to 4. */
+  photos?: { data: string; caption: string }[];
 };
+
+export type PhotoComment = { id: number; author: string; body: string; created_at: string };
+export type DeliveryPhoto = { id: number; caption: string; comments: PhotoComment[] };
 
 export type DeliveryLine = DeliveryLineIn & {
   id: number;
@@ -195,6 +200,7 @@ export type Delivery = {
   purchase_order_id: number | null;
   purchase_order: string | null; // e.g. PO-0007
   lines: DeliveryLine[];
+  photos: DeliveryPhoto[];
 };
 
 export type Decision = "accept" | "reject" | "return";

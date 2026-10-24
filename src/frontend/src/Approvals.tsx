@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "./api";
 import DeliveryLines from "./DeliveryLines";
+import DeliveryPhotos from "./DeliveryPhotos";
 import type { Decision, Delivery } from "./types";
 import {
   Empty,
@@ -15,7 +16,9 @@ import {
   secondaryButton,
 } from "./ui";
 
-function PendingCard({ delivery, canDecide, onDone }: { delivery: Delivery; canDecide: boolean; onDone: () => void }) {
+function PendingCard({ delivery: initial, canDecide, onDone }: { delivery: Delivery; canDecide: boolean; onDone: () => void }) {
+  // Comments on its photos update this card in place, without reloading the list.
+  const [delivery, setDelivery] = useState(initial);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -46,6 +49,7 @@ function PendingCard({ delivery, canDecide, onDone }: { delivery: Delivery; canD
         Received by {delivery.received_by} at {when(delivery.created_at)}
       </p>
       <DeliveryLines lines={delivery.lines} />
+      <DeliveryPhotos delivery={delivery} onChanged={setDelivery} />
       {canDecide ? (
         <div>
           <label className={labelClass} htmlFor={`reason-${delivery.id}`}>
