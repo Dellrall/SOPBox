@@ -4,6 +4,7 @@ import { api } from "./api";
 import type { PublicPath } from "./App";
 import type { Me } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton } from "./ui";
+import { SdgFooter } from "./Sdg";
 import { USERNAME_HINT, USERNAME_PATTERN, cleanUsername, usernameProblem } from "./username";
 
 type Mode = "signin" | "register";
@@ -222,6 +223,7 @@ export default function AuthPage({
               them for your username and password.
             </p>
           )}
+          <SdgFooter className="mt-10" />
         </div>
       </main>
     </div>
