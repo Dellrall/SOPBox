@@ -1,7 +1,35 @@
-import type { ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 import { useMascotSad } from "./Mascot";
 import { Inbox } from "lucide-react";
 import type { DeliveryStatus } from "./types";
+
+/** A temperature field with a ± button: the iPhone number keypad has no minus key. */
+export function TempInput({
+  value,
+  onChange,
+  className = inputClass,
+  ...rest
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "inputMode"> & { value: string; onChange: (value: string) => void }) {
+  const negative = value.trim().startsWith("-");
+  return (
+    <div className="flex min-w-0 gap-1.5">
+      <button
+        type="button"
+        aria-label="Minus"
+        aria-pressed={negative}
+        title="Switch between minus and plus"
+        onClick={() => onChange(negative ? value.trim().slice(1) : `-${value.trim()}`)}
+        className={`min-w-11 shrink-0 rounded-xl border px-2 text-lg font-bold transition ${
+          negative ? "border-sky-600 bg-sky-50 text-sky-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+        }`}
+      >
+        ±
+      </button>
+      {/* Some keyboards type a typographic minus; the API wants "-". */}
+      <input {...rest} inputMode="decimal" className={`${className} min-w-0 flex-1`} value={value} onChange={(e) => onChange(e.target.value.replace(/[−–]/g, "-"))} />
+    </div>
+  );
+}
 
 // Shared Tailwind class strings, so every screen looks the same.
 export const inputClass =

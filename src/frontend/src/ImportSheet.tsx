@@ -3,7 +3,7 @@ import { Camera, Loader2 } from "lucide-react";
 import { api } from "./api";
 import { imageToJpegBase64 } from "./image";
 import type { Category, ProductIn } from "./types";
-import { ErrorNote, SectionTitle, cardClass, inputClass, primaryButton, secondaryButton } from "./ui";
+import { ErrorNote, SectionTitle, TempInput, cardClass, inputClass, primaryButton, secondaryButton } from "./ui";
 
 /** One suggestion as the manager is editing it. Strings, so half-typed numbers are allowed. */
 type Row = {
@@ -205,8 +205,8 @@ export default function ImportSheet({
                     </td>
                     <td className="py-2">
                       <span className="flex gap-1.5">
-                        <input aria-label={`Lowest °C, product ${i + 1}`} inputMode="decimal" className={cell} value={r.min} onChange={(e) => set(r.key, { min: e.target.value })} />
-                        <input aria-label={`Highest °C, product ${i + 1}`} inputMode="decimal" className={cell} value={r.max} onChange={(e) => set(r.key, { max: e.target.value })} />
+                        <TempInput aria-label={`Lowest °C, product ${i + 1}`} className={cell} value={r.min} onChange={(min) => set(r.key, { min })} />
+                        <TempInput aria-label={`Highest °C, product ${i + 1}`} className={cell} value={r.max} onChange={(max) => set(r.key, { max })} />
                       </span>
                     </td>
                   </tr>

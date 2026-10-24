@@ -16,6 +16,7 @@ import {
   labelClass,
   primaryButton,
   secondaryButton,
+  TempInput,
 } from "./ui";
 
 const MAX_PHOTOS = 4;
@@ -462,7 +463,7 @@ export default function Receive({
                   <label className={labelClass} htmlFor={`temp-${line.key}`}>
                     Probe temperature (°C)
                   </label>
-                  <input id={`temp-${line.key}`} className={inputClass} inputMode="decimal" value={line.temp} onChange={(e) => update(line.key, { temp: e.target.value })} />
+                  <TempInput id={`temp-${line.key}`} value={line.temp} onChange={(temp) => update(line.key, { temp })} />
                   {hint && <p className="mt-1 text-xs text-slate-600">{hint}</p>}
                 </div>
                 <div>
