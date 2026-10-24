@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import {
   ClipboardCheck,
   ClipboardList,
@@ -139,6 +139,28 @@ export default function App() {
 function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me) => void; onSignedOut: () => void }) {
   const [page, setPage] = useState<PageId>(() => firstPage(me));
   const [menuOpen, setMenuOpen] = useState(false);
+  // Swipe left on the open menu (or the dimmed page beside it) to close it; the menu follows the finger.
+  const swipeStart = useRef<{ x: number; y: number; sideways: boolean | null } | null>(null);
+  const [drag, setDrag] = useState(0);
+  const swipe = {
+    onTouchStart: (e: TouchEvent) => {
+      swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, sideways: null };
+    },
+    onTouchMove: (e: TouchEvent) => {
+      const start = swipeStart.current;
+      if (!start) return;
+      const dx = e.touches[0].clientX - start.x;
+      const dy = e.touches[0].clientY - start.y;
+      // Decide once, after a few pixels, whether this is a sideways swipe or a scroll of the menu.
+      if (start.sideways === null && Math.abs(dx) + Math.abs(dy) > 8) start.sideways = Math.abs(dx) > Math.abs(dy);
+      if (start.sideways) setDrag(Math.min(0, dx));
+    },
+    onTouchEnd: () => {
+      if (drag < -70) setMenuOpen(false);
+      swipeStart.current = null;
+      setDrag(0);
+    },
+  };
   const [pending, setPending] = useState(0);
   // Set when a purchase order's "Receive a delivery" button opens the receiving check.
   const [receivePo, setReceivePo] = useState<number | null>(null);
@@ -213,9 +235,11 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
         )}
       </header>
 
-      {menuOpen && <div className="fixed inset-0 z-30 bg-brand-950/50 backdrop-blur-sm lg:hidden" onClick={() => setMenuOpen(false)} />}
+      {menuOpen && <div className="fixed inset-0 z-30 bg-brand-950/50 backdrop-blur-sm lg:hidden" onClick={() => setMenuOpen(false)} {...swipe} />}
 
       <aside
+        {...(menuOpen ? swipe : {})}
+        style={drag ? { transform: `translateX(${drag}px)`, transition: "none" } : undefined}
         className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col print:hidden bg-brand-950 text-white shadow-2xl transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:translate-x-0 lg:shadow-none ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
