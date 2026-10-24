@@ -210,11 +210,11 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 
 | Name        | Role                | GitHub                                   |
 | ----------- | ------------------- | ---------------------------------------- |
-| _TBC_       | Team Lead           |                                          |
-| _TBC_       | Backend             |                                          |
-| _TBC_       | Frontend            |                                          |
-| _TBC_       | AI / RunPod         |                                          |
-| _TBC_       |                     |                                          |
+| Lye Wei Lun| Team Lead|https://github.com/Dellrall|
+| Leong Zoe Yee| Backend |https://github.com/LEONGZOEYEE|
+| Ng Sze ya| Frontend|[https://github.com/NgSzeYa|
+| Puteri A'ina Auji Farzana | AI / RunPod|https://github.com/TheTN-G|
+| Siow Wei Yik|Design & QA|https://github.com/Weiyik88|
 
 ### Third-party code, models and assets
 
