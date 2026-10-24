@@ -295,6 +295,20 @@ def test_low_stock_drafts_an_order_for_the_shortfall_once(client, catalogue_ids,
     again = client.post("/api/purchase-orders/low-stock-draft", json={"supplier_id": supplier_id})
     assert again.status_code == 422
     assert "nothing needs reordering" in again.json()["detail"]
+    # It says which order already covers it, so the user knows where to look.
+    assert "Frozen sausage on PO-0001 (draft)" in again.json()["detail"]
+
+
+def test_low_stock_draft_only_orders_what_the_supplier_sells(client, catalogue_ids):
+    ids = catalogue_ids
+    fries_only = client.post("/api/suppliers", json={"name": "Fry House", "product_ids": [ids["fries"]]}).json()
+    resp = client.post("/api/purchase-orders/low-stock-draft", json={"supplier_id": fries_only["id"]})
+    assert resp.status_code == 422
+    assert "Fry House" in resp.json()["detail"] and "Frozen sausage" in resp.json()["detail"]
+    sausage_co = client.post("/api/suppliers", json={"name": "Sausage Co", "product_ids": [ids["sausage"]]}).json()
+    made = client.post("/api/purchase-orders/low-stock-draft", json={"supplier_id": sausage_co["id"]})
+    assert made.status_code == 201, made.text
+    assert [l["product_name"] for l in made.json()["lines"]] == ["Frozen sausage"]
 
 
 # ---- isolation ----------------------------------------------------------------------------------
