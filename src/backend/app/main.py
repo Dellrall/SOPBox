@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import stocktakes
+from app import hq, locations, sales, stocktakes
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -89,9 +89,22 @@ from app.models import (
     StocktakeOut,
     StocktakePreview,
     StocktakeProductOut,
+    WorkspaceChoice,
     WorkspaceRef,
     WorkspaceSettings,
     WorkspaceUpdateIn,
+    LinkCodeIn,
+    LinkCodeOut,
+    LinksOut,
+    NameIn,
+    OutletOut,
+    SaleIn,
+    SaleOut,
+    SalePreview,
+    StockLevelOut,
+    StorageIn,
+    TransferIn,
+    TransferOut,
 )
 from app.notifications import approval_needed_message, decision_message, send_telegram
 from app.security import SECURITY_HEADERS
@@ -230,6 +243,20 @@ _CONFLICTS = {
     "delivery_lines_product_id_fkey": "this product is on recorded deliveries, so it cannot be deleted: archive it instead",
     "purchase_order_lines_product_id_fkey": "this product is on purchase orders, so it cannot be deleted: archive it instead",
     "suppliers_name_key": "there is already a supplier with that name",
+    "products_code_key": "another product already has that code",
+    "outlets_name_key": "there is already an outlet with that name",
+    "storages_name_key": "this outlet already has a storage area with that name",
+    **dict.fromkeys(
+        (
+            "deliveries_storage_id_fkey",
+            "stocktakes_storage_id_fkey",
+            "stock_transfers_from_storage_id_fkey",
+            "stock_transfers_to_storage_id_fkey",
+            "sales_storage_id_fkey",
+        ),
+        "this storage area has deliveries, counts, transfers or sales on record, so it cannot be "
+        "deleted: rename it instead",
+    ),
 }
 
 
@@ -259,6 +286,13 @@ def _me(conn: psycopg.Connection, user: CurrentUser) -> Me:
         role=user.role,
         section_access=user.section_access,
         workspace=WorkspaceRef(id=user.workspace_id, name=user.workspace_name),
+        workspaces=[
+            WorkspaceChoice(id=user.workspace_id, name=user.workspace_name, role=user.role),
+            *(
+                WorkspaceChoice(id=b.id, name=b.name, role=auth.in_branch(conn, user, b.id).role)
+                for b in hq.links(conn, user.workspace_id).branches
+            ),
+        ],
     )
 
 
@@ -900,8 +934,8 @@ def download_stocktake_template(user: StocktakeReader, conn: Conn):
 
 
 @app.get("/api/stocktakes/products", response_model=list[StocktakeProductOut])
-def list_stocktake_products(user: StocktakeReader, conn: Conn):
-    return stocktakes.list_products(conn, user.workspace_id)
+def list_stocktake_products(user: StocktakeReader, conn: Conn, storage_id: int | None = None):
+    return stocktakes.list_products(conn, user.workspace_id, storage_id)
 
 
 @app.post("/api/stocktakes/preview", response_model=StocktakePreview)
@@ -909,10 +943,11 @@ async def preview_stocktake(
     file: Annotated[UploadFile, File()],
     user: StocktakeReader,
     conn: Conn,
+    storage_id: int | None = None,
 ):
     content = await file.read(stocktakes.MAX_UPLOAD_BYTES + 1)
     return StocktakePreview(
-        lines=stocktakes.preview_import(conn, user.workspace_id, file.filename or "", content)
+        lines=stocktakes.preview_import(conn, user.workspace_id, file.filename or "", content, storage_id)
     )
 
 
@@ -929,6 +964,118 @@ def create_stocktake(body: StocktakeCreateIn, user: StocktakeEditor, conn: Conn)
 @app.get("/api/stocktakes/{stocktake_id}", response_model=StocktakeDetail)
 def get_stocktake(stocktake_id: int, user: StocktakeReader, conn: Conn):
     return stocktakes.get_stocktake(conn, user.workspace_id, stocktake_id)
+
+
+# ---- outlets, storage areas, transfers and sales -------------------------------------------------
+
+
+@app.get("/api/outlets", response_model=list[OutletOut])
+def list_outlets(user: User, conn: Conn):
+    """Everyone picks storage areas (receiving, counting), so everyone may list them."""
+    return locations.list_outlets(conn, user.workspace_id)
+
+
+@app.post("/api/outlets", response_model=list[OutletOut], status_code=201)
+def create_outlet(body: NameIn, user: ManagerUp, conn: Conn):
+    return locations.create_outlet(conn, user.workspace_id, user.display_name, body.name)
+
+
+@app.put("/api/outlets/{outlet_id}", response_model=list[OutletOut])
+def rename_outlet(outlet_id: int, body: NameIn, user: ManagerUp, conn: Conn):
+    return locations.rename_outlet(conn, user.workspace_id, user.display_name, outlet_id, body.name)
+
+
+@app.delete("/api/outlets/{outlet_id}", response_model=list[OutletOut])
+def delete_outlet(outlet_id: int, user: ManagerUp, conn: Conn):
+    return locations.delete_outlet(conn, user.workspace_id, user.display_name, outlet_id)
+
+
+@app.post("/api/storages", response_model=list[OutletOut], status_code=201)
+def create_storage(body: StorageIn, user: ManagerUp, conn: Conn):
+    return locations.create_storage(conn, user.workspace_id, user.display_name, body.outlet_id, body.name)
+
+
+@app.put("/api/storages/{storage_id}", response_model=list[OutletOut])
+def rename_storage(storage_id: int, body: NameIn, user: ManagerUp, conn: Conn):
+    return locations.rename_storage(conn, user.workspace_id, user.display_name, storage_id, body.name)
+
+
+@app.delete("/api/storages/{storage_id}", response_model=list[OutletOut])
+def delete_storage(storage_id: int, user: ManagerUp, conn: Conn):
+    return locations.delete_storage(conn, user.workspace_id, user.display_name, storage_id)
+
+
+@app.get("/api/storages/{storage_id}/stock", response_model=list[StockLevelOut])
+def stock_in_storage(storage_id: int, user: StocktakeReader, conn: Conn):
+    return locations.stock_in(conn, user.workspace_id, storage_id)
+
+
+@app.get("/api/transfers", response_model=list[TransferOut])
+def list_transfers(user: StocktakeReader, conn: Conn):
+    return locations.list_transfers(conn, user.workspace_id)
+
+
+@app.post("/api/transfers", response_model=TransferOut, status_code=201)
+def create_transfer(body: TransferIn, user: StocktakeEditor, conn: Conn):
+    return locations.create_transfer(conn, user.workspace_id, user.display_name, body)
+
+
+@app.get("/api/sales/template.csv")
+def download_sales_template(user: StocktakeReader, conn: Conn):
+    return Response(
+        content=sales.template_csv(conn, user.workspace_id),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="sales-template.csv"'},
+    )
+
+
+@app.post("/api/sales/preview", response_model=SalePreview)
+async def preview_sales(
+    file: Annotated[UploadFile, File()],
+    storage_id: Annotated[int, Query()],
+    user: StocktakeEditor,
+    conn: Conn,
+):
+    content = await file.read(stocktakes.MAX_UPLOAD_BYTES + 1)
+    return sales.preview(conn, user.workspace_id, storage_id, file.filename or "", content)
+
+
+@app.get("/api/sales", response_model=list[SaleOut])
+def list_sales(user: StocktakeReader, conn: Conn):
+    return sales.list_sales(conn, user.workspace_id)
+
+
+@app.post("/api/sales", response_model=SaleOut, status_code=201)
+def create_sale(body: SaleIn, user: StocktakeEditor, conn: Conn):
+    return sales.create_sale(conn, user.workspace_id, user.display_name, body)
+
+
+# ---- HQ and branches ----------------------------------------------------------------------------
+
+
+@app.get("/api/workspace/links", response_model=LinksOut)
+def workspace_links(owner: OwnerOnly, conn: Conn):
+    return hq.links(conn, owner.workspace_id)
+
+
+@app.post("/api/workspace/link-codes", response_model=LinkCodeOut, status_code=201)
+def create_link_code(owner: OwnerOnly, conn: Conn):
+    return hq.create_code(conn, owner)
+
+
+@app.post("/api/workspace/hq", response_model=LinksOut)
+def join_hq(body: LinkCodeIn, owner: OwnerOnly, conn: Conn):
+    return hq.join(conn, owner, body.code)
+
+
+@app.delete("/api/workspace/hq", response_model=LinksOut)
+def leave_hq(owner: OwnerOnly, conn: Conn):
+    return hq.leave(conn, owner)
+
+
+@app.delete("/api/workspace/branches/{branch_id}", response_model=LinksOut)
+def remove_branch(branch_id: int, owner: OwnerOnly, conn: Conn):
+    return hq.remove_branch(conn, owner, branch_id)
 
 
 # ---- pages for browsers and search engines ---------------------------------------------------

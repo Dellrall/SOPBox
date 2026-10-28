@@ -12,7 +12,7 @@ import re
 import secrets
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
@@ -283,12 +283,42 @@ def optional_user(request: Request, conn: Conn) -> CurrentUser | None:
     return _user_for_token(conn, token) if token else None
 
 
+# The browser names the branch an HQ person is working in: a header, or `?workspace=` where it
+# cannot set one (an <img>). Account routes (/api/auth/) ignore it: a person's own account always
+# lives in their own workspace.
+WORKSPACE_HEADER = "X-SOPBox-Workspace"
+
+
+def in_branch(conn: psycopg.Connection, user: CurrentUser, branch_id: int) -> CurrentUser:
+    """The HQ person working in one of their HQ's branches. HQ owners and managers act as managers
+    there (so the branch's team and settings stay with its own owner); HQ staff keep the section
+    access they have at HQ."""
+    if branch_id == user.workspace_id:
+        return user
+    row = conn.execute(
+        "SELECT name FROM workspaces WHERE id = %s AND hq_id = %s", (branch_id, user.workspace_id)
+    ).fetchone()
+    if row is None:
+        raise ForbiddenError("you cannot work in that workspace")
+    return replace(
+        user,
+        workspace_id=branch_id,
+        workspace_name=row["name"],
+        role="manager" if user.role in ("owner", "manager") else "staff",
+    )
+
+
 def current_user(request: Request, conn: Conn) -> CurrentUser:
     """The signed-in user. Also points the database connection at their workspace."""
     token = request.cookies.get(COOKIE)
     user = _user_for_token(conn, token) if token else None
     if user is None:
         raise AuthError("sign in to continue")
+    branch = request.headers.get(WORKSPACE_HEADER) or request.query_params.get("workspace", "")
+    if branch and not request.url.path.startswith("/api/auth/"):
+        if not branch.isdecimal() or len(branch) > 18:
+            raise ForbiddenError("you cannot work in that workspace")
+        user = in_branch(conn, user, int(branch))
     act_as(conn, user)
     return user
 

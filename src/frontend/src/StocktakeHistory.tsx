@@ -195,7 +195,10 @@ export default function StocktakeHistory({
                                 {s.reference}
                                 <span className="ml-2 text-sm font-normal text-muted">{timeOf(s.created_at)}</span>
                               </span>
-                              <span className="mt-0.5 block text-sm text-muted">by {s.counted_by}</span>
+                              <span className="mt-0.5 block text-sm text-muted">
+                                by {s.counted_by}
+                                {s.storage && ` · ${s.storage}`}
+                              </span>
                               <span className="mt-2 flex flex-wrap gap-1.5 text-xs font-semibold">
                                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">{s.line_count} counted</span>
                                 <span className={`rounded-full px-2 py-0.5 ${s.changed_count ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>

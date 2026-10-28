@@ -163,6 +163,42 @@ test.describe("phone layout", () => {
     await expectFitsScreen(page);
   });
 
+  test("a storage area added in Settings can be picked when moving stock", async ({ page }, testInfo) => {
+    const outlet = `Outlet ${testInfo.project.name}`;
+    await page.goto("/");
+    await openPage(page, "Settings");
+    await page.getByLabel("New outlet").fill(outlet);
+    await page.getByRole("button", { name: "Add outlet" }).tap();
+    await expect(page.getByText(outlet, { exact: true })).toBeVisible();
+    await expectFitsScreen(page);
+
+    await openPage(page, "Stock & sales");
+    await page.getByRole("tab", { name: "Transfers" }).tap();
+    await expect(page.getByLabel("To").locator("option", { hasText: `${outlet} / Store` })).toHaveCount(1);
+    await page.getByRole("tab", { name: "Sales" }).tap();
+    await expect(page.getByText("Choose sales sheet")).toBeVisible();
+    await expectFitsScreen(page);
+  });
+
+  test("an HQ owner switches into a linked branch", async ({ page, playwright, baseURL }, testInfo) => {
+    const branch = await playwright.request.newContext({ baseURL });
+    const username = `branch${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    const name = `Branch ${testInfo.project.name} ${Date.now()}`;
+    expect((await branch.post("/api/auth/register", {
+      data: { workspace_name: name, display_name: "Bea Branch", email: `${username}@example.com`, username, password: PASSWORD },
+    })).ok()).toBe(true);
+    const code = (await (await page.request.post("/api/workspace/link-codes")).json()).code;
+    expect((await branch.post("/api/workspace/hq", { data: { code } })).ok()).toBe(true);
+    await branch.dispose();
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open the menu" }).click();
+    const nav = page.getByRole("complementary").or(page.locator("aside"));
+    await nav.getByLabel("Workspace").selectOption({ label: name });
+    await expect(page).toHaveTitle(new RegExp(name));
+    await expectFitsScreen(page);
+  });
+
   test("the Settings switch opens every stock count category", async ({ page }) => {
     await page.goto("/");
     await openPage(page, "Settings");

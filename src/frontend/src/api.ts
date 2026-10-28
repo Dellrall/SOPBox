@@ -39,6 +39,14 @@ import type {
   UserOut,
   UserUpdateIn,
   WorkspaceSettings,
+  Links,
+  Outlet,
+  Sale,
+  SaleIn,
+  SalePreview,
+  StockLevel,
+  Transfer,
+  TransferIn,
 } from "./types";
 
 export class ApiError extends Error {
@@ -70,10 +78,18 @@ export const setSignedOutHandler = (fn: () => void) => {
   onSignedOut = fn;
 };
 
+// The branch an HQ person is working in (null: their own workspace). Sent on every call; the
+// server checks it and ignores it on account routes.
+let branchId: number | null = null;
+export const setBranch = (id: number | null) => {
+  branchId = id;
+};
+const branchHeader = (): Record<string, string> => (branchId === null ? {} : { "X-SOPBox-Workspace": String(branchId) });
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers: { ...branchHeader(), ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
@@ -82,6 +98,26 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new ApiError(res.status, await errorMessage(res));
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+}
+
+async function upload<T>(path: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`/api${path}`, { method: "POST", body: form, headers: branchHeader() });
+  if (!res.ok) {
+    if (res.status === 401) onSignedOut();
+    throw new ApiError(res.status, await errorMessage(res));
+  }
+  return (await res.json()) as T;
+}
+
+async function download(path: string): Promise<Blob> {
+  const res = await fetch(`/api${path}`, { headers: branchHeader() });
+  if (!res.ok) {
+    if (res.status === 401) onSignedOut();
+    throw new ApiError(res.status, await errorMessage(res));
+  }
+  return res.blob();
 }
 
 const get = <T>(path: string) => request<T>("GET", path);
@@ -151,7 +187,9 @@ export const api = {
   deliveries: (status?: DeliveryStatus, limit = 50) =>
     get<Delivery[]>(`/deliveries?limit=${limit}${status ? `&status=${status}` : ""}`),
   decide: (id: number, body: DecisionIn) => post<Delivery>(`/deliveries/${id}/decision`, body),
-  photoUrl: (deliveryId: number, photoId: number) => `/api/deliveries/${deliveryId}/photos/${photoId}`,
+  // An <img> cannot send the branch header, so the branch rides in the address.
+  photoUrl: (deliveryId: number, photoId: number) =>
+    `/api/deliveries/${deliveryId}/photos/${photoId}${branchId === null ? "" : `?workspace=${branchId}`}`,
   commentOnPhoto: (deliveryId: number, photoId: number, body: string) =>
     post<Delivery>(`/deliveries/${deliveryId}/photos/${photoId}/comments`, { body }),
   tagTeammates: (deliveryId: number, user_ids: number[]) => post<Delivery>(`/deliveries/${deliveryId}/tags`, { user_ids }),
@@ -161,27 +199,36 @@ export const api = {
 
   // stock count and stocktake
   stocktakes: () => get<Stocktake[]>("/stocktakes"),
-  stocktakeProducts: () => get<StocktakeProduct[]>("/stocktakes/products"),
+  stocktakeProducts: (storageId?: number) =>
+    get<StocktakeProduct[]>(`/stocktakes/products${storageId ? `?storage_id=${storageId}` : ""}`),
   stocktake: (id: number) => get<StocktakeDetail>(`/stocktakes/${id}`),
   createStocktake: (body: StocktakeCreateIn) => post<StocktakeDetail>("/stocktakes", body),
-  previewStocktake: async (file: File) => {
-    const form = new FormData();
-    form.append("file", file);
-    const res = await fetch("/api/stocktakes/preview", { method: "POST", body: form });
-    if (!res.ok) {
-      if (res.status === 401) onSignedOut();
-      throw new ApiError(res.status, await errorMessage(res));
-    }
-    return (await res.json()) as StocktakePreview;
-  },
-  stocktakeTemplate: async () => {
-    const res = await fetch("/api/stocktakes/template.xlsx");
-    if (!res.ok) {
-      if (res.status === 401) onSignedOut();
-      throw new ApiError(res.status, await errorMessage(res));
-    }
-    return res.blob();
-  },
+  previewStocktake: (file: File, storageId?: number) =>
+    upload<StocktakePreview>(`/stocktakes/preview${storageId ? `?storage_id=${storageId}` : ""}`, file),
+  stocktakeTemplate: () => download("/stocktakes/template.xlsx"),
+
+  // outlets, storage areas, transfers and sales
+  outlets: () => get<Outlet[]>("/outlets"),
+  createOutlet: (name: string) => post<Outlet[]>("/outlets", { name }),
+  renameOutlet: (id: number, name: string) => put<Outlet[]>(`/outlets/${id}`, { name }),
+  deleteOutlet: (id: number) => request<Outlet[]>("DELETE", `/outlets/${id}`),
+  createStorage: (outlet_id: number, name: string) => post<Outlet[]>("/storages", { outlet_id, name }),
+  renameStorage: (id: number, name: string) => put<Outlet[]>(`/storages/${id}`, { name }),
+  deleteStorage: (id: number) => request<Outlet[]>("DELETE", `/storages/${id}`),
+  stockIn: (storageId: number) => get<StockLevel[]>(`/storages/${storageId}/stock`),
+  transfers: () => get<Transfer[]>("/transfers"),
+  createTransfer: (body: TransferIn) => post<Transfer>("/transfers", body),
+  sales: () => get<Sale[]>("/sales"),
+  previewSales: (file: File, storageId: number) => upload<SalePreview>(`/sales/preview?storage_id=${storageId}`, file),
+  createSale: (body: SaleIn) => post<Sale>("/sales", body),
+  salesTemplate: () => download("/sales/template.csv"),
+
+  // HQ and branches (owners)
+  links: () => get<Links>("/workspace/links"),
+  createLinkCode: () => post<{ code: string; expires_at: string }>("/workspace/link-codes"),
+  joinHq: (code: string) => post<Links>("/workspace/hq", { code }),
+  leaveHq: () => request<Links>("DELETE", "/workspace/hq"),
+  removeBranch: (id: number) => request<Links>("DELETE", `/workspace/branches/${id}`),
 
   // purchasing
   suppliers: () => get<Supplier[]>("/suppliers"),

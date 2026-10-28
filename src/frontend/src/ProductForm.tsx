@@ -22,6 +22,7 @@ export default function ProductForm({
   const [categoryId, setCategoryId] = useState(String(product?.category_id ?? categories[0]?.id ?? ""));
   const [baseUnit, setBaseUnit] = useState(product?.base_unit ?? "");
   const [minStock, setMinStock] = useState(String(product?.min_stock ?? 0));
+  const [code, setCode] = useState(product?.code ?? "");
   const [tempMin, setTempMin] = useState(product?.temp_min_c?.toString() ?? "");
   const [tempMax, setTempMax] = useState(product?.temp_max_c?.toString() ?? "");
   const [packs, setPacks] = useState<{ unit: string; qty: string }[]>(
@@ -63,6 +64,7 @@ export default function ProductForm({
       temp_max_c: high,
       min_stock: stockMin,
       pack_units: packUnits,
+      code: code.trim() || null,
     };
   }
 
@@ -123,6 +125,13 @@ export default function ProductForm({
           </label>
           <input id="p-min" inputMode="numeric" className={inputClass} value={minStock} onChange={(e) => setMinStock(e.target.value)} />
           <p className="mt-1 text-xs text-slate-600">0 turns the low-stock flag off.</p>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="p-code">
+            Product code (optional)
+          </label>
+          <input id="p-code" maxLength={40} placeholder="SKU on your POS" className={inputClass} value={code} onChange={(e) => setCode(e.target.value)} />
+          <p className="mt-1 text-xs text-slate-600">Uploaded sales are matched by this code.</p>
         </div>
       </div>
 

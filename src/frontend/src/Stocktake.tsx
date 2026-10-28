@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Download, FileUp, X } from "lucide-react";
 import { api } from "./api";
 import StocktakeHistory from "./StocktakeHistory";
+import { StorageSelect, firstStorageId, useStorages } from "./StorageSelect";
 import { useMascot } from "./Mascot";
 import type { StocktakeDetail, StocktakeLine, StocktakePreviewLine, StocktakeProduct } from "./types";
 import {
@@ -124,17 +125,24 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
   // Categories open for counting. They start folded so a long catalogue stays readable, unless
   // the person turned that off in Settings (null: not touched yet). A search shows every match.
   const [opened, setOpened] = useState<Set<string> | null>(null);
+  // The storage area being counted; its stock is the system quantity in the review.
+  const storages = useStorages();
+  const [picked, setPicked] = useState<number | null>(null);
+  const storageId = picked ?? firstStorageId(storages);
 
   const load = useCallback(async () => {
     try {
-      const [catalogue, stocktakes] = await Promise.all([api.stocktakeProducts(), api.stocktakes()]);
+      const [catalogue, stocktakes] = await Promise.all([
+        api.stocktakeProducts(storageId ?? undefined),
+        api.stocktakes(),
+      ]);
       setProducts(catalogue);
       setHistory(stocktakes);
       setError("");
     } catch (err) {
       setError((err as Error).message);
     }
-  }, []);
+  }, [storageId]);
 
   useEffect(() => {
     void load();
@@ -201,7 +209,7 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
     setNotice("");
     setReviewing(false);
     try {
-      const preview = await api.previewStocktake(file);
+      const preview = await api.previewStocktake(file, storageId ?? undefined);
       const next: Record<number, Count> = {};
       for (const line of preview.lines) {
         const product = byId.get(line.product_id);
@@ -239,6 +247,7 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
     try {
       const saved = await api.createStocktake({
         count_date: countDate,
+        storage_id: storageId,
         notes: notes.trim(),
         lines: reviewLines.map(({ product_id, expected_stock, counted_stock }) => ({
           product_id,
@@ -313,6 +322,19 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
           </div>
 
           <div className="flex flex-wrap items-end gap-3">
+            {storages.length > 1 && (
+              <StorageSelect
+                id="stocktake-storage"
+                label="Storage area counted"
+                storages={storages}
+                value={storageId}
+                onChange={(id) => {
+                  setPicked(id);
+                  setCounts({});
+                  setReviewing(false);
+                }}
+              />
+            )}
             <div>
               <label className={labelClass} htmlFor="stocktake-date">Count date</label>
               <input

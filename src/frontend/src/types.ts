@@ -47,6 +47,8 @@ export type Me = {
   workspace: { id: number; name: string };
   /** The sign-in before this session's, so a person notices one they did not make. */
   previous_sign_in: SignIn | null;
+  /** Their own workspace first, then the branches linked to it when it is an HQ, with their role there. */
+  workspaces: { id: number; name: string; role: Role }[];
 };
 
 export type UserOut = {
@@ -127,6 +129,7 @@ export type Product = {
   pack_units: PackUnit[];
   low_stock: boolean;
   archived: boolean; // left out of receiving; history kept
+  code: string | null; // the POS / sales sheet code (SKU)
 };
 
 export type ProductIn = {
@@ -138,6 +141,7 @@ export type ProductIn = {
   min_stock: number;
   sop: string;
   pack_units: PackUnit[];
+  code?: string | null;
 };
 
 export type SopDraft = {
@@ -189,6 +193,8 @@ export type DeliveryIn = {
   photos?: { data: string; caption: string }[];
   /** Teammates to tag; each one is told in their inbox. */
   tagged_user_ids?: number[];
+  /** The storage area it is put away in; the first one when left out. */
+  storage_id?: number | null;
 };
 
 export type PhotoComment = { id: number; author: string; body: string; created_at: string };
@@ -217,6 +223,7 @@ export type Delivery = {
   lines: DeliveryLine[];
   photos: DeliveryPhoto[];
   tags: DeliveryTag[];
+  storage: string | null; // "Outlet / Store"
 };
 
 export type DeliveryTag = { user_id: number; username: string; display_name: string; tagged_by: string; created_at: string };
@@ -249,6 +256,7 @@ export type StocktakeLineIn = {
 
 export type StocktakeCreateIn = {
   count_date: string;
+  storage_id?: number | null;
   notes: string;
   lines: StocktakeLineIn[];
 };
@@ -272,6 +280,7 @@ export type Stocktake = {
   notes: string;
   line_count: number;
   changed_count: number;
+  storage: string | null; // "Outlet / Store"; null for counts made before storage areas
 };
 
 export type StocktakeDetail = Stocktake & { lines: StocktakeLine[] };
@@ -417,3 +426,49 @@ export type KitchenDevice = { id: number; name: string; created_by: string; crea
 export type KitchenScreen = { device_name: string; workspace_name: string; people: { id: number; display_name: string }[] };
 /** What Telegram's login page hands back: the person's id, profile fields and Telegram's hash. */
 export type TelegramAuth = { id: number; auth_date: number; hash: string; [field: string]: string | number };
+
+// ---- outlets, storage areas, transfers and sales ----
+
+export type StorageArea = { id: number; name: string; outlet_id: number; outlet: string; label: string };
+export type Outlet = { id: number; name: string; storages: StorageArea[] };
+export type StockLevel = {
+  product_id: number;
+  name: string;
+  code: string | null;
+  category: string;
+  base_unit: string;
+  quantity: number; // in the storage area
+  total: number; // over every storage area
+};
+export type ProductQuantity = { product_id: number; quantity: number };
+export type TransferIn = { from_storage_id: number; to_storage_id: number; notes: string; lines: ProductQuantity[] };
+export type Transfer = {
+  id: number;
+  reference: string;
+  from_storage: string;
+  to_storage: string;
+  moved_by: string;
+  created_at: string;
+  notes: string;
+  lines: { product_id: number | null; product_name: string; base_unit: string; quantity: number }[];
+};
+export type SalePreview = {
+  lines: { product_id: number; code: string; product_name: string; base_unit: string; quantity: number; in_stock: number }[];
+  unknown_codes: string[];
+};
+export type SaleIn = { storage_id: number; sale_date: string; source: string; lines: ProductQuantity[] };
+export type Sale = {
+  id: number;
+  reference: string;
+  storage: string;
+  sale_date: string;
+  source: string;
+  recorded_by: string;
+  created_at: string;
+  lines: { product_id: number | null; product_code: string; product_name: string; base_unit: string; quantity: number; deducted: number }[];
+};
+
+// ---- HQ and branches ----
+
+export type WorkspaceRef = { id: number; name: string };
+export type Links = { hq: WorkspaceRef | null; branches: WorkspaceRef[] };

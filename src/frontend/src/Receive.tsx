@@ -7,6 +7,7 @@ import DeliveryLines from "./DeliveryLines";
 import DeliveryPhotos from "./DeliveryPhotos";
 import { DeliveryTags, TagPicker } from "./Tags";
 import SearchSelect from "./SearchSelect";
+import { StorageSelect, firstStorageId, useStorages } from "./StorageSelect";
 import { imageToJpegBase64 } from "./image";
 import type { Delivery, Product, PurchaseOrder } from "./types";
 import {
@@ -80,6 +81,9 @@ export default function Receive({
   // Photos of the stock itself, for the manager who approves it (not read by the AI).
   const [stockPhotos, setStockPhotos] = useState<{ key: number; data: string; caption: string }[]>([]);
   const [tagged, setTagged] = useState<number[]>([]);
+  // Where the stock is put away. Asked only when the workspace has more than one storage area.
+  const storages = useStorages();
+  const [storageId, setStorageId] = useState<number | null>(null);
 
   // Receive stays mounted while you look at other pages, so reload the catalogue each time it is
   // opened: a manager may have added products or a delivery may have changed the stock.
@@ -228,6 +232,7 @@ export default function Receive({
           lines: payload,
           photos: stockPhotos.map((p) => ({ data: p.data, caption: p.caption.trim() })),
           tagged_user_ids: tagged,
+          storage_id: storageId ?? firstStorageId(storages),
         }),
       );
     } catch (e) {
@@ -365,6 +370,15 @@ export default function Receive({
           </label>
           <input id="supplier" className={inputClass} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
         </div>
+        {storages.length > 1 && (
+          <StorageSelect
+            id="receive-storage"
+            label="Put away in"
+            storages={storages}
+            value={storageId ?? firstStorageId(storages)}
+            onChange={setStorageId}
+          />
+        )}
 
         <div className="rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/60 p-5 text-center">
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm">

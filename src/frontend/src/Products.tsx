@@ -150,7 +150,10 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
       {active?.map((p) => (
         <article key={p.id} className={`${cardClass} space-y-2`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-semibold">{p.name}</h2>
+            <h2 className="font-semibold">
+              {p.name}
+              {p.code && <span className="ml-2 font-mono text-xs font-normal text-muted">{p.code}</span>}
+            </h2>
             <span className="text-sm text-slate-600">{p.category}</span>
           </div>
           <p className="text-sm">{rangeText(p)}</p>

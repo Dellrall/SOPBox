@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import {
+  ArrowLeftRight,
   ClipboardCheck,
   ClipboardList,
   History,
@@ -16,7 +17,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { api, setSignedOutHandler } from "./api";
+import { api, setBranch, setSignedOutHandler } from "./api";
 import Activity from "./Activity";
 import Approvals from "./Approvals";
 import AuthPage from "./AuthPage";
@@ -30,6 +31,7 @@ import Receive from "./Receive";
 import Records from "./Records";
 import Settings from "./Settings";
 import Stocktake from "./Stocktake";
+import StockMoves from "./StockMoves";
 import Team from "./Team";
 import { MascotDock, type Scene } from "./Mascot";
 import { SdgFooter } from "./Sdg";
@@ -45,6 +47,7 @@ export type PageId =
   | "approvals"
   | "activity"
   | "stocktake"
+  | "stock"
   | "team"
   | "settings";
 
@@ -57,6 +60,7 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
   { id: "approvals", label: "Approvals", icon: ClipboardCheck, roles: ["owner", "manager", "staff"], access: "approvals" },
   { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager", "staff"], access: "activity" },
   { id: "stocktake", label: "Stock Count", icon: ClipboardList, roles: ["owner", "manager", "staff"], access: "stocktake" },
+  { id: "stock", label: "Stock & sales", icon: ArrowLeftRight, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "team", label: "Team", icon: Users, roles: ["owner"] },
   { id: "settings", label: "Settings", icon: SettingsIcon, roles: ["owner", "manager", "staff"] },
 ];
@@ -90,6 +94,8 @@ export default function App() {
   // undefined while we ask the server whether there is a session, null when signed out.
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [path, setPath] = useState<PublicPath>(() => asPublic(window.location.pathname));
+  // The HQ branch being worked in; null for the person's own workspace.
+  const [branch, setBranchId] = useState<number | null>(null);
 
   useEffect(() => {
     const onPop = () => setPath(asPublic(window.location.pathname));
@@ -137,7 +143,22 @@ export default function App() {
     if (path === "/") return <Landing navigate={navigate} />;
     return <AuthPage mode={path === "/register" ? "register" : "signin"} navigate={navigate} onSignedIn={signedIn} />;
   }
-  return <Shell me={me} onMeChanged={setMe} onSignedOut={() => setMe(null)} />;
+  // In a branch, the pages see the branch and the role this person has there (see auth.in_branch).
+  const choice = me.workspaces.find((w) => w.id === branch && w.id !== me.workspace.id);
+  setBranch(choice?.id ?? null); // every API call from here on names the branch
+  const working = choice ? { ...me, role: choice.role, workspace: { id: choice.id, name: choice.name } } : me;
+  return (
+    <Shell
+      key={working.workspace.id}
+      me={working}
+      onMeChanged={setMe}
+      onSwitch={setBranchId}
+      onSignedOut={() => {
+        setBranchId(null);
+        setMe(null);
+      }}
+    />
+  );
 }
 
 /**
@@ -197,11 +218,22 @@ const IDLE: Record<PageId, Scene> = {
   approvals: { who: "carrot", action: "read" },
   activity: { who: "fish", action: "read" },
   stocktake: { who: "cabbage", action: "count" },
+  stock: { who: "carrot", action: "count" },
   team: { who: "crew", action: "wave" },
   settings: { who: "cabbage", action: "sleep" },
 };
 
-function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me) => void; onSignedOut: () => void }) {
+function Shell({
+  me,
+  onMeChanged,
+  onSwitch,
+  onSignedOut,
+}: {
+  me: Me;
+  onMeChanged: (me: Me) => void;
+  onSwitch: (workspaceId: number) => void;
+  onSignedOut: () => void;
+}) {
   // Connecting Google or Telegram comes back to /settings.
   const [page, setPage] = useState<PageId>(() => (window.location.pathname === "/settings" ? "settings" : firstPage(me)));
   useEffect(() => {
@@ -341,9 +373,32 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
         </div>
         <div className="mx-4 flex items-center gap-2.5 rounded-xl bg-white/[0.07] px-3 py-2.5 ring-1 ring-white/10">
           <ShieldCheck aria-hidden className="h-4 w-4 shrink-0 text-leaf" />
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/50">Workspace</p>
-            <p className="truncate text-sm font-semibold">{me.workspace.name}</p>
+          <div className="min-w-0 flex-1">
+            {me.workspaces.length > 1 ? (
+              <>
+                <label htmlFor="workspace-switch" className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
+                  Workspace
+                </label>
+                <select
+                  id="workspace-switch"
+                  value={me.workspace.id}
+                  onChange={(e) => onSwitch(Number(e.target.value))}
+                  className="block w-full truncate rounded-md bg-transparent text-sm font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-leaf"
+                >
+                  {me.workspaces.map((w, i) => (
+                    <option key={w.id} value={w.id} className="text-ink">
+                      {w.name}
+                      {i === 0 && me.workspaces.length > 1 ? " (HQ)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-white/50">Workspace</p>
+                <p className="truncate text-sm font-semibold">{me.workspace.name}</p>
+              </>
+            )}
           </div>
         </div>
         <nav aria-label="Main" className="mt-5 flex-1 space-y-1 overflow-y-auto px-3">
@@ -425,6 +480,7 @@ function Shell({ me, onMeChanged, onSignedOut }: { me: Me; onMeChanged: (me: Me)
         {page === "approvals" && <Approvals key={visit} canDecide={canDecide} onChanged={refreshPending} />}
         {page === "activity" && <Activity key={visit} />}
         {page === "stocktake" && <Stocktake key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
+        {page === "stock" && <StockMoves key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "team" && me.role === "owner" && <Team key={visit} />}
         {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}
         {/* Pushed to the bottom on short pages. */}
