@@ -87,6 +87,54 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 
 ---
 
+## 🏁 Final Round: How SOPBox Meets Each Criterion
+
+### The full journey, live
+
+| Step | What happens in SOPBox | Where to see it |
+| ---- | ---------------------- | --------------- |
+| **Trigger** | A supplier delivery arrives. Staff open **Receiving check** and take or choose a photo of the delivery order | Receiving check |
+| **Data** | Qwen3-VL-8B on RunPod reads every line; unclear values are flagged, never guessed. Staff confirm the lines and enter the probe temperature | Receiving check |
+| **Decision** | The rules engine, in code and not the AI, checks each line: temperature range, pack-to-unit conversion, quantity still due on the purchase order, unknown products | Result screen |
+| **Approval** | Any failed line holds the whole delivery. A manager accepts, rejects or returns it, with a reason | Approvals |
+| **Action** | Accepted goods are added to stock and the purchase order balance updates. The manager is alerted in the inbox and on Telegram, and staff hear the decision | Stock, Purchase orders, Telegram |
+| **Result** | The delivery record, the activity log and the dashboard show the outcome | Delivery records, Activity log, Dashboard |
+
+### Technical Execution
+
+- **305 backend tests and 28 phone UI tests**, both run in GitHub Actions on every change (badges above).
+- **Multi-tenant isolation twice over:** every query is scoped to the signed-in workspace, and PostgreSQL Row Level Security enforces it inside the database.
+- **AI output is untrusted input:** parsed, validated and confirmed line by line by staff; the verdict comes from rules, never the model. An hourly cap bounds GPU spend.
+- **Built to be cheap and fast:** the GPU scales to zero when idle; responses are gzip-compressed; each request makes as few database round trips as possible.
+- **Real sign-in security:** scrypt passwords, account lockout, passkeys, Google and Telegram sign-in, and a recorded history of every sign-in.
+
+### Design & UX
+
+- **Phone-first:** every page is tested on 320px and 360px screens with no sideways scrolling.
+- **Built for a busy kitchen:** a shared tablet signs people in with a name tap and a PIN; photos can be taken with the camera or chosen from the gallery; if the AI is asleep, staff can always type the lines.
+- **Plain language everywhere:** the activity log reads as sentences, not codes; the dashboard shows only the newest notification; every product has a step-by-step SOP card.
+- **Each role sees only what it needs:** owner, manager and staff menus differ.
+
+### Feasibility as a Business
+
+- **Measured benefit:** SOPBox records every delivery checked, accepted, rejected, returned and held, plus low stock and each person's actions, so an outlet can see failures stopped at the door. Pilot results: _TBC_.
+- **Many SMEs at once:** any business signs up and gets its own isolated workspace on the same deployment, with nothing to install. Orbyte: SOPBox uses the Orbyte-style design; listing it as an Orbyte module with shared sign-in is the next step (_TBC_).
+- **Cost to run:** one AI read takes about 2 seconds on a US$0.69/hour GPU, roughly US$0.0004; the first read after the GPU sleeps costs about US$0.035. An idle outlet costs nothing in GPU time.
+- **Pricing:** _TBC_.
+- **Privacy:** each business's data is separated inside the database. Delivery-order photos go only to our own RunPod endpoint running an open-weight model, are not stored, and are not used for training; no third-party AI API sees them. Stock photos stay in that business's workspace for its managers. Keys live in Replit Secrets, never in the code.
+
+### Communication: who answers what in Q&A
+
+| Topic | Answered by |
+| ----- | ----------- |
+| Business case, pricing, Orbyte | Lye Wei Lun (Team Lead) |
+| Rules engine, data and privacy | Leong Zoe Yee (Backend) |
+| The app and user experience | Ng Sze Ya (Frontend) |
+| The AI model and RunPod | Puteri A'ina Auji Farzana (AI / RunPod) |
+| Design and testing | Siow Wei Yik (Design & QA) |
+
+---
+
 ## 🗂️ Project Structure
 
 ```
