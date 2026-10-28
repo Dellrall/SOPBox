@@ -86,10 +86,13 @@ class ProductIn(_In):
     min_stock: int = Field(default=0, ge=0)
     sop: str = Field(default="", max_length=4000)
     pack_units: list[PackUnit] = Field(default_factory=list, max_length=10)
+    # The product's code on the POS or sales sheet (SKU). Empty: none.
+    code: str | None = Field(default=None, max_length=40)
 
     @model_validator(mode="after")
     def _check(self) -> "ProductIn":
         _check_range(self.temp_min_c, self.temp_max_c)
+        self.code = self.code or None
         units = [self.base_unit.lower(), *(p.unit.lower() for p in self.pack_units)]
         if len(set(units)) != len(units):
             raise ValueError("pack units must be unique and different from the base unit")
@@ -143,6 +146,7 @@ class Product(BaseModel):
     pack_units: list[PackUnit]
     low_stock: bool
     archived: bool = False
+    code: str | None = None
 
 
 class ArchiveIn(_In):
@@ -249,6 +253,8 @@ class DeliveryIn(_In):
     photos: list["PhotoIn"] = Field(default_factory=list, max_length=4)
     # Teammates to tag on the delivery; each gets an inbox notification.
     tagged_user_ids: list[int] = Field(default_factory=list, max_length=20)
+    # The storage area the stock is put away in. None: the workspace's first one.
+    storage_id: int | None = None
 
 
 class PhotoIn(_In):
@@ -333,6 +339,7 @@ class Delivery(BaseModel):
     lines: list[DeliveryLine]
     photos: list[DeliveryPhoto] = []
     tags: list[DeliveryTag] = []
+    storage: str | None = None  # "Outlet / Store"
 
 
 class DecisionIn(_In):
@@ -389,6 +396,8 @@ class StocktakeLineIn(_In):
 
 class StocktakeCreateIn(_In):
     count_date: date
+    # The storage area counted. None: the workspace's first one.
+    storage_id: int | None = None
     notes: str = Field(default="", max_length=1000)
     lines: list[StocktakeLineIn] = Field(min_length=1, max_length=5000)
 
@@ -419,6 +428,7 @@ class StocktakeOut(BaseModel):
     notes: str
     line_count: int
     changed_count: int
+    storage: str | None = None  # "Outlet / Store"; None for counts made before storage areas
 
 
 class StocktakeDetail(StocktakeOut):
@@ -565,6 +575,14 @@ class SignIn(BaseModel):
     device: str  # e.g. "Chrome on Android"
 
 
+class WorkspaceChoice(BaseModel):
+    """A workspace this person can work in: their own, or a branch linked to their HQ."""
+
+    id: int
+    name: str
+    role: Role  # their role while working there
+
+
 class Me(BaseModel):
     id: int
     username: str
@@ -575,6 +593,8 @@ class Me(BaseModel):
     workspace: WorkspaceRef
     # The sign-in before this session's, so a person notices one they did not make.
     previous_sign_in: SignIn | None = None
+    # Their own workspace first, then the branches linked to it when it is an HQ.
+    workspaces: list[WorkspaceChoice] = []
 
 
 class ProfileUpdateIn(_In):
@@ -915,3 +935,144 @@ class SecurityOut(BaseModel):
     # The workspace's Telegram team group, when this person may join it.
     team_group_title: str | None = None
     team_group_link: str | None = None
+
+
+# ---- outlets, storage areas, transfers and sales -------------------------------------------------
+
+
+class NameIn(_In):
+    name: str = Field(min_length=1, max_length=80)
+
+
+class StorageIn(NameIn):
+    outlet_id: int
+
+
+class StorageOut(BaseModel):
+    id: int
+    name: str
+    outlet_id: int
+    outlet: str
+    label: str  # "Outlet / Store"
+
+
+class OutletOut(BaseModel):
+    id: int
+    name: str
+    storages: list[StorageOut]
+
+
+class StockLevelOut(BaseModel):
+    product_id: int
+    name: str
+    code: str | None
+    category: str
+    base_unit: str
+    quantity: int  # in this storage area
+    total: int  # over every storage area
+
+
+class _ProductQuantity(_In):
+    product_id: int = Field(gt=0)
+    quantity: int = Field(gt=0, le=MAX_SAFE_COUNT)
+
+
+def _unique_products(lines: list[_ProductQuantity]) -> None:
+    ids = [line.product_id for line in lines]
+    if len(ids) != len(set(ids)):
+        raise ValueError("each product can only be listed once")
+
+
+class TransferIn(_In):
+    from_storage_id: int
+    to_storage_id: int
+    notes: str = Field(default="", max_length=500)
+    lines: list[_ProductQuantity] = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def _check(self) -> "TransferIn":
+        if self.from_storage_id == self.to_storage_id:
+            raise ValueError("pick two different storage areas")
+        _unique_products(self.lines)
+        return self
+
+
+class TransferLineOut(BaseModel):
+    product_id: int | None
+    product_name: str
+    base_unit: str
+    quantity: int
+
+
+class TransferOut(BaseModel):
+    id: int
+    reference: str
+    from_storage: str
+    to_storage: str
+    moved_by: str
+    created_at: str
+    notes: str
+    lines: list[TransferLineOut]
+
+
+class SaleIn(_In):
+    storage_id: int
+    sale_date: date
+    source: str = Field(default="", max_length=200)  # the uploaded file's name
+    lines: list[_ProductQuantity] = Field(min_length=1, max_length=5000)
+
+    @model_validator(mode="after")
+    def _check(self) -> "SaleIn":
+        _unique_products(self.lines)
+        return self
+
+
+class SalePreviewLine(BaseModel):
+    product_id: int
+    code: str
+    product_name: str
+    base_unit: str
+    quantity: int
+    in_stock: int  # in the chosen storage area
+
+
+class SalePreview(BaseModel):
+    lines: list[SalePreviewLine]
+    unknown_codes: list[str]  # codes no active product has; left out
+
+
+class SaleLineOut(BaseModel):
+    product_id: int | None
+    product_code: str
+    product_name: str
+    base_unit: str
+    quantity: int
+    deducted: int
+
+
+class SaleOut(BaseModel):
+    id: int
+    reference: str
+    storage: str
+    sale_date: date
+    source: str
+    recorded_by: str
+    created_at: str
+    lines: list[SaleLineOut]
+
+
+# ---- HQ and branches -----------------------------------------------------------------------------
+
+
+class LinkCodeOut(BaseModel):
+    code: str  # shown once; only its hash is kept
+    expires_at: str
+
+
+class LinkCodeIn(_In):
+    code: str = Field(min_length=1, max_length=100)
+
+
+class LinksOut(BaseModel):
+    hq: WorkspaceRef | None  # the HQ this workspace is a branch of
+    branches: list[WorkspaceRef]  # the branches linked to this workspace

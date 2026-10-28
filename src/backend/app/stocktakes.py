@@ -10,6 +10,7 @@ import psycopg
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
+from app import locations
 from app.auditlog import audit
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.models import StocktakeCreateIn, StocktakeDetail, StocktakeLineOut, StocktakeOut
@@ -23,16 +24,21 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def list_products(conn: psycopg.Connection, workspace_id: int) -> list[dict[str, Any]]:
-    """Active products by category, each with its bundle: the largest pack size, if it has one."""
+def list_products(
+    conn: psycopg.Connection, workspace_id: int, storage_id: int | None = None
+) -> list[dict[str, Any]]:
+    """Active products by category, each with its bundle (the largest pack size, if it has one)
+    and its stock in the storage area (the first one when none is given)."""
+    storage_id = locations.resolve(conn, workspace_id, storage_id)
     return conn.execute(
-        "SELECT p.id, p.name, c.name AS category, p.base_unit, p.stock, "
+        "SELECT p.id, p.name, c.name AS category, p.base_unit, COALESCE(l.quantity, 0) AS stock, "
         "b.unit AS bundle_unit, b.base_qty AS bundle_qty "
         "FROM products p JOIN categories c ON c.id = p.category_id "
+        "LEFT JOIN stock_levels l ON l.product_id = p.id AND l.storage_id = %s "
         "LEFT JOIN LATERAL (SELECT unit, base_qty FROM pack_units WHERE product_id = p.id "
         "ORDER BY base_qty DESC, unit LIMIT 1) b ON TRUE "
         "WHERE p.workspace_id = %s AND NOT p.archived ORDER BY lower(c.name), lower(p.name)",
-        (workspace_id,),
+        (storage_id, workspace_id),
     ).fetchall()
 
 
@@ -191,7 +197,7 @@ def _number(value: Any, *, field: str, row_number: int) -> int:
 
 
 def preview_import(
-    conn: psycopg.Connection, workspace_id: int, filename: str, content: bytes
+    conn: psycopg.Connection, workspace_id: int, filename: str, content: bytes, storage_id: int | None = None
 ) -> list[dict[str, Any]]:
     if not content or len(content) > MAX_UPLOAD_BYTES:
         raise InvalidRequestError("upload a non-empty file smaller than 5 MB")
@@ -205,7 +211,7 @@ def preview_import(
     if len(rows) > MAX_UPLOAD_ROWS:
         raise InvalidRequestError("the count sheet contains too many rows")
 
-    products = {int(p["id"]): p for p in list_products(conn, workspace_id)}
+    products = {int(p["id"]): p for p in list_products(conn, workspace_id, storage_id)}
     counted: list[dict[str, Any]] = []
     seen: set[int] = set()
     columns: dict[str, int] | None = None
@@ -264,13 +270,16 @@ def _summary(row: dict[str, Any]) -> StocktakeOut:
         notes=row["notes"],
         line_count=row["line_count"],
         changed_count=row["changed_count"],
+        storage=row["storage"],
     )
 
 
 _SUMMARY_SQL = """
 SELECT s.id, s.reference, s.count_date, s.counted_by, s.created_at, s.notes,
        COUNT(l.id)::int AS line_count,
-       COUNT(l.id) FILTER (WHERE l.difference <> 0)::int AS changed_count
+       COUNT(l.id) FILTER (WHERE l.difference <> 0)::int AS changed_count,
+       (SELECT o.name || ' / ' || st.name FROM storages st JOIN outlets o ON o.id = st.outlet_id
+        WHERE st.id = s.storage_id) AS storage
 FROM stocktakes s
 LEFT JOIN stocktake_lines l ON l.stocktake_id = s.id
 """
@@ -314,6 +323,7 @@ def create_stocktake(
     data: StocktakeCreateIn,
 ) -> StocktakeDetail:
     product_ids = [line.product_id for line in data.lines]
+    storage_id = locations.resolve(conn, workspace_id, data.storage_id)
     with conn.transaction():
         # Serialize reference allocation within this workspace and lock product rows before
         # comparing the expected balances submitted by the counter.
@@ -323,7 +333,7 @@ def create_stocktake(
         if workspace is None:
             raise NotFoundError("workspace not found")
         products = conn.execute(
-            "SELECT id, name, base_unit, stock FROM products "
+            "SELECT id, name, base_unit FROM products "
             "WHERE workspace_id = %s AND NOT archived AND id = ANY(%s) "
             "ORDER BY id FOR UPDATE",
             (workspace_id, product_ids),
@@ -331,6 +341,8 @@ def create_stocktake(
         by_id = {int(product["id"]): product for product in products}
         if set(by_id) != set(product_ids):
             raise InvalidRequestError("one or more products are no longer active")
+        have = locations.levels(conn, storage_id, product_ids)
+        by_id = {pid: {**product, "stock": have[pid]} for pid, product in by_id.items()}
 
         for line in data.lines:
             product = by_id[line.product_id]
@@ -348,8 +360,8 @@ def create_stocktake(
         created_at = _now()
         stocktake_id = conn.execute(
             "INSERT INTO stocktakes "
-            "(workspace_id, number, reference, count_date, counted_by, created_at, notes) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            "(workspace_id, number, reference, count_date, counted_by, created_at, notes, storage_id) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (
                 workspace_id,
                 number,
@@ -358,6 +370,7 @@ def create_stocktake(
                 counted_by,
                 created_at,
                 data.notes.strip(),
+                storage_id,
             ),
         ).fetchone()["id"]
 
@@ -381,10 +394,7 @@ def create_stocktake(
                     difference,
                 ),
             )
-            conn.execute(
-                "UPDATE products SET stock = %s WHERE id = %s AND workspace_id = %s",
-                (line.counted_stock, line.product_id, workspace_id),
-            )
+            locations.adjust(conn, workspace_id, line.product_id, storage_id, difference)
 
         audit(
             conn,
@@ -392,7 +402,8 @@ def create_stocktake(
             counted_by,
             "stocktake.created",
             None,
-            f"{reference}: {len(data.lines)} products counted; {changed_count} stock balances changed.",
+            f"{reference}: {len(data.lines)} products counted in {locations.storage_label(conn, workspace_id, storage_id)}; "
+            f"{changed_count} stock balances changed.",
         )
 
     return get_stocktake(conn, workspace_id, stocktake_id)

@@ -282,6 +282,90 @@ ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS telegram_team_invite_link TEXT N
 ALTER TABLE users ADD COLUMN IF NOT EXISTS team_group_removed_until TEXT;
 CREATE INDEX IF NOT EXISTS stocktakes_workspace_idx ON stocktakes (workspace_id, count_date DESC, id DESC);
 CREATE INDEX IF NOT EXISTS stocktake_lines_take_idx ON stocktake_lines (stocktake_id, id);
+
+-- Outlets and the storage areas inside each (Store, Substore). Stock is kept per storage area in
+-- stock_levels; products.stock stays the total over all of them (see locations.py).
+CREATE TABLE IF NOT EXISTS outlets (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS outlets_name_key ON outlets (workspace_id, lower(name));
+CREATE TABLE IF NOT EXISTS storages (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    outlet_id BIGINT NOT NULL REFERENCES outlets(id),
+    name TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS storages_name_key ON storages (outlet_id, lower(name));
+CREATE TABLE IF NOT EXISTS stock_levels (
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    storage_id BIGINT NOT NULL REFERENCES storages(id),
+    quantity BIGINT NOT NULL CHECK (quantity >= 0),
+    PRIMARY KEY (product_id, storage_id)
+);
+CREATE INDEX IF NOT EXISTS stock_levels_storage_idx ON stock_levels (storage_id);
+-- Where a delivery is put away and which storage area a count covers. NULL: the first storage area.
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS storage_id BIGINT REFERENCES storages(id);
+ALTER TABLE stocktakes ADD COLUMN IF NOT EXISTS storage_id BIGINT REFERENCES storages(id);
+-- The code a POS or sales sheet prints for the product (SKU), matched when sales are uploaded.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS code TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS products_code_key ON products (workspace_id, lower(code)) WHERE code IS NOT NULL;
+CREATE TABLE IF NOT EXISTS stock_transfers (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    number BIGINT NOT NULL,
+    from_storage_id BIGINT NOT NULL REFERENCES storages(id),
+    to_storage_id BIGINT NOT NULL REFERENCES storages(id),
+    moved_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    notes TEXT NOT NULL DEFAULT '',
+    UNIQUE (workspace_id, number)
+);
+CREATE TABLE IF NOT EXISTS stock_transfer_lines (
+    id {_ID},
+    transfer_id BIGINT NOT NULL REFERENCES stock_transfers(id) ON DELETE CASCADE,
+    product_id BIGINT REFERENCES products(id) ON DELETE SET NULL,
+    product_name TEXT NOT NULL,
+    base_unit TEXT NOT NULL,
+    quantity BIGINT NOT NULL CHECK (quantity > 0)
+);
+-- Uploaded sales. `deducted` is what came off stock: less than `quantity` when more was sold than
+-- the storage area held, which the next count should explain.
+CREATE TABLE IF NOT EXISTS sales (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    number BIGINT NOT NULL,
+    storage_id BIGINT NOT NULL REFERENCES storages(id),
+    sale_date DATE NOT NULL,
+    source TEXT NOT NULL DEFAULT '',
+    recorded_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (workspace_id, number)
+);
+CREATE TABLE IF NOT EXISTS sale_lines (
+    id {_ID},
+    sale_id BIGINT NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+    product_id BIGINT REFERENCES products(id) ON DELETE SET NULL,
+    product_code TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    base_unit TEXT NOT NULL,
+    quantity BIGINT NOT NULL CHECK (quantity > 0),
+    deducted BIGINT NOT NULL CHECK (deducted >= 0)
+);
+-- A branch workspace linked to its HQ (see hq.py). One level: an HQ is never a branch itself.
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS hq_id BIGINT REFERENCES workspaces(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS workspaces_hq_idx ON workspaces (hq_id) WHERE hq_id IS NOT NULL;
+-- One-time codes an HQ owner hands to a branch owner. Only the code's SHA-256 is kept.
+CREATE TABLE IF NOT EXISTS link_codes (
+    token_hash TEXT PRIMARY KEY,
+    hq_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    created_by TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_by BIGINT REFERENCES workspaces(id) ON DELETE SET NULL,
+    used_at TIMESTAMPTZ
+);
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible
@@ -328,6 +412,16 @@ RLS_TABLES = {
         f"EXISTS (SELECT 1 FROM delivery_photos p JOIN deliveries d ON d.id = p.delivery_id "
         f"WHERE p.id = delivery_photo_comments.photo_id AND d.workspace_id = {_WS})"
     ),
+    "outlets": f"workspace_id = {_WS}",
+    "storages": f"workspace_id = {_WS}",
+    "stock_levels": f"workspace_id = {_WS}",
+    "stock_transfers": f"workspace_id = {_WS}",
+    "stock_transfer_lines": (
+        f"EXISTS (SELECT 1 FROM stock_transfers t WHERE t.id = stock_transfer_lines.transfer_id "
+        f"AND t.workspace_id = {_WS})"
+    ),
+    "sales": f"workspace_id = {_WS}",
+    "sale_lines": f"EXISTS (SELECT 1 FROM sales s WHERE s.id = sale_lines.sale_id AND s.workspace_id = {_WS})",
 }
 
 _pool: ConnectionPool | None = None

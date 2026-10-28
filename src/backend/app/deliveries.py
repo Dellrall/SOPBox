@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 import psycopg
 
-from app import catalogue, inbox, purchasing, rules
+from app import catalogue, inbox, locations, purchasing, rules
 from app.auditlog import audit
 from app.auth import CurrentUser
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
@@ -53,21 +53,18 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _add_stock(conn: psycopg.Connection, delivery_id: int) -> None:
-    """Add what actually arrived to stock. Lines with no base quantity add nothing."""
-    conn.execute(
-        """
-        UPDATE products SET stock = stock + (
-            SELECT COALESCE(SUM(received_base_qty), 0) FROM delivery_lines
-            WHERE delivery_id = %s AND product_id = products.id AND NOT returned
-        )
-        WHERE id IN (
-            SELECT product_id FROM delivery_lines
-            WHERE delivery_id = %s AND product_id IS NOT NULL AND NOT returned
-        )
-        """,
-        (delivery_id, delivery_id),
-    )
+def _add_stock(conn: psycopg.Connection, ws: int, delivery_id: int) -> None:
+    """Add what actually arrived to the delivery's storage area. Lines with no base quantity add
+    nothing. A delivery from before storage areas goes to the first one."""
+    storage = conn.execute("SELECT storage_id FROM deliveries WHERE id = %s", (delivery_id,)).fetchone()["storage_id"]
+    storage = storage or locations.default_storage(conn, ws)
+    for r in conn.execute(
+        "SELECT product_id, SUM(received_base_qty) AS qty FROM delivery_lines "
+        "WHERE delivery_id = %s AND product_id IS NOT NULL AND NOT returned AND received_base_qty > 0 "
+        "GROUP BY product_id ORDER BY product_id",
+        (delivery_id,),
+    ).fetchall():
+        locations.adjust(conn, ws, r["product_id"], storage, int(r["qty"]))
 
 
 def _tag(
@@ -119,6 +116,7 @@ def create_delivery(
             raise InvalidRequestError(f"product {line.product_id} is unknown or archived")
 
     tagged = _teammates(conn, ws, data.tagged_user_ids)
+    storage = locations.resolve(conn, ws, data.storage_id)
 
     with conn.transaction():
         lines = list(data.lines)
@@ -149,8 +147,8 @@ def create_delivery(
 
         delivery_id = conn.execute(
             "INSERT INTO deliveries (workspace_id, supplier, received_by, received_by_id, status, "
-            "created_at, purchase_order_id) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (ws, supplier, by.display_name, by.id, status, _now(), data.purchase_order_id),
+            "created_at, purchase_order_id, storage_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (ws, supplier, by.display_name, by.id, status, _now(), data.purchase_order_id, storage),
         ).fetchone()["id"]
         for line, check in zip(lines, checks):
             conn.execute(
@@ -185,7 +183,7 @@ def create_delivery(
             + (f", {len(data.photos)} photo(s)" if data.photos else ""),
         )
         if status == ACCEPTED:
-            _add_stock(conn, delivery_id)
+            _add_stock(conn, ws, delivery_id)
             audit(conn, ws, "system", "delivery.accepted", delivery_id, "all checks passed")
         else:
             inbox.notify(
@@ -238,7 +236,7 @@ def decide(
                 update={"reason": f"returned {', '.join(r['name'] for r in sent_back)}: {data.reason}"}
             )
         if new_status == ACCEPTED:
-            _add_stock(conn, delivery_id)
+            _add_stock(conn, ws, delivery_id)
         audit(conn, ws, by.display_name, action, delivery_id, data.reason)
         inbox.notify(
             conn, ws, _involved(conn, delivery_id), "decided", delivery_id, by.display_name,
@@ -280,6 +278,7 @@ def _delivery(conn: psycopg.Connection, row: dict) -> Delivery:
         lines=[DeliveryLine(**{**r, "issues": json.loads(r["issues"])}) for r in lines],
         photos=[DeliveryPhoto(**p, comments=comments[p["id"]]) for p in photos],
         tags=[DeliveryTag(**t) for t in tags],
+        storage=locations.storage_label(conn, row["workspace_id"], row["storage_id"]) if row.get("storage_id") else None,
     )
 
 

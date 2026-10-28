@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
+import { HqLinks, Outlets } from "./Places";
 import { KitchenTablets, SignInSecurity } from "./Security";
 import { setStocktakeStartsExpanded, stocktakeStartsExpanded } from "./Stocktake";
 import type { Me, WorkspaceSettings } from "./types";
@@ -291,6 +292,8 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
       {me.role !== "staff" && <KitchenTablets />}
       {me.role === "owner" && <Workspace />}
       {me.role === "owner" && <TeamGroup />}
+      {me.role !== "staff" && <Outlets />}
+      {me.role === "owner" && <HqLinks />}
     </div>
   );
 }
