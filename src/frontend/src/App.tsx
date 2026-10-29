@@ -40,6 +40,7 @@ import Stocktake from "./Stocktake";
 import StockMoves from "./StockMoves";
 import Team from "./Team";
 import { MascotDock, type Scene } from "./Mascot";
+import { WorkspaceSwitch } from "./WorkspaceSwitch";
 import { SdgFooter } from "./Sdg";
 import type { Me, Notification, Role, SectionKey } from "./types";
 import { ROLE_LABEL } from "./ui";
@@ -397,24 +398,7 @@ function Shell({
           <ShieldCheck aria-hidden className="h-4 w-4 shrink-0 text-leaf" />
           <div className="min-w-0 flex-1">
             {me.workspaces.length > 1 ? (
-              <>
-                <label htmlFor="workspace-switch" className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
-                  Workspace
-                </label>
-                <select
-                  id="workspace-switch"
-                  value={me.workspace.id}
-                  onChange={(e) => onSwitch(Number(e.target.value))}
-                  className="block w-full truncate rounded-md bg-transparent text-sm font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-leaf"
-                >
-                  {me.workspaces.map((w, i) => (
-                    <option key={w.id} value={w.id} className="text-ink">
-                      {w.name}
-                      {i === 0 && me.workspaces.length > 1 ? " (HQ)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </>
+              <WorkspaceSwitch me={me} onSwitch={onSwitch} />
             ) : (
               <>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-white/50">Workspace</p>
