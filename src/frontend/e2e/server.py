@@ -28,6 +28,7 @@ if __name__ == "__main__":
             conn.execute("ALTER SCHEMA public OWNER TO sopbox_app")
         os.environ["DATABASE_URL"] = admin_url.replace("postgres:@", "sopbox_app:@", 1)
         os.environ["COOKIE_SECURE"] = "0"  # plain http on localhost
+        os.environ["MFA_ENCRYPTION_KEY"] = "vKpwP0lnmhRaAZG3iYxkAU-jyjk2eJ5GWVuEB7iwyiQ"  # a test key, never used for real
         for name in ("RUNPOD_ENDPOINT_ID", "RUNPOD_API_KEY", "TELEGRAM_BOT_TOKEN", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"):
             os.environ.pop(name, None)
         try:

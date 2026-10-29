@@ -15,6 +15,10 @@ class Settings:
     # "Continue with Google" appears only when both are set (Google Cloud console, OAuth client).
     google_client_id: str
     google_client_secret: str
+    # Encrypts each authenticator secret (mfa.py): 32 random bytes, base64. Make one with
+    # python -c "import secrets; print(secrets.token_urlsafe(32))". Keep it: losing or changing it
+    # leaves people only their backup codes until their two-step sign-in is reset.
+    mfa_encryption_key: str
 
 
 def get_settings() -> Settings:
@@ -28,4 +32,5 @@ def get_settings() -> Settings:
         telegram_bot_token=env("TELEGRAM_BOT_TOKEN", ""),
         google_client_id=env("GOOGLE_CLIENT_ID", ""),
         google_client_secret=env("GOOGLE_CLIENT_SECRET", ""),
+        mfa_encryption_key=env("MFA_ENCRYPTION_KEY", ""),
     )

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import psycopg
 from psycopg.types.json import Jsonb
 
-from app import auth
+from app import auth, mfa
 from app.auditlog import audit
 from app.auth import CurrentUser
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
@@ -220,6 +220,8 @@ def _apply_user_changes(
                 "UPDATE users SET section_access = %s WHERE id = %s",
                 (Jsonb(changes["section_access"]), user_id),
             )
+        if changes.get("mfa_reset"):
+            mfa.reset(conn, user_id)
         if "security_alerts" in changes:
             conn.execute(
                 "UPDATE users SET security_alerts = %s WHERE id = %s", (changes["security_alerts"], user_id)
@@ -245,6 +247,8 @@ def _describe(changes: dict) -> str:
     parts = []
     if "active" in changes:
         parts.append("enabled" if changes["active"] else "disabled")
+    if changes.get("mfa_reset"):
+        parts.append("two-step sign-in reset")
     if "security_alerts" in changes:
         parts.append("gets security alerts" if changes["security_alerts"] else "no longer gets security alerts")
     if "role" in changes:

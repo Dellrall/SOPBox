@@ -194,7 +194,8 @@ def start_session(
 ) -> bool:
     """Every way of signing in ends here: one session cookie, one logged sign-in. With two-step
     sign-in on, the session waits for an authenticator code, except after a passkey (already two
-    factors). Returns whether it waits."""
+    factors, so it also counts as a fresh code: someone who lost their phone can still sign in with
+    a passkey and reset their two-step sign-in). Returns whether it waits."""
     token = secrets.token_urlsafe(32)
     conn.execute("DELETE FROM sessions WHERE expires_at < now()")
     sign_in_id = _record_sign_in(conn, request, user_id, method)
@@ -202,9 +203,9 @@ def start_session(
         "SELECT totp_secret IS NOT NULL AS on FROM users WHERE id = %s", (user_id,)
     ).fetchone()["on"]
     conn.execute(
-        "INSERT INTO sessions (token_hash, user_id, expires_at, sign_in_id, mfa_pending) "
-        "VALUES (%s, %s, now() + make_interval(secs => %s), %s, %s)",
-        (token_digest(token), user_id, days * 86400, sign_in_id, pending),
+        "INSERT INTO sessions (token_hash, user_id, expires_at, sign_in_id, mfa_pending, mfa_at) "
+        "VALUES (%s, %s, now() + make_interval(secs => %s), %s, %s, CASE WHEN %s THEN now() END)",
+        (token_digest(token), user_id, days * 86400, sign_in_id, pending, method == "passkey"),
     )
     response.set_cookie(
         COOKIE,

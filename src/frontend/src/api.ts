@@ -146,6 +146,7 @@ export const api = {
   mfaEnable: (code: string) => post<{ backup_codes: string[] }>("/auth/mfa/enable", { code }),
   mfaVerify: (code: string) => post<Me>("/auth/mfa/verify", { code }),
   mfaDisable: () => request<void>("DELETE", "/auth/mfa"),
+  mfaBackupCodes: () => post<{ backup_codes: string[] }>("/auth/mfa/backup-codes"),
   usernameAvailable: (username: string) =>
     get<{ username: string; available: boolean; problem: string }>(`/auth/username-available?username=${encodeURIComponent(username)}`),
   updateProfile: (body: ProfileUpdateIn) => patch<Me>("/auth/me", body),

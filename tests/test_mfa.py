@@ -117,3 +117,51 @@ def test_till_api_keys_are_rate_limited(client):
     for _ in range(60):
         till.get("/api/v1/stock")
     assert till.get("/api/v1/stock").status_code == 429
+
+
+def test_the_secret_is_stored_encrypted_and_older_plain_ones_get_sealed(client, _database):
+    import psycopg
+
+    secret, _ = _turn_on(client)
+    with psycopg.connect(_database, autocommit=True) as conn:
+        stored = conn.execute("SELECT totp_secret FROM users WHERE username = 'olive'").fetchone()[0]
+        assert stored.startswith("v1:") and secret not in stored
+        conn.execute("UPDATE users SET totp_secret = %s, totp_last_step = 0 WHERE username = 'olive'", (secret,))
+    from psycopg.rows import dict_row
+
+    with psycopg.connect(_database, autocommit=True, row_factory=dict_row) as conn:
+        assert mfa.encrypt_stored(conn) == 1
+        assert conn.execute("SELECT totp_secret FROM users WHERE username = 'olive'").fetchone()["totp_secret"].startswith("v1:")
+    c, _ = _login()
+    assert c.post("/api/auth/mfa/verify", json={"code": _code(secret)}).status_code == 200
+
+
+def test_without_the_server_key_setup_is_refused_and_backup_codes_still_work(client, monkeypatch):
+    _, backups = _turn_on(client)
+    monkeypatch.setenv("MFA_ENCRYPTION_KEY", "")
+    c, _ = _login()
+    assert c.post("/api/auth/mfa/verify", json={"code": backups[0]}).status_code == 200
+    other = sign_up(workspace="Other", username="otto")
+    assert other.post("/api/auth/mfa/setup").status_code == 409
+
+
+def test_ways_back_in_after_losing_the_phone(client, make_user):
+    manager = make_user("manager")
+    _, backups = _turn_on(manager)
+    fresh = manager.post("/api/auth/mfa/backup-codes")
+    assert fresh.status_code == 200 and set(fresh.json()["backup_codes"]).isdisjoint(backups)
+
+    # The owner resets a teammate's two-step sign-in; their next sign-in needs only the password.
+    manager_id = manager.get("/api/auth/me").json()["id"]
+    reset = client.patch(f"/api/users/{manager_id}", json={"mfa_reset": True})
+    assert reset.status_code == 200 and reset.json()["mfa_enabled"] is False
+    username = reset.json()["username"]
+    assert _login(username)[1]["mfa_pending"] is False
+
+    # An owner with nothing left: the server's reset command.
+    from app import reset_mfa
+
+    _turn_on(client)
+    assert reset_mfa.main("olive") == 0
+    assert _login()[1]["mfa_pending"] is False
+    assert "mfa.reset" in [e["action"] for e in client.get("/api/audit").json()]

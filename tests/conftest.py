@@ -49,6 +49,7 @@ def _database(tmp_path_factory):
 def _isolated_env(_database, monkeypatch):
     """Every test starts from empty tables and no real Telegram or RunPod settings."""
     monkeypatch.setenv("COOKIE_SECURE", "0")  # TestClient speaks plain http
+    monkeypatch.setenv("MFA_ENCRYPTION_KEY", "vKpwP0lnmhRaAZG3iYxkAU-jyjk2eJ5GWVuEB7iwyiQ")
     for name in ("RUNPOD_ENDPOINT_ID", "RUNPOD_API_KEY", "TELEGRAM_BOT_TOKEN"):
         monkeypatch.delenv(name, raising=False)
     extraction._calls.clear()

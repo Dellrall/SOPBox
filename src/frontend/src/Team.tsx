@@ -282,6 +282,17 @@ function Row({ user, onChanged, teamGroup }: { user: UserOut; onChanged: () => v
             <button className={secondaryButton} onClick={() => setResetting((r) => !r)}>
               Reset password
             </button>
+            {user.mfa_enabled && (
+              <button
+                className={secondaryButton}
+                onClick={() =>
+                  window.confirm(`Turn off two-step sign-in for ${user.display_name}? Do this only if they lost their phone and backup codes. They sign in with their password and set it up again.`) &&
+                  void change({ mfa_reset: true })
+                }
+              >
+                Reset two-step sign-in
+              </button>
+            )}
             <button className={secondaryButton} onClick={() => void change({ active: !user.active })}>
               {user.active ? "Disable" : "Enable"}
             </button>
