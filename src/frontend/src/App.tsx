@@ -30,7 +30,7 @@ import AuthPage from "./AuthPage";
 import Landing from "./Landing";
 import Dashboard from "./Dashboard";
 import { InboxBell, InboxPanel, useInboxRefresh } from "./Inbox";
-import { describeSignIn } from "./signin";
+import { describeSignIn, rememberSignIn } from "./signin";
 import Products from "./Products";
 import PurchaseOrders from "./PurchaseOrders";
 import Receive from "./Receive";
@@ -151,6 +151,9 @@ export default function App() {
       .then(setMe)
       .catch(() => setMe(null));
   }, []);
+
+  // Remember how this browser signed in, for the "Last used" tag on the sign-in page.
+  useEffect(() => rememberSignIn(me?.sign_in_method), [me?.sign_in_method]);
 
   // Fade out index.html's loading screen once the first real page is drawn.
   useEffect(() => {

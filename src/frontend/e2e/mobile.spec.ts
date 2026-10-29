@@ -388,6 +388,22 @@ test.describe("two-step sign-in", () => {
   });
 });
 
+test.describe("sign-in page", () => {
+  test("marks the way this browser last signed in", async ({ page }) => {
+    await page.goto("/signin");
+    await expect(page.getByTestId("last-used")).toHaveCount(0);
+    await page.getByLabel("Username or email").fill(PEOPLE.staff.username);
+    await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+    await page.getByRole("button", { name: "Sign in", exact: true }).tap();
+    await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
+    // Signing out of this browser only: other tests share the staff session cookie file, not this one.
+    await page.request.post("/api/auth/logout");
+    await page.goto("/signin");
+    await expect(page.getByRole("button", { name: "Sign in", exact: true }).getByTestId("last-used")).toHaveText("Last used");
+    await expect(page.getByTestId("last-used")).toHaveCount(1);
+  });
+});
+
 test.describe("dropdowns", () => {
   test.use({ storageState: stateFile("owner") });
 

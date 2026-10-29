@@ -48,6 +48,12 @@ def test_me_shows_the_sign_in_before_this_one(client):
     assert c.get("/api/auth/me").json()["previous_sign_in"]["method"] == "register"
 
 
+def test_me_says_how_this_session_was_started(client):
+    assert client.get("/api/auth/me").json()["sign_in_method"] == "register"
+    _, me = login("olive", ANDROID)
+    assert me["sign_in_method"] == "password"
+
+
 def test_a_new_device_or_method_lands_in_the_inbox_but_a_familiar_one_does_not(client):
     c, _ = login("olive", ANDROID)
     first = sign_in_notes(c)
@@ -89,6 +95,7 @@ def test_a_kitchen_tablet_lists_people_with_a_pin_and_signs_them_in(client, make
     assert tablet.post("/api/auth/kitchen/login", json={"user_id": sam_id, "pin": "1111"}).status_code == 401
     resp = tablet.post("/api/auth/kitchen/login", json={"user_id": sam_id, "pin": "2468"})
     assert resp.status_code == 200 and resp.json()["username"] == "sam"
+    assert resp.json()["sign_in_method"] == "kitchen_pin"
     methods = [s["method"] for s in tablet.get("/api/auth/security").json()["recent_sign_ins"]]
     assert methods[0] == "kitchen_pin"
 

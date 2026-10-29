@@ -351,6 +351,7 @@ def health() -> dict[str, str]:
 def _me(conn: psycopg.Connection, user: CurrentUser) -> Me:
     return Me(
         previous_sign_in=auth.previous_sign_in(conn, user.id, user.sign_in_id),
+        sign_in_method=auth.sign_in_method(conn, user.sign_in_id),
         id=user.id,
         username=user.username,
         email=user.email,
@@ -385,7 +386,7 @@ def _signed_in(
     conn: psycopg.Connection, request: Request, response: Response, user_id: int, method: str, **session
 ) -> Me:
     pending = auth.start_session(conn, request, response, user_id, method, **session)
-    return _me(conn, replace(auth.get_me(conn, user_id), mfa_pending=pending))
+    return _me(conn, replace(auth.get_me(conn, user_id), mfa_pending=pending)).model_copy(update={"sign_in_method": method})
 
 
 @app.get("/api/auth/username-available", response_model=UsernameCheck)
