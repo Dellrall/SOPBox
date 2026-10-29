@@ -40,6 +40,32 @@ def _code_text(value: Any) -> str:
     return str(value).strip()
 
 
+def match(
+    conn: psycopg.Connection, ws: int, storage_id: int, sold: dict[str, tuple[str, int]]
+) -> tuple[list[SalePreviewLine], list[str]]:
+    """Each casefolded code's product and quantity, and the codes no active product has."""
+    products = {
+        r["code"].casefold(): r
+        for r in conn.execute(
+            "SELECT p.id, p.code, p.name, p.base_unit, COALESCE(l.quantity, 0) AS in_stock FROM products p "
+            "LEFT JOIN stock_levels l ON l.product_id = p.id AND l.storage_id = %s "
+            "WHERE p.workspace_id = %s AND NOT p.archived AND p.code IS NOT NULL",
+            (storage_id, ws),
+        ).fetchall()
+    }
+    lines, unknown = [], []
+    for key, (code, quantity) in sold.items():
+        product = products.get(key)
+        if product is None:
+            unknown.append(code)
+        elif quantity > 0:
+            lines.append(SalePreviewLine(
+                product_id=product["id"], code=product["code"], product_name=product["name"],
+                base_unit=product["base_unit"], quantity=quantity, in_stock=product["in_stock"],
+            ))
+    return lines, unknown
+
+
 def preview(conn: psycopg.Connection, ws: int, storage_id: int, filename: str, content: bytes) -> SalePreview:
     """Match each row's code to a product and add up repeated codes. Nothing is saved."""
     storage_id = locations.resolve(conn, ws, storage_id)
@@ -72,25 +98,7 @@ def preview(conn: psycopg.Connection, ws: int, storage_id: int, filename: str, c
     if columns is None:
         raise InvalidRequestError("the sheet needs a Product code column and a Quantity column")
 
-    products = {
-        r["code"].casefold(): r
-        for r in conn.execute(
-            "SELECT p.id, p.code, p.name, p.base_unit, COALESCE(l.quantity, 0) AS in_stock FROM products p "
-            "LEFT JOIN stock_levels l ON l.product_id = p.id AND l.storage_id = %s "
-            "WHERE p.workspace_id = %s AND NOT p.archived AND p.code IS NOT NULL",
-            (storage_id, ws),
-        ).fetchall()
-    }
-    lines, unknown = [], []
-    for key, (code, quantity) in sold.items():
-        product = products.get(key)
-        if product is None:
-            unknown.append(code)
-        elif quantity > 0:
-            lines.append(SalePreviewLine(
-                product_id=product["id"], code=product["code"], product_name=product["name"],
-                base_unit=product["base_unit"], quantity=quantity, in_stock=product["in_stock"],
-            ))
+    lines, unknown = match(conn, ws, storage_id, sold)
     if not lines and not unknown:
         raise InvalidRequestError("no sales were found in the sheet")
     return SalePreview(lines=sorted(lines, key=lambda line: line.product_name.casefold()), unknown_codes=sorted(unknown))
@@ -123,11 +131,20 @@ def list_sales(conn: psycopg.Connection, ws: int) -> list[SaleOut]:
     return _sales(conn, ws, "", ())
 
 
-def create_sale(conn: psycopg.Connection, ws: int, by: str, data: SaleIn) -> SaleOut:
+def create_sale(
+    conn: psycopg.Connection, ws: int, by: str, data: SaleIn, external_ref: str | None = None
+) -> SaleOut:
+    """Record a sale. A sale with an external_ref already on record is returned unchanged."""
     storage_id = locations.resolve(conn, ws, data.storage_id)
     product_ids = [line.product_id for line in data.lines]
     with conn.transaction():
         conn.execute("SELECT id FROM workspaces WHERE id = %s FOR UPDATE", (ws,))  # numbers in order
+        if external_ref is not None:
+            sent = conn.execute(
+                "SELECT id FROM sales WHERE workspace_id = %s AND external_ref = %s", (ws, external_ref)
+            ).fetchone()
+            if sent is not None:
+                return _sales(conn, ws, "AND x.id = %s", (sent["id"],))[0]
         products = {
             r["id"]: r
             for r in conn.execute(
@@ -143,9 +160,9 @@ def create_sale(conn: psycopg.Connection, ws: int, by: str, data: SaleIn) -> Sal
             "SELECT COALESCE(MAX(number), 0) + 1 AS n FROM sales WHERE workspace_id = %s", (ws,)
         ).fetchone()["n"]
         sale_id = conn.execute(
-            "INSERT INTO sales (workspace_id, number, storage_id, sale_date, source, recorded_by, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (ws, number, storage_id, data.sale_date, data.source, by, _now()),
+            "INSERT INTO sales (workspace_id, number, storage_id, sale_date, source, recorded_by, created_at, "
+            "external_ref) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (ws, number, storage_id, data.sale_date, data.source, by, _now(), external_ref),
         ).fetchone()["id"]
         short = 0
         for line in data.lines:

@@ -1,4 +1,5 @@
 import type {
+  ApiKey,
   KitchenDevice,
   KitchenScreen,
   Passkey,
@@ -222,6 +223,11 @@ export const api = {
   previewSales: (file: File, storageId: number) => upload<SalePreview>(`/sales/preview?storage_id=${storageId}`, file),
   createSale: (body: SaleIn) => post<Sale>("/sales", body),
   salesTemplate: () => download("/sales/template.csv"),
+
+  // API keys for a till (owners and managers)
+  apiKeys: () => get<ApiKey[]>("/api-keys"),
+  createApiKey: (name: string, storage_id: number) => post<ApiKey & { key: string }>("/api-keys", { name, storage_id }),
+  revokeApiKey: (id: number) => request<ApiKey[]>("DELETE", `/api-keys/${id}`),
 
   // HQ and branches (owners)
   links: () => get<Links>("/workspace/links"),

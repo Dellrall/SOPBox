@@ -1076,3 +1076,43 @@ class LinkCodeIn(_In):
 class LinksOut(BaseModel):
     hq: WorkspaceRef | None  # the HQ this workspace is a branch of
     branches: list[WorkspaceRef]  # the branches linked to this workspace
+
+
+# ---- API keys --------------------------------------------------------------------------------
+
+
+class ApiKeyIn(_In):
+    name: str = Field(min_length=1, max_length=60)  # e.g. "Till 1, KL"
+    storage_id: int  # the one storage area the key's sales come off and its stock reads cover
+
+
+class ApiKeyOut(BaseModel):
+    id: int
+    name: str
+    hint: str  # the key's last four characters, to tell keys apart
+    storage: str
+    created_by: str
+    created_at: str
+    last_used_at: str | None
+
+
+class ApiKeyCreated(ApiKeyOut):
+    key: str  # shown once; only its hash is kept
+
+
+class ApiSaleLineIn(_In):
+    code: str = Field(min_length=1, max_length=100)  # the product code (SKU)
+    quantity: int = Field(gt=0, le=MAX_SAFE_COUNT)
+
+
+class ApiSaleIn(_In):
+    sale_date: date
+    # The till's receipt or batch number. Sending the same one again returns the first sale and
+    # changes no stock, so a till can safely retry after a timeout.
+    reference: str | None = Field(default=None, min_length=1, max_length=100)
+    lines: list[ApiSaleLineIn] = Field(min_length=1, max_length=5000)
+
+
+class ApiSaleOut(BaseModel):
+    sale: SaleOut
+    unknown_codes: list[str]  # codes no active product has; left out of the sale

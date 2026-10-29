@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import hq, locations, sales, stocktakes
+from app import apikeys, hq, locations, sales, stocktakes
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -31,6 +31,11 @@ from app.errors import (
 )
 from app.extraction import extract_lines, extract_products, write_sop
 from app.models import (
+    ApiKeyCreated,
+    ApiKeyIn,
+    ApiKeyOut,
+    ApiSaleIn,
+    ApiSaleOut,
     Accountability,
     KitchenDeviceIn,
     KitchenDeviceOut,
@@ -1076,6 +1081,39 @@ def leave_hq(owner: OwnerOnly, conn: Conn):
 @app.delete("/api/workspace/branches/{branch_id}", response_model=LinksOut)
 def remove_branch(branch_id: int, owner: OwnerOnly, conn: Conn):
     return hq.remove_branch(conn, owner, branch_id)
+
+
+# ---- API keys, and the two things a till can do with one ------------------------------------------
+
+
+@app.get("/api/api-keys", response_model=list[ApiKeyOut])
+def list_api_keys(user: ManagerUp, conn: Conn):
+    return apikeys.list_keys(conn, user.workspace_id)
+
+
+@app.post("/api/api-keys", response_model=ApiKeyCreated, status_code=201)
+def create_api_key(body: ApiKeyIn, user: ManagerUp, conn: Conn):
+    return apikeys.create_key(conn, user, body)
+
+
+@app.delete("/api/api-keys/{key_id}", response_model=list[ApiKeyOut])
+def revoke_api_key(key_id: int, user: ManagerUp, conn: Conn):
+    return apikeys.revoke_key(conn, user, key_id)
+
+
+KeyClient = Annotated[apikeys.KeyClient, Depends(apikeys.key_client)]
+
+
+@app.get("/api/v1/stock", response_model=list[StockLevelOut])
+def api_stock(client: KeyClient, conn: Conn):
+    """Stock in the key's storage area."""
+    return locations.stock_in(conn, client.workspace_id, client.storage_id)
+
+
+@app.post("/api/v1/sales", response_model=ApiSaleOut, status_code=201)
+def api_record_sale(body: ApiSaleIn, client: KeyClient, conn: Conn):
+    """Record a sale from the key's storage area, by product code."""
+    return apikeys.record_sale(conn, client, body)
 
 
 # ---- pages for browsers and search engines ---------------------------------------------------
