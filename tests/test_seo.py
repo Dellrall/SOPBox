@@ -25,7 +25,7 @@ def test_the_sitemap_lists_the_public_pages(anon):
     resp = anon.get("/sitemap.xml")
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("application/xml")
-    for path in ("/", "/pricing", "/privacy", "/contact"):
+    for path in ("/", "/pricing", "/docs", "/privacy", "/contact"):
         assert f"<loc>http://testserver{path}</loc>" in resp.text
 
 
@@ -42,6 +42,7 @@ def test_each_public_page_has_its_own_title_description_and_canonical_link(anon,
     assert 'name="description" content="SOPBox pricing: free for one store' in page
     assert "<title>Privacy · SOPBox</title>" in anon.get("/privacy").text
     assert "<title>Contact · SOPBox</title>" in anon.get("/contact").text
+    assert "<title>Docs · SOPBox</title>" in anon.get("/docs").text
     assert "<title>Home</title>" in anon.get("/").text
 
 

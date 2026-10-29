@@ -25,9 +25,9 @@ import type { Me } from "./types";
 import { PageTitle, cardClass, primaryButton, secondaryButton } from "./ui";
 
 /** One page of the app: what it is for and how to do the usual things there. */
-type Guide = { page: PageId; title: string; icon: LucideIcon; what: string; how: string[] };
+export type Guide = { page: PageId; title: string; icon: LucideIcon; what: string; how: string[] };
 
-const GUIDES: Guide[] = [
+export const GUIDES: Guide[] = [
   {
     page: "dashboard",
     title: "Dashboard",
@@ -147,10 +147,39 @@ const GUIDES: Guide[] = [
   },
 ];
 
+/** How a business with several outlets is run in SOPBox. */
+export const OUTLET_STEPS = [
+  "The owner adds and renames outlets under Settings, Workspace.",
+  "On Team, the owner sets the outlet each person works at, and hires a manager for it.",
+  "That manager adds their own staff and assistant managers, so the owner does not have to.",
+  "Everyone starts at their own outlet. Switch outlets from the card at the top of the menu.",
+];
+
+/** Free, Pro and Enterprise side by side, Pro picked out. */
+export function PlanTiers() {
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {[FREE, PRO, ENTERPRISE].map((t) => (
+        <div key={t.name} className={`rounded-2xl p-4 ring-1 ${t === PRO ? "bg-brand-50 ring-brand-200" : "ring-line"}`}>
+          <p className="font-bold text-brand-950">{t.name}</p>
+          <p className="text-xs text-muted">{t.tagline}</p>
+          <ul className="mt-2 space-y-1 text-sm">
+            {t.items.map((item) => (
+              <li key={item} className="flex gap-1.5">
+                <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Outlets and the plans that add more of them. */
 function OutletsAndPlans({ me, go }: { me: Me; go: (page: PageId) => void }) {
   const manager = me.role !== "staff";
-  const tiers = [FREE, PRO, ENTERPRISE];
   return (
     <section id="guide-outlets" aria-labelledby="outlets-title" className={`${cardClass} space-y-4`}>
       <div className="flex items-start gap-3">
@@ -168,27 +197,11 @@ function OutletsAndPlans({ me, go }: { me: Me; go: (page: PageId) => void }) {
         </div>
       </div>
       <ol className="list-decimal space-y-1.5 pl-5 text-sm text-ink">
-        <li>The owner adds and renames outlets under Settings, Workspace.</li>
-        <li>On Team, the owner sets the outlet each person works at, and hires a manager for it.</li>
-        <li>That manager adds their own staff and assistant managers, so the owner does not have to.</li>
-        <li>Everyone starts at their own outlet. Switch outlets from the card at the top of the menu.</li>
-      </ol>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {tiers.map((t) => (
-          <div key={t.name} className={`rounded-2xl p-4 ring-1 ${t === PRO ? "bg-brand-50 ring-brand-200" : "ring-line"}`}>
-            <p className="font-bold text-brand-950">{t.name}</p>
-            <p className="text-xs text-muted">{t.tagline}</p>
-            <ul className="mt-2 space-y-1 text-sm">
-              {t.items.map((item) => (
-                <li key={item} className="flex gap-1.5">
-                  <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
+        {OUTLET_STEPS.map((s) => (
+          <li key={s}>{s}</li>
         ))}
-      </div>
+      </ol>
+      <PlanTiers />
       <div className="flex flex-wrap gap-2">
         {manager && (
           <button

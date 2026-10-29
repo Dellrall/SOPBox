@@ -14,7 +14,7 @@ async function check(page: Page, testInfo: TestInfo, name: string) {
 }
 
 test("the public pages fit a tablet", async ({ page }, testInfo) => {
-  for (const path of ["/", "/pricing", "/contact", "/privacy", "/signin", "/register"]) {
+  for (const path of ["/", "/pricing", "/docs", "/contact", "/privacy", "/signin", "/register"]) {
     await page.goto(path);
     await expect(page.locator("h1").first()).toBeVisible();
     await check(page, testInfo, path);

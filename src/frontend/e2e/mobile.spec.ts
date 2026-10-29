@@ -85,9 +85,20 @@ test.describe("signed out", () => {
     await expect(page.getByLabel("Number of outlets")).toBeVisible();
   });
 
+  test("the header and footer lead to the docs", async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 }); // the header's main links show from laptop width
+    await page.goto("/pricing");
+    await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Docs" }).click();
+    await expect(page).toHaveURL(/\/docs$/);
+    await expect(page).toHaveTitle("Docs · SOPBox");
+    await expect(page.getByRole("heading", { name: "Outlets and plans" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Product" }).getByRole("link", { name: "Docs" }).click();
+    await expect(page).toHaveURL(/\/docs$/);
+  });
+
   test("the menu reaches every public page, and a visitor asks a question", async ({ page }) => {
     await page.goto("/");
-    for (const [name, heading] of [["Pricing", "Free for one store"], ["Privacy", "Your data stays yours"], ["Contact", "How can we help?"]]) {
+    for (const [name, heading] of [["Pricing", "Free for one store"], ["Docs", "How to use SOPBox"], ["Privacy", "Your data stays yours"], ["Contact", "How can we help?"]]) {
       await page.getByRole("button", { name: "Menu" }).tap();
       await page.getByRole("navigation", { name: "Site menu" }).getByRole("link", { name, exact: true }).tap();
       await expect(page.getByRole("heading", { level: 1, name: new RegExp(heading) })).toBeVisible();
@@ -101,7 +112,7 @@ test.describe("signed out", () => {
     await expect(page.getByRole("contentinfo").getByRole("link", { name: "Privacy" })).toBeVisible();
   });
 
-  for (const path of ["/", "/signin", "/register", "/pricing", "/privacy", "/contact"]) {
+  for (const path of ["/", "/signin", "/register", "/pricing", "/docs", "/privacy", "/contact"]) {
     test(`${path} fits a phone`, async ({ page }, testInfo) => {
       await page.goto(path);
       await expect(page.locator("h1, h2").first()).toBeVisible();

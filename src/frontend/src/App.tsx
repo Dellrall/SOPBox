@@ -26,6 +26,7 @@ import { ClosedBanner } from "./Closing";
 import { CodePrompt, MfaGate } from "./Mfa";
 import Pricing from "./Pricing";
 import Privacy from "./Privacy";
+import Docs from "./Docs";
 import Contact from "./Contact";
 import { CategoriesAndStorage } from "./Categories";
 import { PolicyLinks } from "./Site";
@@ -121,10 +122,10 @@ const initials = (name: string) =>
     .join("");
 
 /** Signed-out visitors move between three addresses: the welcome page, sign in and sign up. */
-export type PublicRoute = "/" | "/signin" | "/register" | "/pricing" | "/privacy" | "/contact";
+export type PublicRoute = "/" | "/signin" | "/register" | "/pricing" | "/docs" | "/privacy" | "/contact";
 /** A public page, optionally with a query, e.g. /contact?topic=sales. */
 export type PublicPath = PublicRoute | `${PublicRoute}?${string}`;
-const PUBLIC: PublicRoute[] = ["/signin", "/register", "/pricing", "/privacy", "/contact"];
+const PUBLIC: PublicRoute[] = ["/signin", "/register", "/pricing", "/docs", "/privacy", "/contact"];
 const asPublic = (path: string): PublicRoute => PUBLIC.find((p) => p === path) ?? "/";
 
 /**
@@ -201,6 +202,7 @@ export default function App() {
   // The loading screen from index.html stays up until then.
   if (me === undefined) return null;
   if (path === "/pricing") return <Pricing navigate={navigate} signedIn={me !== null} />;
+  if (path === "/docs") return <Docs navigate={navigate} signedIn={me !== null} />;
   if (path === "/privacy") return <Privacy navigate={navigate} signedIn={me !== null} />;
   if (path === "/contact") return <Contact key={search} navigate={navigate} signedIn={me !== null} />;
   if (me === null) {
