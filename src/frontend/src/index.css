@@ -50,6 +50,8 @@
     *::after {
       transition-duration: 0.01ms !important;
       animation-duration: 0.01ms !important;
+      /* Once, not forever: a near-instant animation repeated forever jumps around every frame (Firefox flashes). */
+      animation-iteration-count: 1 !important;
     }
   }
 }
@@ -80,6 +82,11 @@
 }
 .demo-scan {
   animation: demo-scan 1.6s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-scan {
+    display: none;
+  }
 }
 @keyframes demo-rise {
   from {
