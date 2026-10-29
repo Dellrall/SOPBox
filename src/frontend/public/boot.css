@@ -1,0 +1,17 @@
+/* The loading screen in index.html: blank at first, the logo and a bar only if loading takes over
+   half a second. The app removes it once it knows who is signed in (App.tsx). A file, not inline,
+   because the Content-Security-Policy allows only same-site styles. */
+#boot { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: #f6f8f3;
+  transition: opacity 0.2s; animation: boot-out 0.3s 15s forwards; }
+#boot.done { opacity: 0; pointer-events: none; }
+#boot > div { display: flex; flex-direction: column; align-items: center; gap: 20px; opacity: 0; animation: boot-in 0.25s 0.5s forwards; }
+#boot img { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 4px 14px rgb(0 40 22 / 0.12); }
+#boot i { position: relative; width: 120px; height: 3px; overflow: hidden; border-radius: 3px; background: #dce9d6; }
+#boot i::after { content: ""; position: absolute; inset: 0; width: 40%; border-radius: 3px; background: #16804a;
+  animation: boot-bar 1s ease-in-out infinite; }
+@keyframes boot-in { to { opacity: 1; } }
+@keyframes boot-bar { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+/* If the app never starts (no JavaScript, or it failed), uncover the page's text rather than load forever. */
+@keyframes boot-out { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { #boot i::after { width: 100%; animation: none; } }
+    
