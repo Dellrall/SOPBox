@@ -39,6 +39,7 @@ from app.models import (
     OpsWorkspaceOut,
     OwnerTransferIn,
     InquiryOut,
+    PlanCodeIn,
     PlanOut,
     PricingOut,
     SalesInquiryIn,
@@ -1300,6 +1301,13 @@ def sales_inquiry(body: SalesInquiryIn, request: Request, conn: Conn):
     """Public: a sales enquiry or a question from the contact page. The team contacts them."""
     auth.limit("inquiry", _client(request), 5, 3600)
     return inquiries.sales(conn, body)
+
+
+@app.post("/api/plan/redeem", response_model=PlanOut)
+def redeem_plan_code(body: PlanCodeIn, request: Request, owner: OwnerOnly, conn: Conn):
+    """The owner enters a code from the SOPBox team to turn Pro on."""
+    auth.limit("plan-code", f"{owner.workspace_id}:{_client(request)}", 10, 3600)
+    return plans.redeem(conn, owner, body.code)
 
 
 @app.post("/api/plan/upgrade-request", response_model=InquiryOut, status_code=201)

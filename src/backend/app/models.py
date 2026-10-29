@@ -1218,6 +1218,10 @@ class PlanOut(BaseModel):
     priority_support: bool
 
 
+class PlanCodeIn(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+
+
 class PricingOut(BaseModel):
     currency: str
     prices: dict[str, int | None]  # None: not decided yet ("TBC")

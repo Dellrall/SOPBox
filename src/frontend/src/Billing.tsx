@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 import { price } from "./Pricing";
 import type { Plan, Pricing } from "./types";
-import { ErrorNote, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton } from "./ui";
+import { ErrorNote, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 import { Select } from "./Select";
 
 /** The workspace's plan, and for the owner a request to upgrade (the team turns it on after payment). */
@@ -19,6 +19,9 @@ export function PlanCard({ owner }: { owner: boolean }) {
   });
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [redeemed, setRedeemed] = useState(false);
 
   useEffect(() => {
     api
@@ -39,6 +42,18 @@ export function PlanCard({ owner }: { owner: boolean }) {
       setSent(true);
     } catch (err) {
       setError((err as Error).message);
+    }
+  }
+
+  async function redeem(e: FormEvent) {
+    e.preventDefault();
+    setCodeError("");
+    try {
+      setPlan(await api.redeemPlanCode(code));
+      setCode("");
+      setRedeemed(true);
+    } catch (err) {
+      setCodeError((err as Error).message);
     }
   }
 
@@ -79,6 +94,30 @@ export function PlanCard({ owner }: { owner: boolean }) {
           See prices
         </a>
       </p>
+      {owner && plan.plan !== "enterprise" && (
+        <form onSubmit={(e) => void redeem(e)} className="space-y-2 border-t border-line pt-3">
+          <label className="block text-sm font-semibold text-ink" htmlFor="plan-code">
+            Have a code from SOPBox?
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <input
+              id="plan-code"
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={40}
+              placeholder="PRO-XXXX-XXXX-XXXX-XXXX"
+              className={`${inputClass} min-w-48 flex-1 font-mono uppercase`}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+            <button type="submit" className={secondaryButton} disabled={!code.trim()}>
+              Redeem
+            </button>
+          </div>
+          {redeemed && <SuccessNote>Code redeemed: {plan.label} is on.</SuccessNote>}
+          <ErrorNote message={codeError} />
+        </form>
+      )}
       {owner &&
         plan.plan !== "enterprise" &&
         (sent ? (

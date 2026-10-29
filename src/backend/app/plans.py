@@ -2,7 +2,8 @@
 
 Every price, link and contact detail SOPBox shows lives at the top of this file; None prints as
 "TBC". Payments are not taken in the app yet: an owner sends an upgrade request, and the team turns
-the plan on (`python -m app.set_plan`, later the internal operations site).
+the plan on (`python -m app.set_plan`, later the internal operations site), or gives the owner a
+code (`python -m app.plan_codes`) to enter in Settings, Plan & billing.
 
 - Free: one outlet (any number of storage areas in it), the whole team, AI reading, stock, sales.
 - Pro: extra outlets (priced per outlet, a year or for life), HQ branch links, till API keys.
@@ -13,11 +14,13 @@ Workspaces from before plans are pre-alpha users: what they already set up keeps
 adding more follows their plan. An annual plan that has run out counts as Free (nothing is deleted).
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 import psycopg
 
-from app.errors import ForbiddenError
+from app.auditlog import audit
+from app.auth import CurrentUser, token_digest
+from app.errors import ConflictError, ForbiddenError, InvalidRequestError
 from app.models import PlanOut, PricingOut
 
 CURRENCY = "RM"
@@ -78,3 +81,45 @@ def require(conn: psycopg.Connection, ws: int, feature: str) -> None:
             )
     elif not getattr(plan, feature):
         raise ForbiddenError(UPGRADE)
+
+
+def code_digest(code: str) -> str:
+    """Spaces, dashes and case do not matter when a code is typed."""
+    return token_digest("".join(c for c in code.upper() if c.isalnum()))
+
+
+def redeem(conn: psycopg.Connection, owner: CurrentUser, code: str) -> PlanOut:
+    """Turn Pro on with a code from the team. Each workspace can use a code once; a yearly code adds its days
+    to Pro time still left. It never takes away outlets or customization already paid for."""
+    ws = owner.workspace_id
+    digest = code_digest(code)
+    row = conn.execute(
+        "SELECT * FROM plan_codes WHERE token_hash = %s AND uses_left > 0 AND (expires_on IS NULL OR expires_on >= CURRENT_DATE) "
+        "AND NOT EXISTS (SELECT 1 FROM plan_code_uses u WHERE u.token_hash = plan_codes.token_hash AND u.workspace_id = %s) "
+        "FOR UPDATE",
+        (digest, ws),
+    ).fetchone()
+    # One message for wrong, used up, expired and already used here, so a guess learns nothing.
+    if row is None:
+        raise InvalidRequestError("this code is not valid: it may be mistyped, used up or expired")
+    now = current(conn, ws)
+    if now.plan == "enterprise" or (now.plan == "pro" and now.billing == "lifetime" and row["days"] is not None):
+        raise ConflictError(f"this workspace is already on {now.label}{' for life' if now.billing == 'lifetime' else ''}")
+    paid = conn.execute("SELECT paid_outlets, customization FROM workspaces WHERE id = %s", (ws,)).fetchone()
+    keep = now.plan == "pro"  # what an active Pro plan already has stays
+    if row["days"] is None:
+        billing, until = "lifetime", None
+    else:
+        start = now.until if keep and now.until and now.until >= date.today() else date.today()
+        billing, until = "annual", start + timedelta(days=row["days"])
+    outlets = max(row["paid_outlets"], paid["paid_outlets"] if keep else 0)
+    customization = row["customization"] or (keep and paid["customization"])
+    conn.execute(
+        "UPDATE workspaces SET plan = 'pro', plan_billing = %s, plan_until = %s, paid_outlets = %s, customization = %s WHERE id = %s",
+        (billing, until, outlets, customization, ws),
+    )
+    conn.execute("UPDATE plan_codes SET uses_left = uses_left - 1 WHERE token_hash = %s", (digest,))
+    conn.execute("INSERT INTO plan_code_uses (token_hash, workspace_id) VALUES (%s, %s)", (digest, ws))
+    detail = f"Pro, {billing}" + (f" until {until}" if until else "") + f"; {1 + outlets} outlet(s)" + ("; customization" if customization else "")
+    audit(conn, ws, owner.display_name, "plan.code_redeemed", None, detail)
+    return current(conn, ws)
