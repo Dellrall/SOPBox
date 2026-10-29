@@ -136,6 +136,19 @@ for (const who of ["owner", "manager", "staff"] as const) {
 test.describe("phone layout", () => {
   test.use({ storageState: stateFile("owner") });
 
+  test("every Settings tab fits a phone", async ({ page }, testInfo) => {
+    await page.goto("/");
+    await openPage(page, "Settings");
+    for (const tab of await page.getByRole("tab").allInnerTexts()) {
+      await test.step(tab, async () => {
+        await page.getByRole("tab", { name: tab.trim() }).tap();
+        await page.waitForLoadState("networkidle");
+        await expectFitsScreen(page);
+        await snapshot(page, testInfo, `owner – Settings – ${tab.trim()}`);
+      });
+    }
+  });
+
   test("the header keeps the menu and inbox in reach, and menu items are big enough to tap", async ({ page }) => {
     await page.goto("/");
     const menu = page.getByRole("button", { name: "Open the menu" });

@@ -83,7 +83,7 @@ export default function AuthPage({
         setMode(m);
         setError("");
       }}
-      className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
+      className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold leading-tight transition ${
         mode === m ? "bg-white text-brand-950 shadow-sm" : "text-slate-600 hover:text-slate-900"
       }`}
     >

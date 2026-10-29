@@ -823,14 +823,14 @@ export default function PurchaseOrders({
         </section>
       )}
 
-      <div role="tablist" aria-label="Filter by status" className="flex flex-wrap gap-1 rounded-xl bg-slate-200/60 p-1 sm:w-fit">
+      <div role="tablist" aria-label="Filter by status" className="grid grid-cols-4 gap-1 rounded-xl bg-slate-200/60 p-1 sm:flex sm:w-fit">
         {(["", "draft", "issued", "cancelled"] as const).map((s) => (
           <button
             key={s || "all"}
             role="tab"
             aria-selected={filter === s}
             onClick={() => setFilter(s)}
-            className={`rounded-lg px-3.5 py-1.5 text-sm font-semibold capitalize ${filter === s ? "bg-white text-brand-950 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+            className={`rounded-lg px-1 py-1.5 text-[13px] font-semibold capitalize sm:px-3.5 sm:text-sm ${filter === s ? "bg-white text-brand-950 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
           >
             {s || "All"}
           </button>
