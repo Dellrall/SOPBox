@@ -454,6 +454,8 @@ ALTER TABLE inquiries ADD CONSTRAINT inquiries_kind_check CHECK (kind IN ('sales
 -- The outlet a person works at: where the app starts them, and whose staff its managers look after.
 -- NULL: not tied to one (owners, and everyone from before outlets were assigned).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
+-- An assistant manager: a manager who can add staff but not disable anyone. Only managers have it.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS assistant BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE TABLE IF NOT EXISTS plan_codes (
     token_hash TEXT PRIMARY KEY,
     paid_outlets INTEGER NOT NULL CHECK (paid_outlets >= 0),

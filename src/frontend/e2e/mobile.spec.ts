@@ -338,7 +338,7 @@ test.describe("download your data", () => {
 });
 
 test.describe("outlets", () => {
-  test("a manager starts at their outlet and adds staff there", async ({ browser, baseURL }, testInfo) => {
+  test("a manager starts at their outlet and adds staff and assistant managers there", async ({ browser, baseURL }, testInfo) => {
     const owner = await browser.newContext({ baseURL, ...testInfo.project.use });
     const tag = `${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
     expect((await owner.request.post("/api/auth/register", {
@@ -360,13 +360,23 @@ test.describe("outlets", () => {
     await page.getByRole("button", { name: "Close the menu" }).click();
 
     await openPage(page, "Team");
-    await expect(page.getByRole("combobox", { name: "Role" })).toHaveCount(0);
-    await page.getByLabel("Name", { exact: true }).fill("Sam Staff");
-    await page.getByLabel("Username", { exact: true }).fill(`s${tag}`);
-    await page.getByLabel("Starting password").fill(PASSWORD);
-    await page.getByRole("button", { name: "Create account" }).tap();
-    await expect(page.getByText("Account created.")).toBeVisible();
+    const add = async (who: string, username: string) => {
+      await page.getByLabel("Name", { exact: true }).fill(who);
+      await page.getByLabel("Username", { exact: true }).fill(username);
+      await page.getByLabel("Starting password").fill(PASSWORD);
+      await page.getByRole("button", { name: "Create account" }).tap();
+      await expect(page.getByText("Account created.")).toBeVisible();
+    };
+    await add("Sam Staff", `s${tag}`);
     await expect(page.getByText(`s${tag} · Staff`)).toBeVisible();
+
+    // She makes an assistant manager; only the owner makes full managers.
+    const role = page.getByRole("combobox", { name: "Role", exact: true });
+    await role.tap();
+    await expect(page.getByRole("option")).toHaveText(["Staff", "Assistant manager"]);
+    await page.getByRole("option", { name: "Assistant manager" }).tap();
+    await add("Ada Assistant", `a${tag}`);
+    await expect(page.getByText(`a${tag} · Assistant manager`)).toBeVisible();
     await expectFitsScreen(page);
     await context.close();
   });
@@ -460,8 +470,8 @@ test.describe("dropdowns", () => {
     await role.tap();
     await expect(page.getByRole("option", { name: "Staff" })).toHaveAttribute("aria-selected", "true");
     await testInfo.attach("role dropdown open", { body: await page.screenshot(), contentType: "image/png" }); // fullPage would resize and close it
-    await page.getByRole("option", { name: "Manager" }).tap();
-    await expect(role).toHaveText("Manager");
+    await page.getByRole("option", { name: "Assistant manager" }).tap();
+    await expect(role).toHaveText("Assistant manager");
     await expect(page.getByRole("listbox")).toBeHidden();
 
     await role.focus();

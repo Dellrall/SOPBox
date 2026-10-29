@@ -1,5 +1,6 @@
-"""Workspaces and the people in them. The owner creates and manages everyone else; a manager tied to
-an outlet adds and looks after the staff at that outlet."""
+"""Workspaces and the people in them. The owner (HQ) creates and manages everyone. A manager tied to
+an outlet adds staff there, looks after them, and makes or unmakes assistant managers; an assistant
+manager adds and looks after the staff too, but cannot disable anyone."""
 
 from datetime import datetime, timezone
 
@@ -26,10 +27,12 @@ from app.models import (
 _USER_COLUMNS = (
     "id, username, email, display_name, role, section_access, active, created_at, "
     "telegram_id IS NOT NULL AS telegram_linked, team_group_removed_until, security_alerts, "
-    "totp_secret IS NOT NULL AS mfa_enabled, can_export, outlet_id"
+    "totp_secret IS NOT NULL AS mfa_enabled, can_export, outlet_id, assistant"
 )
-# What an outlet's manager may change for their staff; the rest stays with the owner.
-_MANAGER_FIELDS = {"display_name", "email", "active", "password", "section_access"}
+# What an outlet's assistant manager may change for its staff; the outlet manager may also disable
+# people and move them between staff and assistant manager. The rest stays with the owner.
+_ASSISTANT_FIELDS = {"display_name", "email", "password", "section_access"}
+_MANAGER_FIELDS = _ASSISTANT_FIELDS | {"active", "role", "assistant"}
 
 
 def _now() -> str:
@@ -69,17 +72,18 @@ def _insert_user(
     email: str | None,
     section_access: dict[str, str] | None = None,
     outlet_id: int | None = None,
+    assistant: bool = False,
 ) -> int:
     try:
         with conn.transaction():
             return conn.execute(
                 "INSERT INTO users (workspace_id, username, email, display_name, role, "
-                "section_access, password_hash, created_at, outlet_id) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                "section_access, password_hash, created_at, outlet_id, assistant) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                 (
                     workspace_id, username, email, display_name, role,
                     Jsonb(section_access) if section_access is not None else Jsonb({}),
-                    auth.hash_password(password), _now(), outlet_id,
+                    auth.hash_password(password), _now(), outlet_id, assistant,
                 ),
             ).fetchone()["id"]
     except psycopg.errors.UniqueViolation as err:
@@ -186,20 +190,29 @@ def list_users(conn: psycopg.Connection, actor: CurrentUser) -> list[UserOut]:
     return [UserOut(**r) for r in rows]
 
 
+def _title(role: str, assistant: bool) -> str:
+    return "assistant manager" if role == "manager" and assistant else role
+
+
 def create_user(conn: psycopg.Connection, actor: CurrentUser, data: UserCreateIn) -> UserOut:
+    if data.assistant and data.role != "manager":
+        raise InvalidRequestError("only a manager can be an assistant manager")
     outlet = _managed_outlet(actor)
     if outlet is not None:
-        if data.role != "staff":
-            raise ForbiddenError("only the owner can add managers")
-        data.outlet_id = outlet  # a manager adds staff to their own outlet
+        # The outlet manager adds staff and assistant managers; an assistant manager adds staff.
+        if data.role == "manager" and not data.assistant:
+            raise ForbiddenError("only the owner adds outlet managers")
+        if data.role == "manager" and actor.assistant:
+            raise ForbiddenError("only the outlet manager adds assistant managers")
+        data.outlet_id = outlet  # always to their own outlet
     _check_outlet(conn, actor.workspace_id, data.outlet_id)
     user_id = _insert_user(
         conn, actor.workspace_id, data.username, data.display_name, data.role, data.password,
-        data.email, data.section_access.model_dump(), data.outlet_id,
+        data.email, data.section_access.model_dump(), data.outlet_id, data.assistant,
     )
     audit(
         conn, actor.workspace_id, actor.display_name, "user.created", None,
-        f"{data.username} ({data.role})",
+        f"{data.username} ({_title(data.role, data.assistant)})",
     )
     return get_user(conn, actor.workspace_id, user_id)
 
@@ -221,8 +234,11 @@ def update_user(
     if target.role == "owner":
         raise InvalidRequestError("the owner account cannot be changed here")
     outlet = _managed_outlet(owner)
-    if outlet is not None and (target.role != "staff" or target.outlet_id != outlet):
-        raise ForbiddenError("you can only change the staff at your outlet")
+    if outlet is not None:
+        # The outlet manager looks after its staff and assistant managers; an assistant manager, its staff.
+        mine = target.role == "staff" or (target.assistant and not owner.assistant)
+        if target.outlet_id != outlet or not mine or target.id == owner.id:
+            raise ForbiddenError("you can only change the staff at your outlet")
     # Only what actually changes is written and logged: a repeated click records nothing.
     current = target.model_dump()
     changes = {
@@ -231,8 +247,19 @@ def update_user(
     }
     if "outlet_id" in data.model_fields_set and data.outlet_id != target.outlet_id:
         changes["outlet_id"] = data.outlet_id  # null clears it
-    if outlet is not None and changes.keys() - _MANAGER_FIELDS:
-        raise ForbiddenError("only the owner can change that")
+    if outlet is not None and changes.keys() - (_ASSISTANT_FIELDS if owner.assistant else _MANAGER_FIELDS):
+        raise ForbiddenError("only the outlet manager can do that" if owner.assistant else "only the owner can change that")
+    # Staff are never assistants; an outlet's manager only moves people between staff and assistant manager.
+    role = changes.get("role", target.role)
+    if data.assistant and role != "manager":
+        raise InvalidRequestError("only a manager can be an assistant manager")
+    promoted = outlet is not None and "role" in changes
+    assistant = role == "manager" and (target.assistant or promoted if data.assistant is None else data.assistant)
+    if outlet is not None and role == "manager" and not assistant:
+        raise ForbiddenError("only the owner makes outlet managers")
+    changes.pop("assistant", None)
+    if assistant != target.assistant:
+        changes["assistant"] = assistant
     if "outlet_id" in changes:
         _check_outlet(conn, owner.workspace_id, changes["outlet_id"])
     resulting_role = changes.get("role", target.role)
@@ -266,6 +293,8 @@ def _apply_user_changes(
             )
         if changes.get("mfa_reset"):
             mfa.reset(conn, user_id)
+        if "assistant" in changes:
+            conn.execute("UPDATE users SET assistant = %s WHERE id = %s", (changes["assistant"], user_id))
         if "outlet_id" in changes:
             conn.execute("UPDATE users SET outlet_id = %s WHERE id = %s", (changes["outlet_id"], user_id))
         if "can_export" in changes:
@@ -301,8 +330,8 @@ def _describe(changes: dict) -> str:
         parts.append("may download data" if changes["can_export"] else "may no longer download data")
     if "security_alerts" in changes:
         parts.append("gets security alerts" if changes["security_alerts"] else "no longer gets security alerts")
-    if "role" in changes:
-        parts.append(f"role set to {changes['role']}")
+    if "role" in changes or "assistant" in changes:
+        parts.append(f"role set to {_title(changes.get('role', 'manager'), changes.get('assistant', False))}")
     if "display_name" in changes:
         parts.append(f"name set to {changes['display_name']}")
     if "email" in changes:
