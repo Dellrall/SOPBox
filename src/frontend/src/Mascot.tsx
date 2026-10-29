@@ -272,12 +272,18 @@ export function MascotFigure({ who, action, size = 72, paw = 0 }: { who: Who; ac
   );
 }
 
+/** Narrow phones: the helper is smaller and its messages start folded away, so it covers less. */
+const smallScreen = () => window.innerWidth < 400;
+
+/** The person's own choice when they made one; otherwise folded away on small phones. */
 function readTucked() {
   try {
-    return localStorage.getItem("sopbox-mascot-tucked") === "1";
+    const saved = localStorage.getItem("sopbox-mascot-tucked");
+    if (saved) return saved === "1";
   } catch {
-    return false;
+    /* no saved choice */
   }
+  return smallScreen();
 }
 
 const IDLE_MS = 20_000;
@@ -522,7 +528,7 @@ export function MascotDock({ fallback, go }: { fallback: Scene; go: (page: PageI
         aria-label={target ? "Open what the helper is pointing at" : "The helper (right-click to pet)"}
         title={target ? "Click to go there · right-click to pet me" : "Right-click to pet me!"}
       >
-        <MascotFigure who={scene.who} action={action} paw={paw} size={tucked ? 48 : 64} />
+        <MascotFigure who={scene.who} action={action} paw={paw} size={tucked || smallScreen() ? 48 : 64} />
       </button>
     </div>
     </>
