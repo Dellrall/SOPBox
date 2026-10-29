@@ -1,5 +1,6 @@
 import hmac
 import html
+from dataclasses import replace
 import logging
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
@@ -15,12 +16,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, hq, locations, sales, stocktakes
+from app import apikeys, hq, locations, mfa, notifications, sales, stocktakes
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
 from app.db import close_pool, get_db, init_db
 from app.errors import (
+    MfaRequiredError,
     AuthError,
     ConflictError,
     ExtractionError,
@@ -31,6 +33,9 @@ from app.errors import (
 )
 from app.extraction import extract_lines, extract_products, write_sop
 from app.models import (
+    MfaCodeIn,
+    MfaEnabledOut,
+    MfaSetupOut,
     UsernameCheck,
     ApiKeyCreated,
     ApiKeyIn,
@@ -176,6 +181,35 @@ async def add_response_headers(request: Request, call_next):
 Conn = Annotated[psycopg.Connection, Depends(get_db)]
 
 
+def dangerous(action: str):
+    """For actions that are hard to undo: needs a fresh authenticator code (mfa.require_fresh), and
+    once the action succeeded tells the owner and the people picked for security alerts. `action`
+    finishes the sentence "<name> ...", e.g. "made an API key". scope="function" runs the part after
+    `yield` before the response, while the database connection is still open; an action that fails
+    raises at the `yield`, so it is not announced."""
+
+    def check(user: auth.User, conn: Conn, background: BackgroundTasks):
+        mfa.require_fresh(user)
+        yield
+        body, chats = mfa.alert(conn, user, action)
+        for chat in chats:
+            background.add_task(notifications.send_telegram, chat, f"SOPBox security ({user.workspace_name}): {body}")
+
+    return Depends(check, scope="function")
+
+
+def _client(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _sign_in_limit(request: Request) -> None:
+    """Every way in, per address: plenty for a shared kitchen, too few for guessing."""
+    auth.limit("sign-in", _client(request), 60, 60)
+
+
+SignInLimit = Depends(_sign_in_limit)
+
+
 class ExtractRequest(BaseModel):
     # About 10 MB of image once base64 encoded. The frontend downsizes photos before sending.
     image_b64: str = Field(min_length=1, max_length=14_000_000)
@@ -235,6 +269,7 @@ for _exc, _code in [
     (InvalidRequestError, 422),
     (ExtractionError, 502),
     (RateLimitError, 429),
+    (MfaRequiredError, 428),
     (AuthError, 401),
     (ForbiddenError, 403),
 ]:
@@ -292,6 +327,9 @@ def _me(conn: psycopg.Connection, user: CurrentUser) -> Me:
         role=user.role,
         section_access=user.section_access,
         workspace=WorkspaceRef(id=user.workspace_id, name=user.workspace_name),
+        mfa_enabled=user.mfa_enabled,
+        mfa_pending=user.mfa_pending,
+        mfa_setup_needed=not user.mfa_enabled and mfa.required(user.mfa_policy, user.role),
         workspaces=[
             WorkspaceChoice(id=user.workspace_id, name=user.workspace_name, role=user.role),
             *(
@@ -313,8 +351,8 @@ def register(body: RegisterIn, request: Request, response: Response, conn: Conn)
 def _signed_in(
     conn: psycopg.Connection, request: Request, response: Response, user_id: int, method: str, **session
 ) -> Me:
-    auth.start_session(conn, request, response, user_id, method, **session)
-    return _me(conn, auth.get_me(conn, user_id))
+    pending = auth.start_session(conn, request, response, user_id, method, **session)
+    return _me(conn, replace(auth.get_me(conn, user_id), mfa_pending=pending))
 
 
 @app.get("/api/auth/username-available", response_model=UsernameCheck)
@@ -325,7 +363,7 @@ def username_available(username: Annotated[str, Query(max_length=254)], request:
     return accounts.username_available(conn, username, user.id if user else None)
 
 
-@app.post("/api/auth/login", response_model=Me)
+@app.post("/api/auth/login", dependencies=[SignInLimit], response_model=Me)
 def login(body: LoginIn, request: Request, response: Response, conn: Conn):
     user_id = accounts.authenticate(conn, body.username, body.password)
     return _signed_in(conn, request, response, user_id, "password")
@@ -334,6 +372,36 @@ def login(body: LoginIn, request: Request, response: Response, conn: Conn):
 @app.post("/api/auth/logout", status_code=204)
 def logout(request: Request, response: Response, conn: Conn) -> None:
     auth.end_session(conn, request, response)
+
+
+def _signing_in(request: Request, conn: Conn) -> CurrentUser:
+    """The signed-in user, even while the session still waits for an authenticator code."""
+    user = auth.optional_user(request, conn)
+    if user is None:
+        raise AuthError("sign in to continue")
+    auth.act_as(conn, user)
+    return user
+
+
+@app.post("/api/auth/mfa/setup", response_model=MfaSetupOut)
+def mfa_setup(user: User, conn: Conn):
+    return mfa.setup(conn, user)
+
+
+@app.post("/api/auth/mfa/enable", response_model=MfaEnabledOut)
+def mfa_enable(body: MfaCodeIn, user: User, conn: Conn):
+    return mfa.enable(conn, user, body.code)
+
+
+@app.post("/api/auth/mfa/verify", response_model=Me, dependencies=[SignInLimit])
+def mfa_verify(body: MfaCodeIn, user: Annotated[CurrentUser, Depends(_signing_in)], conn: Conn):
+    mfa.verify(conn, user, body.code)
+    return _me(conn, replace(user, mfa_pending=False, mfa_fresh=True))
+
+
+@app.delete("/api/auth/mfa", status_code=204, dependencies=[dangerous("turned off two-step sign-in")])
+def mfa_disable(user: User, conn: Conn) -> None:
+    mfa.disable(conn, user)
 
 
 @app.get("/api/auth/me", response_model=Me)
@@ -348,13 +416,13 @@ def session(request: Request, conn: Conn):
     return _me(conn, user) if user else None
 
 
-@app.patch("/api/auth/me", response_model=Me)
+@app.patch("/api/auth/me", dependencies=[dangerous("changed their profile")], response_model=Me)
 def update_me(body: ProfileUpdateIn, user: User, conn: Conn):
     accounts.update_profile(conn, user, body)
     return _me(conn, auth.get_me(conn, user.id))
 
 
-@app.post("/api/auth/password", status_code=204)
+@app.post("/api/auth/password", dependencies=[dangerous("changed their password")], status_code=204)
 def change_password(body: PasswordChangeIn, request: Request, user: User, conn: Conn) -> None:
     accounts.change_own_password(
         conn, user, body.current_password, body.new_password, request.cookies.get(auth.COOKIE)
@@ -396,31 +464,31 @@ def passkey_register_options(request: Request, response: Response, user: User, c
     return passkeys.registration_options(conn, request, response, user)
 
 
-@app.post("/api/auth/passkeys", response_model=PasskeyOut, status_code=201)
+@app.post("/api/auth/passkeys", dependencies=[dangerous("added a passkey")], response_model=PasskeyOut, status_code=201)
 def add_passkey(body: PasskeyRegisterIn, request: Request, response: Response, user: User, conn: Conn):
     added = passkeys.register(conn, request, response, user, body.credential, body.name)
     _security_event(conn, user, f"Added a passkey for {added.name}")
     return added
 
 
-@app.delete("/api/auth/passkeys/{passkey_id}", status_code=204)
+@app.delete("/api/auth/passkeys/{passkey_id}", dependencies=[dangerous("removed a passkey")], status_code=204)
 def remove_passkey(passkey_id: int, user: User, conn: Conn) -> None:
     passkeys.remove(conn, user.id, passkey_id)
     _security_event(conn, user, "Removed a passkey")
 
 
-@app.post("/api/auth/passkeys/login-options")
+@app.post("/api/auth/passkeys/login-options", dependencies=[SignInLimit])
 def passkey_login_options(request: Request, response: Response, conn: Conn) -> dict:
     return passkeys.login_options(conn, request, response)
 
 
-@app.post("/api/auth/passkeys/login", response_model=Me)
+@app.post("/api/auth/passkeys/login", dependencies=[SignInLimit], response_model=Me)
 def passkey_login(body: PasskeyLoginIn, request: Request, response: Response, conn: Conn):
     user_id = passkeys.login(conn, request, response, body.credential)
     return _signed_in(conn, request, response, user_id, "passkey")
 
 
-@app.get("/api/auth/google/start")
+@app.get("/api/auth/google/start", dependencies=[SignInLimit])
 def google_start(request: Request, conn: Conn, mode: Literal["login", "link"] = "login"):
     """Send the browser to Google. Connecting ("link") needs the person to be signed in already."""
     back = "/settings" if mode == "link" else "/signin"
@@ -432,7 +500,7 @@ def google_start(request: Request, conn: Conn, mode: Literal["login", "link"] = 
     return redirect
 
 
-@app.get("/api/auth/google/callback")
+@app.get("/api/auth/google/callback", dependencies=[SignInLimit])
 def google_callback(request: Request, conn: Conn, code: str = "", state: str = ""):
     """Google sends the browser back here. Errors go back to the page as a short code, never as text."""
     redirect = RedirectResponse("/", status_code=303)
@@ -462,13 +530,13 @@ def google_callback(request: Request, conn: Conn, code: str = "", state: str = "
     return redirect
 
 
-@app.post("/api/auth/telegram/login", response_model=Me)
+@app.post("/api/auth/telegram/login", dependencies=[SignInLimit], response_model=Me)
 def telegram_login(body: TelegramAuthIn, request: Request, response: Response, conn: Conn):
     user_id = sso.telegram_login(conn, body.model_dump())
     return _signed_in(conn, request, response, user_id, "telegram")
 
 
-@app.post("/api/auth/telegram/link", status_code=204)
+@app.post("/api/auth/telegram/link", dependencies=[dangerous("linked Telegram sign-in")], status_code=204)
 def telegram_link(body: TelegramAuthIn, background: BackgroundTasks, user: User, conn: Conn) -> None:
     sso.telegram_link(conn, user, body.model_dump())
     _security_event(conn, user, "Connected Telegram sign-in")
@@ -481,7 +549,7 @@ def _send_invites(background: BackgroundTasks, invites: list[tuple[str, str] | N
         background.add_task(send_telegram, *invite)
 
 
-@app.delete("/api/auth/{provider}", status_code=204)
+@app.delete("/api/auth/{provider}", dependencies=[dangerous("unlinked a sign-in method")], status_code=204)
 def unlink_provider(provider: Literal["google", "telegram"], background: BackgroundTasks, user: User, conn: Conn) -> None:
     if provider == "telegram":
         # Out of the team group: that Telegram account is no longer known to be this person.
@@ -493,7 +561,7 @@ def unlink_provider(provider: Literal["google", "telegram"], background: Backgro
     _security_event(conn, user, f"Disconnected {provider.title()} sign-in")
 
 
-@app.put("/api/auth/pin", status_code=204)
+@app.put("/api/auth/pin", dependencies=[dangerous("changed their kitchen PIN")], status_code=204)
 def set_pin(body: PinIn, user: User, conn: Conn) -> None:
     kitchen.set_pin(conn, user, body.pin)
     _security_event(conn, user, "Set a kitchen tablet PIN" if body.pin else "Removed their kitchen tablet PIN")
@@ -505,7 +573,7 @@ def kitchen_screen(request: Request, conn: Conn):
     return kitchen.screen(conn, request)
 
 
-@app.post("/api/auth/kitchen/login", response_model=Me)
+@app.post("/api/auth/kitchen/login", dependencies=[SignInLimit], response_model=Me)
 def kitchen_login(body: KitchenLoginIn, request: Request, response: Response, conn: Conn):
     user_id = kitchen.login(conn, request, body.user_id, body.pin)
     return _signed_in(conn, request, response, user_id, "kitchen_pin", days=kitchen.SESSION_DAYS)
@@ -516,7 +584,7 @@ def list_kitchen_devices(request: Request, user: ManagerUp, conn: Conn):
     return kitchen.list_devices(conn, request, user.workspace_id)
 
 
-@app.post("/api/kitchen-devices", response_model=KitchenDeviceOut, status_code=201)
+@app.post("/api/kitchen-devices", dependencies=[dangerous("set up a kitchen tablet")], response_model=KitchenDeviceOut, status_code=201)
 def add_kitchen_device(body: KitchenDeviceIn, response: Response, user: ManagerUp, conn: Conn):
     """Mark this browser as a kitchen tablet for the workspace."""
     device = kitchen.register_device(conn, response, user, body.name)
@@ -524,7 +592,7 @@ def add_kitchen_device(body: KitchenDeviceIn, response: Response, user: ManagerU
     return device
 
 
-@app.delete("/api/kitchen-devices/{device_id}", status_code=204)
+@app.delete("/api/kitchen-devices/{device_id}", dependencies=[dangerous("removed a kitchen tablet")], status_code=204)
 def remove_kitchen_device(device_id: int, user: ManagerUp, conn: Conn) -> None:
     kitchen.remove_device(conn, user.workspace_id, device_id)
     _security_event(conn, user, "Removed a kitchen tablet")
@@ -538,12 +606,12 @@ def list_users(owner: OwnerOnly, conn: Conn):
     return accounts.list_users(conn, owner)
 
 
-@app.post("/api/users", response_model=UserOut, status_code=201)
+@app.post("/api/users", dependencies=[dangerous("added a person to the team")], response_model=UserOut, status_code=201)
 def create_user(body: UserCreateIn, owner: OwnerOnly, conn: Conn):
     return accounts.create_user(conn, owner, body)
 
 
-@app.patch("/api/users/{user_id}", response_model=UserOut)
+@app.patch("/api/users/{user_id}", dependencies=[dangerous("changed a teammate's account")], response_model=UserOut)
 def update_user(user_id: int, body: UserUpdateIn, background: BackgroundTasks, owner: OwnerOnly, conn: Conn):
     was_active = accounts.get_user(conn, owner.workspace_id, user_id).active
     updated = accounts.update_user(conn, owner, user_id, body)
@@ -559,7 +627,7 @@ def update_user(user_id: int, body: UserUpdateIn, background: BackgroundTasks, o
     return updated
 
 
-@app.put("/api/workspace/team-group", response_model=WorkspaceSettings)
+@app.put("/api/workspace/team-group", dependencies=[dangerous("connected a Telegram team group")], response_model=WorkspaceSettings)
 def connect_team_group(body: TeamGroupIn, request: Request, background: BackgroundTasks, owner: OwnerOnly, conn: Conn):
     """Connect the workspace's Telegram team group. Everyone with Telegram connected gets the link."""
     ws = team_group.connect(conn, owner, body.chat_id, _origin(request))
@@ -567,12 +635,12 @@ def connect_team_group(body: TeamGroupIn, request: Request, background: Backgrou
     return ws
 
 
-@app.delete("/api/workspace/team-group", response_model=WorkspaceSettings)
+@app.delete("/api/workspace/team-group", dependencies=[dangerous("disconnected the Telegram team group")], response_model=WorkspaceSettings)
 def disconnect_team_group(owner: OwnerOnly, conn: Conn):
     return team_group.disconnect(conn, owner)
 
 
-@app.post("/api/users/{user_id}/team-group/remove", response_model=UserOut)
+@app.post("/api/users/{user_id}/team-group/remove", dependencies=[dangerous("removed a teammate from the Telegram team group")], response_model=UserOut)
 def remove_from_team_group(user_id: int, body: TeamGroupRemoveIn, owner: OwnerOnly, conn: Conn):
     team_group.remove(conn, owner, user_id, body.hours)
     return accounts.get_user(conn, owner.workspace_id, user_id)
@@ -599,7 +667,7 @@ def get_workspace(owner: OwnerOnly, conn: Conn):
     return accounts.get_workspace(conn, owner.workspace_id)
 
 
-@app.patch("/api/workspace", response_model=WorkspaceSettings)
+@app.patch("/api/workspace", dependencies=[dangerous("changed the workspace settings")], response_model=WorkspaceSettings)
 def update_workspace(body: WorkspaceUpdateIn, owner: OwnerOnly, conn: Conn):
     return accounts.update_workspace(conn, owner, body)
 
@@ -672,7 +740,7 @@ def update_category(category_id: int, body: CategoryIn, user: ProductEditor, con
     return catalogue.update_category(conn, user.workspace_id, category_id, body)
 
 
-@app.delete("/api/categories/{category_id}", status_code=204)
+@app.delete("/api/categories/{category_id}", dependencies=[dangerous("deleted a category")], status_code=204)
 def delete_category(category_id: int, user: ProductEditor, conn: Conn) -> None:
     catalogue.delete_category(conn, user.workspace_id, category_id)
 
@@ -698,7 +766,7 @@ def update_product(product_id: int, body: ProductIn, user: ProductEditor, conn: 
     return catalogue.update_product(conn, user.workspace_id, product_id, body)
 
 
-@app.post("/api/products/bulk", response_model=list[Product], status_code=201)
+@app.post("/api/products/bulk", dependencies=[dangerous("imported products from a sheet")], response_model=list[Product], status_code=201)
 def create_products(body: ProductsBulkIn, user: ProductEditor, conn: Conn):
     """Add several reviewed products together: all of them, or none if one is not valid."""
     return catalogue.create_products(conn, user.workspace_id, body.products)
@@ -743,7 +811,7 @@ def archive_product(product_id: int, body: ArchiveIn, user: ProductEditor, conn:
     return catalogue.set_archived(conn, user.workspace_id, product_id, body.archived)
 
 
-@app.delete("/api/products/{product_id}", status_code=204)
+@app.delete("/api/products/{product_id}", dependencies=[dangerous("archived a product")], status_code=204)
 def delete_product(product_id: int, user: ProductEditor, conn: Conn) -> None:
     catalogue.delete_product(conn, user.workspace_id, product_id)
 
@@ -999,7 +1067,7 @@ def rename_outlet(outlet_id: int, body: NameIn, user: ManagerUp, conn: Conn):
     return locations.rename_outlet(conn, user.workspace_id, user.display_name, outlet_id, body.name)
 
 
-@app.delete("/api/outlets/{outlet_id}", response_model=list[OutletOut])
+@app.delete("/api/outlets/{outlet_id}", dependencies=[dangerous("deleted an outlet")], response_model=list[OutletOut])
 def delete_outlet(outlet_id: int, user: ManagerUp, conn: Conn):
     return locations.delete_outlet(conn, user.workspace_id, user.display_name, outlet_id)
 
@@ -1014,7 +1082,7 @@ def rename_storage(storage_id: int, body: NameIn, user: ManagerUp, conn: Conn):
     return locations.rename_storage(conn, user.workspace_id, user.display_name, storage_id, body.name)
 
 
-@app.delete("/api/storages/{storage_id}", response_model=list[OutletOut])
+@app.delete("/api/storages/{storage_id}", dependencies=[dangerous("deleted a storage area")], response_model=list[OutletOut])
 def delete_storage(storage_id: int, user: ManagerUp, conn: Conn):
     return locations.delete_storage(conn, user.workspace_id, user.display_name, storage_id)
 
@@ -1059,7 +1127,7 @@ def list_sales(user: StocktakeReader, conn: Conn):
     return sales.list_sales(conn, user.workspace_id)
 
 
-@app.post("/api/sales", response_model=SaleOut, status_code=201)
+@app.post("/api/sales", dependencies=[dangerous("recorded uploaded sales")], response_model=SaleOut, status_code=201)
 def create_sale(body: SaleIn, user: StocktakeEditor, conn: Conn):
     return sales.create_sale(conn, user.workspace_id, user.display_name, body)
 
@@ -1072,22 +1140,22 @@ def workspace_links(owner: OwnerOnly, conn: Conn):
     return hq.links(conn, owner.workspace_id)
 
 
-@app.post("/api/workspace/link-codes", response_model=LinkCodeOut, status_code=201)
+@app.post("/api/workspace/link-codes", dependencies=[dangerous("made an HQ branch link code")], response_model=LinkCodeOut, status_code=201)
 def create_link_code(owner: OwnerOnly, conn: Conn):
     return hq.create_code(conn, owner)
 
 
-@app.post("/api/workspace/hq", response_model=LinksOut)
+@app.post("/api/workspace/hq", dependencies=[dangerous("linked this workspace to an HQ")], response_model=LinksOut)
 def join_hq(body: LinkCodeIn, owner: OwnerOnly, conn: Conn):
     return hq.join(conn, owner, body.code)
 
 
-@app.delete("/api/workspace/hq", response_model=LinksOut)
+@app.delete("/api/workspace/hq", dependencies=[dangerous("unlinked this workspace from its HQ")], response_model=LinksOut)
 def leave_hq(owner: OwnerOnly, conn: Conn):
     return hq.leave(conn, owner)
 
 
-@app.delete("/api/workspace/branches/{branch_id}", response_model=LinksOut)
+@app.delete("/api/workspace/branches/{branch_id}", dependencies=[dangerous("unlinked a branch")], response_model=LinksOut)
 def remove_branch(branch_id: int, owner: OwnerOnly, conn: Conn):
     return hq.remove_branch(conn, owner, branch_id)
 
@@ -1100,12 +1168,12 @@ def list_api_keys(user: ManagerUp, conn: Conn):
     return apikeys.list_keys(conn, user.workspace_id)
 
 
-@app.post("/api/api-keys", response_model=ApiKeyCreated, status_code=201)
+@app.post("/api/api-keys", dependencies=[dangerous("made an API key for the till")], response_model=ApiKeyCreated, status_code=201)
 def create_api_key(body: ApiKeyIn, user: ManagerUp, conn: Conn):
     return apikeys.create_key(conn, user, body)
 
 
-@app.delete("/api/api-keys/{key_id}", response_model=list[ApiKeyOut])
+@app.delete("/api/api-keys/{key_id}", dependencies=[dangerous("revoked an API key")], response_model=list[ApiKeyOut])
 def revoke_api_key(key_id: int, user: ManagerUp, conn: Conn):
     return apikeys.revoke_key(conn, user, key_id)
 

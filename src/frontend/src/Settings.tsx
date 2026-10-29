@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Copy } from "lucide-react";
 import { api } from "./api";
 import { ApiKeys } from "./ApiKeys";
+import { SecurityPolicy, TwoStep } from "./Mfa";
 import { HqLinks, Outlets } from "./Places";
 import { KitchenTablets, SignInSecurity } from "./Security";
 import { setStocktakeStartsExpanded, stocktakeStartsExpanded } from "./Stocktake";
@@ -329,11 +330,13 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
     <div className="space-y-5">
       <PageTitle title="Settings" subtitle="Your profile, how you sign in and, for owners, the workspace." />
       <Profile me={me} onChanged={onMeChanged} />
+      <TwoStep me={me} onChanged={() => void api.session().then((m) => m && onMeChanged(m))} />
       <SignInSecurity />
       <Display />
       <Password />
       {me.role !== "staff" && <KitchenTablets />}
       {me.role === "owner" && <Workspace />}
+      {me.role === "owner" && <SecurityPolicy />}
       {me.role === "owner" && <TeamGroup />}
       {me.role !== "staff" && <Outlets />}
       {me.role === "owner" && <HqLinks />}

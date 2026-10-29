@@ -24,7 +24,8 @@ from app.models import (
 
 _USER_COLUMNS = (
     "id, username, email, display_name, role, section_access, active, created_at, "
-    "telegram_id IS NOT NULL AS telegram_linked, team_group_removed_until"
+    "telegram_id IS NOT NULL AS telegram_linked, team_group_removed_until, security_alerts, "
+    "totp_secret IS NOT NULL AS mfa_enabled"
 )
 
 
@@ -219,6 +220,10 @@ def _apply_user_changes(
                 "UPDATE users SET section_access = %s WHERE id = %s",
                 (Jsonb(changes["section_access"]), user_id),
             )
+        if "security_alerts" in changes:
+            conn.execute(
+                "UPDATE users SET security_alerts = %s WHERE id = %s", (changes["security_alerts"], user_id)
+            )
         if "active" in changes:
             conn.execute("UPDATE users SET active = %s WHERE id = %s", (changes["active"], user_id))
         if "password" in changes:
@@ -240,6 +245,8 @@ def _describe(changes: dict) -> str:
     parts = []
     if "active" in changes:
         parts.append("enabled" if changes["active"] else "disabled")
+    if "security_alerts" in changes:
+        parts.append("gets security alerts" if changes["security_alerts"] else "no longer gets security alerts")
     if "role" in changes:
         parts.append(f"role set to {changes['role']}")
     if "display_name" in changes:
@@ -259,7 +266,7 @@ def _describe(changes: dict) -> str:
 def get_workspace(conn: psycopg.Connection, workspace_id: int) -> WorkspaceSettings:
     row = conn.execute(
         "SELECT id, name, telegram_manager_chat_id, telegram_staff_chat_id, telegram_team_chat_id, "
-        "telegram_team_title, telegram_team_invite_link FROM workspaces "
+        "telegram_team_title, telegram_team_invite_link, mfa_policy FROM workspaces "
         "WHERE id = %s",
         (workspace_id,),
     ).fetchone()

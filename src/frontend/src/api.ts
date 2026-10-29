@@ -87,7 +87,14 @@ export const setBranch = (id: number | null) => {
 };
 const branchHeader = (): Record<string, string> => (branchId === null ? {} : { "X-SOPBox-Workspace": String(branchId) });
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+// Asked when the server wants a fresh authenticator code (HTTP 428): shows the code box and
+// resolves true once a code was accepted, so the request is sent again once.
+let askForCode: () => Promise<boolean> = async () => false;
+export const setCodeHandler = (fn: () => Promise<boolean>) => {
+  askForCode = fn;
+};
+
+async function request<T>(method: string, path: string, body?: unknown, retry = true): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
     headers: { ...branchHeader(), ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
@@ -96,6 +103,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (!res.ok) {
     // A wrong password is also a 401, but that is not a lost session.
     if (res.status === 401 && !path.startsWith("/auth/login")) onSignedOut();
+    if (res.status === 428 && retry && !path.startsWith("/auth/mfa/") && (await askForCode())) return request<T>(method, path, body, false);
     throw new ApiError(res.status, await errorMessage(res));
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
@@ -134,6 +142,10 @@ export const api = {
   login: (username: string, password: string) => post<Me>("/auth/login", { username, password }),
   register: (body: RegisterIn) => post<Me>("/auth/register", body),
   logout: () => post<void>("/auth/logout"),
+  mfaSetup: () => post<{ secret: string; uri: string }>("/auth/mfa/setup"),
+  mfaEnable: (code: string) => post<{ backup_codes: string[] }>("/auth/mfa/enable", { code }),
+  mfaVerify: (code: string) => post<Me>("/auth/mfa/verify", { code }),
+  mfaDisable: () => request<void>("DELETE", "/auth/mfa"),
   usernameAvailable: (username: string) =>
     get<{ username: string; available: boolean; problem: string }>(`/auth/username-available?username=${encodeURIComponent(username)}`),
   updateProfile: (body: ProfileUpdateIn) => patch<Me>("/auth/me", body),
@@ -167,7 +179,7 @@ export const api = {
   disconnectTeamGroup: () => request<WorkspaceSettings>("DELETE", "/workspace/team-group"),
   removeFromTeamGroup: (id: number, hours: 1 | 24 | 168 | null) => post<UserOut>(`/users/${id}/team-group/remove`, { hours }),
   letBackIntoTeamGroup: (id: number) => post<UserOut>(`/users/${id}/team-group/let-back`),
-  updateWorkspace: (body: Partial<Pick<WorkspaceSettings, "name" | "telegram_manager_chat_id" | "telegram_staff_chat_id">>) =>
+  updateWorkspace: (body: Partial<Pick<WorkspaceSettings, "name" | "telegram_manager_chat_id" | "telegram_staff_chat_id" | "mfa_policy">>) =>
     patch<WorkspaceSettings>("/workspace", body),
 
   // catalogue

@@ -16,12 +16,14 @@ from fastapi import Depends, Request
 
 from app import locations, sales
 from app.auditlog import audit
+from app import auth
 from app.auth import CurrentUser, token_digest
 from app.db import get_db, scope_to_workspace
 from app.errors import AuthError, InvalidRequestError, NotFoundError
 from app.models import ApiKeyCreated, ApiKeyIn, ApiKeyOut, ApiSaleIn, ApiSaleOut, SaleIn
 
 PREFIX = "sopbox_"
+PER_MINUTE = 60  # requests per key; a till stuck in a loop cannot flood the server
 
 
 def _now() -> str:
@@ -81,11 +83,12 @@ def key_client(request: Request, conn: Annotated[psycopg.Connection, Depends(get
     if scheme.lower() == "bearer" and token.startswith(PREFIX) and len(token) <= 100:
         row = conn.execute(
             "UPDATE api_keys SET last_used_at = %s WHERE token_hash = %s "
-            "RETURNING workspace_id, storage_id, name",
+            "RETURNING id, workspace_id, storage_id, name",
             (_now(), token_digest(token)),
         ).fetchone()
     if row is None:
         raise AuthError("send a valid API key as the header Authorization: Bearer <key>")
+    auth.limit("api-key", str(row.pop("id")), PER_MINUTE, 60)
     scope_to_workspace(conn, row["workspace_id"])
     return KeyClient(**row)
 

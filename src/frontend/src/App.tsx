@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { api, setBranch, setSignedOutHandler } from "./api";
+import { CodePrompt, MfaGate } from "./Mfa";
 import Activity from "./Activity";
 import Approvals from "./Approvals";
 import AuthPage from "./AuthPage";
@@ -143,21 +144,25 @@ export default function App() {
     if (path === "/") return <Landing navigate={navigate} />;
     return <AuthPage mode={path === "/register" ? "register" : "signin"} navigate={navigate} onSignedIn={signedIn} />;
   }
+  if (me.mfa_pending) return <MfaGate onDone={setMe} onSignOut={() => void api.logout().finally(() => setMe(null))} />;
   // In a branch, the pages see the branch and the role this person has there (see auth.in_branch).
   const choice = me.workspaces.find((w) => w.id === branch && w.id !== me.workspace.id);
   setBranch(choice?.id ?? null); // every API call from here on names the branch
   const working = choice ? { ...me, role: choice.role, workspace: { id: choice.id, name: choice.name } } : me;
   return (
-    <Shell
-      key={working.workspace.id}
-      me={working}
-      onMeChanged={setMe}
-      onSwitch={setBranchId}
-      onSignedOut={() => {
-        setBranchId(null);
-        setMe(null);
-      }}
-    />
+    <>
+      <CodePrompt />
+      <Shell
+        key={working.workspace.id}
+        me={working}
+        onMeChanged={setMe}
+        onSwitch={setBranchId}
+        onSignedOut={() => {
+          setBranchId(null);
+          setMe(null);
+        }}
+      />
+    </>
   );
 }
 

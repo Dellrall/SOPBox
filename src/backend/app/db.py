@@ -224,7 +224,7 @@ CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, id 
 -- New sign-ins from an unfamiliar device or method are announced in the inbox too.
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_kind_check;
 ALTER TABLE notifications ADD CONSTRAINT notifications_kind_check
-    CHECK (kind IN ('tagged', 'approval_needed', 'decided', 'comment', 'sign_in'));
+    CHECK (kind IN ('tagged', 'approval_needed', 'decided', 'comment', 'sign_in', 'security'));
 -- Other ways to sign in. Google and Telegram are linked by the person, from Settings, while
 -- signed in: an email typed into SOPBox is never trusted to prove who owns a Google account.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT;
@@ -382,6 +382,22 @@ CREATE TABLE IF NOT EXISTS api_keys (
     created_at TEXT NOT NULL,
     last_used_at TEXT
 );
+-- Two-step sign-in (see mfa.py): the authenticator app's secret, the last 30-second step used so a
+-- code works once, and one-time backup codes kept only as SHA-256. The owner's policy says who
+-- must use it; security_alerts marks who else hears about dangerous actions.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_pending_secret TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_last_step BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS security_alerts BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE TABLE IF NOT EXISTS mfa_backup_codes (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code_hash TEXT NOT NULL,
+    PRIMARY KEY (user_id, code_hash)
+);
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS mfa_pending BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS mfa_at TIMESTAMPTZ;
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS mfa_policy TEXT NOT NULL DEFAULT 'off'
+    CHECK (mfa_policy IN ('off', 'managers', 'everyone'));
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible

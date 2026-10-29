@@ -24,3 +24,7 @@ class AuthError(Exception):
 
 class ForbiddenError(Exception):
     """Signed in, but this role may not do that (HTTP 403)."""
+
+
+class MfaRequiredError(Exception):
+    """A code from the person's authenticator app is needed first (HTTP 428)."""
