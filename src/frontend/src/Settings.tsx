@@ -1,13 +1,29 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Copy } from "lucide-react";
 import { api } from "./api";
 import { ApiKeys } from "./ApiKeys";
 import { HqLinks, Outlets } from "./Places";
 import { KitchenTablets, SignInSecurity } from "./Security";
 import { setStocktakeStartsExpanded, stocktakeStartsExpanded } from "./Stocktake";
 import type { Me, WorkspaceSettings } from "./types";
+import { USERNAME_HINT, USERNAME_PATTERN, cleanUsername, usernameProblem } from "./username";
 import { ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
+/** A fixed id, like Discord's: names change, this never does. */
+function IdLine({ label, id }: { label: string; id: number }) {
+  return (
+    <p className="flex items-center gap-1 text-xs text-muted">
+      {label} <code className="font-mono text-ink">{id}</code>
+      <button type="button" aria-label={`Copy ${label}`} className="rounded p-1 hover:bg-brand-50" onClick={() => void navigator.clipboard?.writeText(String(id))}>
+        <Copy aria-hidden className="h-3.5 w-3.5" />
+      </button>
+      · never changes
+    </p>
+  );
+}
+
 function Profile({ me, onChanged }: { me: Me; onChanged: (me: Me) => void }) {
+  const [username, setUsername] = useState(me.username);
   const [name, setName] = useState(me.display_name);
   const [email, setEmail] = useState(me.email ?? "");
   const [error, setError] = useState("");
@@ -17,8 +33,9 @@ function Profile({ me, onChanged }: { me: Me; onChanged: (me: Me) => void }) {
     e.preventDefault();
     setError("");
     setDone(false);
+    if (usernameProblem(username)) return setError(`Username: ${usernameProblem(username)}`);
     try {
-      onChanged(await api.updateProfile({ display_name: name, email: email.trim() }));
+      onChanged(await api.updateProfile({ username, display_name: name, email: email.trim() }));
       setDone(true);
     } catch (err) {
       setError((err as Error).message);
@@ -30,10 +47,30 @@ function Profile({ me, onChanged }: { me: Me; onChanged: (me: Me) => void }) {
       <div>
         <SectionTitle>Your profile</SectionTitle>
         <p className="mt-1 text-sm text-muted">
-          {ROLE_LABEL[me.role]} at {me.workspace.name} · username <strong className="text-ink">{me.username}</strong>
+          {ROLE_LABEL[me.role]} at {me.workspace.name}
         </p>
+        <IdLine label="User ID" id={me.id} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelClass} htmlFor="me-username">
+            Username
+          </label>
+          <input
+            id="me-username"
+            required
+            minLength={3}
+            maxLength={32}
+            pattern={USERNAME_PATTERN}
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            className={inputClass}
+            value={username}
+            onChange={(e) => setUsername(cleanUsername(e.target.value).value)}
+          />
+          <p className="mt-1 text-xs text-muted">{USERNAME_HINT} You sign in with the new one after saving.</p>
+        </div>
         <div>
           <label className={labelClass} htmlFor="me-name">
             Name
@@ -133,7 +170,10 @@ function Workspace() {
   const set = (patch: Partial<WorkspaceSettings>) => setWs({ ...ws, ...patch });
   return (
     <form onSubmit={(e) => void submit(e)} className={`${cardClass} space-y-3`}>
-      <SectionTitle>Workspace</SectionTitle>
+      <div>
+        <SectionTitle>Workspace</SectionTitle>
+        <IdLine label="Workspace ID" id={ws.id} />
+      </div>
       <div>
         <label className={labelClass} htmlFor="ws-name">
           Business name

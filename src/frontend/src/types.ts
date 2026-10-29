@@ -91,7 +91,7 @@ export type RegisterIn = {
   password: string;
 };
 
-export type ProfileUpdateIn = { display_name?: string; email?: string };
+export type ProfileUpdateIn = { username?: string; display_name?: string; email?: string };
 
 export type WorkspaceSettings = {
   id: number;

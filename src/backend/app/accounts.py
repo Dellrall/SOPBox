@@ -95,9 +95,13 @@ def authenticate(conn: psycopg.Connection, login: str, password: str) -> int:
 
 
 def update_profile(conn: psycopg.Connection, user: CurrentUser, data: ProfileUpdateIn) -> None:
-    """Change your own name or email."""
+    """Change your own username, name or email."""
     try:
         with conn.transaction():
+            if data.username is not None and data.username != user.username:
+                conn.execute("UPDATE users SET username = %s WHERE id = %s", (data.username, user.id))
+                audit(conn, user.workspace_id, user.display_name, "account.username_changed", None,
+                      f"from {user.username} to {data.username}")
             if data.display_name is not None:
                 conn.execute(
                     "UPDATE users SET display_name = %s WHERE id = %s", (data.display_name, user.id)

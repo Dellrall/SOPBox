@@ -436,3 +436,28 @@ def test_invisible_characters_are_removed_from_text(client):
 def test_sop_text_keeps_its_line_breaks(client, catalogue_ids):
     body = {"name": "Nuggets", "category_id": catalogue_ids["frozen_category"], "base_unit": "pcs", "sop": "1. Check\r\n2. Store\t-18 C"}
     assert client.post("/api/products", json=body).json()["sop"] == "1. Check\n2. Store\t-18 C"
+
+
+def test_a_username_can_change_but_the_account_id_stays(client, _database):
+    before = client.get("/api/auth/me").json()
+    renamed = client.patch("/api/auth/me", json={"username": "Olive.Chef"})
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["username"] == "olive.chef" and renamed.json()["id"] == before["id"]
+    assert sign_in("olive.chef").get("/api/auth/me").json()["id"] == before["id"]
+    assert TestClient(app).post("/api/auth/login", json={"username": "olive", "password": PASSWORD}).status_code == 401
+    assert "account.username_changed" in [e["action"] for e in client.get("/api/audit").json()]
+
+    sign_up(workspace="Other Kitchen", username="otto")
+    taken = client.patch("/api/auth/me", json={"username": "OTTO"})
+    assert taken.status_code == 409 and "taken" in taken.json()["detail"]
+    assert client.patch("/api/auth/me", json={"username": "a b"}).status_code == 422
+
+
+def test_ids_cannot_be_changed_even_inside_the_database(_database):
+    """Ids are like Discord's: names change, ids never do. PostgreSQL refuses to update them."""
+    import psycopg
+
+    with psycopg.connect(_database, autocommit=True) as conn:
+        for table in ("workspaces", "users", "outlets", "storages", "products"):
+            with pytest.raises(psycopg.errors.GeneratedAlways):
+                conn.execute(f"UPDATE {table} SET id = 999999")
