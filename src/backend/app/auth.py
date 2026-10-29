@@ -298,6 +298,7 @@ class CurrentUser:
     mfa_enabled: bool = False
     mfa_policy: str = "off"  # the home workspace's: who must use two-step sign-in
     can_export: bool = False  # the owner allowed them to download data (owners always may)
+    outlet_id: int | None = None  # the outlet they work at, in their own workspace
     mfa_pending: bool = False  # this session still waits for an authenticator code
     mfa_fresh: bool = False  # a code was entered in the last few minutes (mfa.FRESH_MINUTES)
     session_hash: str = ""
@@ -306,7 +307,7 @@ class CurrentUser:
 def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
     row = conn.execute(
         "SELECT u.id, u.workspace_id, w.name AS workspace_name, w.public_id AS workspace_public_id, u.username, u.email, u.display_name, "
-        "u.role, u.section_access, s.sign_in_id, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy, u.can_export, "
+        "u.role, u.section_access, s.sign_in_id, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy, u.can_export, u.outlet_id, "
         "s.mfa_pending, COALESCE(s.mfa_at > now() - interval '10 minutes', false) AS mfa_fresh, "
         "s.token_hash AS session_hash "
         "FROM sessions s JOIN users u ON u.id = s.user_id JOIN workspaces w ON w.id = u.workspace_id "
@@ -319,7 +320,7 @@ def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
 def get_me(conn: psycopg.Connection, user_id: int) -> "CurrentUser":
     row = conn.execute(
         "SELECT u.id, u.workspace_id, w.name AS workspace_name, w.public_id AS workspace_public_id, u.username, u.email, u.display_name, "
-        "u.role, u.section_access, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy, u.can_export "
+        "u.role, u.section_access, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy, u.can_export, u.outlet_id "
         "FROM users u JOIN workspaces w ON w.id = u.workspace_id WHERE u.id = %s",
         (user_id,),
     ).fetchone()
@@ -359,6 +360,7 @@ def in_branch(conn: psycopg.Connection, user: CurrentUser, branch_id: int) -> Cu
         workspace_name=row["name"],
         workspace_public_id=row["public_id"],
         role="manager" if user.role in ("owner", "manager") else "staff",
+        outlet_id=None,  # their outlet is one of HQ's
     )
 
 

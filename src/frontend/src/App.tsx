@@ -45,6 +45,7 @@ import StockMoves from "./StockMoves";
 import Team from "./Team";
 import { MascotDock, type Scene } from "./Mascot";
 import { WorkspaceSwitch } from "./WorkspaceSwitch";
+import { OutletSwitch } from "./OutletSwitch";
 import { SdgFooter } from "./Sdg";
 import type { Me, Notification, Role, SectionKey } from "./types";
 import { ROLE_LABEL } from "./ui";
@@ -74,7 +75,7 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
   { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager", "staff"], access: "activity" },
   { id: "stocktake", label: "Stock Count", icon: ClipboardList, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "stock", label: "Stock & sales", icon: ArrowLeftRight, roles: ["owner", "manager", "staff"], access: "stocktake" },
-  { id: "team", label: "Team", icon: Users, roles: ["owner"] },
+  { id: "team", label: "Team", icon: Users, roles: ["owner", "manager"] },
   { id: "settings", label: "Settings", icon: SettingsIcon, roles: ["owner", "manager", "staff"] },
 ];
 
@@ -421,7 +422,14 @@ function Shell({
   }
 
   const nav = useMemo(
-    () => NAV.filter((n) => n.roles.includes(me.role) && (!n.access || sectionAllowed(me, n.access))),
+    () =>
+      NAV.filter(
+        (n) =>
+          n.roles.includes(me.role) &&
+          (!n.access || sectionAllowed(me, n.access)) &&
+          // Managers look after the team of the outlet they work at.
+          (n.id !== "team" || me.role === "owner" || me.outlet_id != null),
+      ),
     [me],
   );
 
@@ -526,8 +534,8 @@ function Shell({
             <X aria-hidden className="h-5 w-5" />
           </button>
         </div>
-        <div className="mx-4 flex items-center gap-2.5 rounded-xl bg-white/[0.07] px-3 py-2.5 ring-1 ring-white/10">
-          <ShieldCheck aria-hidden className="h-4 w-4 shrink-0 text-leaf" />
+        <div className="mx-4 flex items-start gap-2.5 rounded-xl bg-white/[0.07] px-3 py-2.5 ring-1 ring-white/10">
+          <ShieldCheck aria-hidden className="mt-3 h-4 w-4 shrink-0 text-leaf" />
           <div className="min-w-0 flex-1">
             {me.workspaces.length > 1 ? (
               <WorkspaceSwitch me={me} onSwitch={onSwitch} />
@@ -537,6 +545,18 @@ function Shell({
                 <p className="truncate text-sm font-semibold">{me.workspace.name}</p>
               </>
             )}
+            <OutletSwitch
+              me={me}
+              onChange={() => setVisit((v) => v + 1)}
+              onManage={
+                me.role === "staff"
+                  ? undefined
+                  : () => {
+                      window.history.replaceState(null, "", `${window.location.pathname}#workspace`);
+                      go("settings");
+                    }
+              }
+            />
           </div>
         </div>
         <nav aria-label="Main" className="mt-5 flex-1 space-y-1 overflow-y-auto px-3">
@@ -648,7 +668,7 @@ function Shell({
         {page === "activity" && <Activity key={visit} />}
         {page === "stocktake" && <Stocktake key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "stock" && <StockMoves key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
-        {page === "team" && me.role === "owner" && <Team key={visit} />}
+        {page === "team" && <Team key={visit} me={me} />}
         {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}
         {/* Pushed to the bottom on short pages. */}
         <div className="mt-auto pt-12">

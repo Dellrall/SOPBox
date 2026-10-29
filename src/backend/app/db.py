@@ -451,6 +451,9 @@ CREATE TABLE IF NOT EXISTS inquiries (
 ALTER TABLE inquiries DROP CONSTRAINT IF EXISTS inquiries_kind_check;
 ALTER TABLE inquiries ADD CONSTRAINT inquiries_kind_check CHECK (kind IN ('sales', 'question', 'upgrade', 'support'));
 -- Codes that turn Pro on, made by the team (python -m app.plan_codes). Only the SHA-256 is kept.
+-- The outlet a person works at: where the app starts them, and whose staff its managers look after.
+-- NULL: not tied to one (owners, and everyone from before outlets were assigned).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
 CREATE TABLE IF NOT EXISTS plan_codes (
     token_hash TEXT PRIMARY KEY,
     paid_outlets INTEGER NOT NULL CHECK (paid_outlets >= 0),

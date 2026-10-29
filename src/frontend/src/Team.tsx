@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
-import { DEFAULT_STAFF_ACCESS, SECTION_ACCESS_AREAS, type Accountability, type SectionAccess, type UserOut } from "./types";
+import { DEFAULT_STAFF_ACCESS, SECTION_ACCESS_AREAS, type Accountability, type Me, type Outlet, type SectionAccess, type UserOut } from "./types";
 import { USERNAME_HINT, USERNAME_PATTERN, UsernameStatus, cleanUsername, usernameProblem, useUsernameCheck } from "./username";
 import { Empty, ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 import { Select } from "./Select";
@@ -9,6 +9,9 @@ const ROLE_CHOICES = [
   { value: "staff", label: "Staff" },
   { value: "manager", label: "Manager" },
 ];
+
+/** The owner ties a person to the outlet they work at; "" is none. */
+const outletChoices = (outlets: Outlet[]) => [{ value: "", label: "Not tied to an outlet" }, ...outlets.map((o) => ({ value: String(o.id), label: o.name }))];
 
 function SectionAccessFields({
   value,
@@ -45,13 +48,14 @@ function SectionAccessFields({
   );
 }
 
-function CreateForm({ onCreated }: { onCreated: () => void }) {
+function CreateForm({ onCreated, outlets, manager }: { onCreated: () => void; outlets: Outlet[]; manager: boolean }) {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const usernameCheck = useUsernameCheck(username);
   const [email, setEmail] = useState("");
   const [dropped, setDropped] = useState(false);
   const [role, setRole] = useState<"manager" | "staff">("staff");
+  const [outlet, setOutlet] = useState("");
   const [sectionAccess, setSectionAccess] = useState<SectionAccess>({ ...DEFAULT_STAFF_ACCESS });
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -72,6 +76,7 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
         password,
         ...(email.trim() ? { email } : {}),
         ...(role === "staff" ? { section_access: sectionAccess } : {}),
+        ...(outlet ? { outlet_id: Number(outlet) } : {}),
       });
       setDone(`Account created. Give ${made.display_name} the username "${made.username}" and the password you just set.`);
       setName("");
@@ -89,7 +94,7 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <form onSubmit={(e) => void submit(e)} className={`${cardClass} space-y-3`}>
-      <SectionTitle>Create an account</SectionTitle>
+      <SectionTitle>{manager ? "Add staff to your outlet" : "Create an account"}</SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className={labelClass} htmlFor="u-name">
@@ -133,12 +138,23 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
           <input id="u-email" type="email" maxLength={254} autoCapitalize="none" autoComplete="off" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} />
           <p className="mt-1 text-xs text-muted">They can sign in with it instead of the username.</p>
         </div>
-        <div>
-          <label className={labelClass} htmlFor="u-role">
-            Role
-          </label>
-          <Select id="u-role" className={inputClass} value={role} choices={ROLE_CHOICES} onChange={(v) => setRole(v as "manager" | "staff")} />
-        </div>
+        {!manager && (
+          <div>
+            <label className={labelClass} htmlFor="u-role">
+              Role
+            </label>
+            <Select id="u-role" className={inputClass} value={role} choices={ROLE_CHOICES} onChange={(v) => setRole(v as "manager" | "staff")} />
+          </div>
+        )}
+        {!manager && outlets.length > 1 && (
+          <div>
+            <label className={labelClass} htmlFor="u-outlet">
+              Works at
+            </label>
+            <Select id="u-outlet" className={inputClass} value={outlet} choices={outletChoices(outlets)} onChange={setOutlet} />
+            <p className="mt-1 text-xs text-muted">The app starts them there, and its managers look after its staff.</p>
+          </div>
+        )}
         <div>
           <label className={labelClass} htmlFor="u-password">
             Starting password
@@ -218,7 +234,19 @@ function TeamGroupControls({ user, onChanged }: { user: UserOut; onChanged: () =
   );
 }
 
-function Row({ user, onChanged, teamGroup }: { user: UserOut; onChanged: () => void; teamGroup: boolean }) {
+function Row({
+  user,
+  onChanged,
+  teamGroup,
+  outlets,
+  manager,
+}: {
+  user: UserOut;
+  onChanged: () => void;
+  teamGroup: boolean;
+  outlets: Outlet[];
+  manager: boolean;
+}) {
   const [resetting, setResetting] = useState(false);
   const [password, setPassword] = useState("");
   const [editingEmail, setEditingEmail] = useState(false);
@@ -226,7 +254,9 @@ function Row({ user, onChanged, teamGroup }: { user: UserOut; onChanged: () => v
   const [editingAccess, setEditingAccess] = useState(false);
   const [sectionAccess, setSectionAccess] = useState<SectionAccess>(user.section_access);
   const [error, setError] = useState("");
-  const isOwner = user.role === "owner";
+  // An outlet's manager looks after its staff; the owner, everyone but themselves.
+  const editable = manager ? user.role === "staff" : user.role !== "owner";
+  const outletName = outlets.find((o) => o.id === user.outlet_id)?.name;
 
   async function change(body: Parameters<typeof api.updateUser>[1]) {
     setError("");
@@ -252,21 +282,40 @@ function Row({ user, onChanged, teamGroup }: { user: UserOut; onChanged: () => v
           </p>
           <p className="text-sm text-muted">
             {user.username} · {ROLE_LABEL[user.role]}
+            {outletName && outlets.length > 1 && <> · {outletName}</>}
             {user.email && <> · {user.email}</>}
           </p>
         </div>
-        {!isOwner && (
+        {editable && (
           <div className="flex flex-wrap items-center gap-2">
-            <label className="sr-only" htmlFor={`role-${user.id}`}>
-              Role of {user.display_name}
-            </label>
-            <Select
-              id={`role-${user.id}`}
-              className={`${inputClass} w-auto!`}
-              value={user.role}
-              choices={ROLE_CHOICES}
-              onChange={(v) => void change({ role: v as "manager" | "staff" })}
-            />
+            {!manager && (
+              <>
+                <label className="sr-only" htmlFor={`role-${user.id}`}>
+                  Role of {user.display_name}
+                </label>
+                <Select
+                  id={`role-${user.id}`}
+                  className={`${inputClass} w-auto!`}
+                  value={user.role}
+                  choices={ROLE_CHOICES}
+                  onChange={(v) => void change({ role: v as "manager" | "staff" })}
+                />
+              </>
+            )}
+            {!manager && outlets.length > 1 && (
+              <>
+                <label className="sr-only" htmlFor={`outlet-${user.id}`}>
+                  Outlet of {user.display_name}
+                </label>
+                <Select
+                  id={`outlet-${user.id}`}
+                  className={`${inputClass} w-auto!`}
+                  value={user.outlet_id == null ? "" : String(user.outlet_id)}
+                  choices={outletChoices(outlets)}
+                  onChange={(v) => void change({ outlet_id: v ? Number(v) : null })}
+                />
+              </>
+            )}
             <button className={secondaryButton} onClick={() => setEditingEmail((r) => !r)}>
               {user.email ? "Change email" : "Add email"}
             </button>
@@ -284,7 +333,7 @@ function Row({ user, onChanged, teamGroup }: { user: UserOut; onChanged: () => v
             <button className={secondaryButton} onClick={() => setResetting((r) => !r)}>
               Reset password
             </button>
-            {user.mfa_enabled && (
+            {!manager && user.mfa_enabled && (
               <button
                 className={secondaryButton}
                 onClick={() =>
@@ -301,7 +350,7 @@ function Row({ user, onChanged, teamGroup }: { user: UserOut; onChanged: () => v
           </div>
         )}
       </div>
-      {teamGroup && !isOwner && user.active && <TeamGroupControls user={user} onChanged={onChanged} />}
+      {teamGroup && editable && !manager && user.active && <TeamGroupControls user={user} onChanged={onChanged} />}
       {editingAccess && user.role === "staff" && (
         <div className="space-y-2">
           <SectionAccessFields value={sectionAccess} onChange={setSectionAccess} />
@@ -421,16 +470,23 @@ function AccountabilityTable() {
   );
 }
 
-export default function Team() {
+export default function Team({ me }: { me: Me }) {
+  const manager = me.role !== "owner";
   const [users, setUsers] = useState<UserOut[] | null>(null);
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [teamGroup, setTeamGroup] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
     api
+      .outlets()
+      .then(setOutlets)
+      .catch(() => setOutlets([]));
+    if (manager) return;
+    api
       .workspace()
       .then((ws) => setTeamGroup(Boolean(ws.telegram_team_chat_id)))
       .catch(() => setTeamGroup(false));
-  }, []);
+  }, [manager]);
 
   const load = useCallback(() => {
     api
@@ -447,19 +503,23 @@ export default function Team() {
     <div className="space-y-4">
       <PageTitle
         title="Team"
-        subtitle="Choose section access for staff. Managers keep the existing full access. Only you, the owner, manage accounts."
+        subtitle={
+          manager
+            ? `The people at ${outlets.find((o) => o.id === me.outlet_id)?.name ?? "your outlet"}. Add staff, choose their section access, reset passwords. The owner changes roles and outlets.`
+            : "Choose section access for staff and the outlet each person works at. An outlet's managers look after its staff."
+        }
       />
-      <CreateForm onCreated={load} />
+      <CreateForm onCreated={load} outlets={outlets} manager={manager} />
       <ErrorNote message={error} />
       {users?.length === 0 && <Empty>No accounts yet.</Empty>}
       {users && (
         <ul className={`${cardClass} divide-y divide-line`}>
           {users.map((u) => (
-            <Row key={u.id} user={u} onChanged={load} teamGroup={teamGroup} />
+            <Row key={u.id} user={u} onChanged={load} teamGroup={teamGroup} outlets={outlets} manager={manager} />
           ))}
         </ul>
       )}
-      <AccountabilityTable />
+      {!manager && <AccountabilityTable />}
     </div>
   );
 }

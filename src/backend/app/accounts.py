@@ -1,4 +1,5 @@
-"""Workspaces and the people in them. The owner creates and manages everyone else."""
+"""Workspaces and the people in them. The owner creates and manages everyone else; a manager tied to
+an outlet adds and looks after the staff at that outlet."""
 
 from datetime import datetime, timezone
 
@@ -8,7 +9,7 @@ from psycopg.types.json import Jsonb
 from app import auth, mfa
 from app.auditlog import audit
 from app.auth import CurrentUser
-from app.errors import ConflictError, InvalidRequestError, NotFoundError
+from app.errors import ConflictError, ForbiddenError, InvalidRequestError, NotFoundError
 from app.models import (
     _username,
     normalise_login,
@@ -25,8 +26,10 @@ from app.models import (
 _USER_COLUMNS = (
     "id, username, email, display_name, role, section_access, active, created_at, "
     "telegram_id IS NOT NULL AS telegram_linked, team_group_removed_until, security_alerts, "
-    "totp_secret IS NOT NULL AS mfa_enabled, can_export"
+    "totp_secret IS NOT NULL AS mfa_enabled, can_export, outlet_id"
 )
+# What an outlet's manager may change for their staff; the rest stays with the owner.
+_MANAGER_FIELDS = {"display_name", "email", "active", "password", "section_access"}
 
 
 def _now() -> str:
@@ -65,17 +68,18 @@ def _insert_user(
     password: str,
     email: str | None,
     section_access: dict[str, str] | None = None,
+    outlet_id: int | None = None,
 ) -> int:
     try:
         with conn.transaction():
             return conn.execute(
                 "INSERT INTO users (workspace_id, username, email, display_name, role, "
-                "section_access, password_hash, created_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                "section_access, password_hash, created_at, outlet_id) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                 (
                     workspace_id, username, email, display_name, role,
                     Jsonb(section_access) if section_access is not None else Jsonb({}),
-                    auth.hash_password(password), _now(),
+                    auth.hash_password(password), _now(), outlet_id,
                 ),
             ).fetchone()["id"]
     except psycopg.errors.UniqueViolation as err:
@@ -153,27 +157,51 @@ def change_own_password(
         )
 
 
-# ---- the owner's people list ------------------------------------------------------------------
+# ---- the people list: everyone for the owner, one outlet for its manager -----------------------
 
 
-def list_users(conn: psycopg.Connection, owner: CurrentUser) -> list[UserOut]:
+def _managed_outlet(actor: CurrentUser) -> int | None:
+    """None for the owner (everyone); otherwise the manager's outlet. A manager without one manages nobody."""
+    if actor.role == "owner":
+        return None
+    if actor.outlet_id is None:
+        raise ForbiddenError("ask the owner to assign you to an outlet to look after its team")
+    return actor.outlet_id
+
+
+def _check_outlet(conn: psycopg.Connection, workspace_id: int, outlet_id: int | None) -> None:
+    if outlet_id is not None and not conn.execute(
+        "SELECT 1 FROM outlets WHERE id = %s AND workspace_id = %s", (outlet_id, workspace_id)
+    ).fetchone():
+        raise InvalidRequestError("that outlet is not in this workspace")
+
+
+def list_users(conn: psycopg.Connection, actor: CurrentUser) -> list[UserOut]:
+    outlet = _managed_outlet(actor)
     rows = conn.execute(
-        f"SELECT {_USER_COLUMNS} FROM users WHERE workspace_id = %s ORDER BY role <> 'owner', username",
-        (owner.workspace_id,),
+        f"SELECT {_USER_COLUMNS} FROM users WHERE workspace_id = %s AND (%s::bigint IS NULL OR outlet_id = %s) "
+        "ORDER BY role <> 'owner', role <> 'manager', username",
+        (actor.workspace_id, outlet, outlet),
     ).fetchall()
     return [UserOut(**r) for r in rows]
 
 
-def create_user(conn: psycopg.Connection, owner: CurrentUser, data: UserCreateIn) -> UserOut:
+def create_user(conn: psycopg.Connection, actor: CurrentUser, data: UserCreateIn) -> UserOut:
+    outlet = _managed_outlet(actor)
+    if outlet is not None:
+        if data.role != "staff":
+            raise ForbiddenError("only the owner can add managers")
+        data.outlet_id = outlet  # a manager adds staff to their own outlet
+    _check_outlet(conn, actor.workspace_id, data.outlet_id)
     user_id = _insert_user(
-        conn, owner.workspace_id, data.username, data.display_name, data.role, data.password,
-        data.email, data.section_access.model_dump(),
+        conn, actor.workspace_id, data.username, data.display_name, data.role, data.password,
+        data.email, data.section_access.model_dump(), data.outlet_id,
     )
     audit(
-        conn, owner.workspace_id, owner.display_name, "user.created", None,
+        conn, actor.workspace_id, actor.display_name, "user.created", None,
         f"{data.username} ({data.role})",
     )
-    return get_user(conn, owner.workspace_id, user_id)
+    return get_user(conn, actor.workspace_id, user_id)
 
 
 def get_user(conn: psycopg.Connection, workspace_id: int, user_id: int) -> UserOut:
@@ -192,12 +220,21 @@ def update_user(
     target = get_user(conn, owner.workspace_id, user_id)
     if target.role == "owner":
         raise InvalidRequestError("the owner account cannot be changed here")
+    outlet = _managed_outlet(owner)
+    if outlet is not None and (target.role != "staff" or target.outlet_id != outlet):
+        raise ForbiddenError("you can only change the staff at your outlet")
     # Only what actually changes is written and logged: a repeated click records nothing.
     current = target.model_dump()
     changes = {
         k: v for k, v in data.model_dump(exclude_none=True).items()
         if k == "password" or (current.get(k) or "") != (v or "")
     }
+    if "outlet_id" in data.model_fields_set and data.outlet_id != target.outlet_id:
+        changes["outlet_id"] = data.outlet_id  # null clears it
+    if outlet is not None and changes.keys() - _MANAGER_FIELDS:
+        raise ForbiddenError("only the owner can change that")
+    if "outlet_id" in changes:
+        _check_outlet(conn, owner.workspace_id, changes["outlet_id"])
     resulting_role = changes.get("role", target.role)
     if "section_access" in changes and resulting_role != "staff":
         raise InvalidRequestError("section access can only be assigned to staff accounts")
@@ -229,6 +266,8 @@ def _apply_user_changes(
             )
         if changes.get("mfa_reset"):
             mfa.reset(conn, user_id)
+        if "outlet_id" in changes:
+            conn.execute("UPDATE users SET outlet_id = %s WHERE id = %s", (changes["outlet_id"], user_id))
         if "can_export" in changes:
             conn.execute("UPDATE users SET can_export = %s WHERE id = %s", (changes["can_export"], user_id))
         if "security_alerts" in changes:
@@ -270,6 +309,8 @@ def _describe(changes: dict) -> str:
         parts.append("email changed" if changes["email"] else "email removed")
     if "section_access" in changes:
         parts.append("section access changed")
+    if "outlet_id" in changes:
+        parts.append("outlet changed" if changes["outlet_id"] else "no longer tied to an outlet")
     if "password" in changes:
         parts.append("password reset")
     return ", ".join(parts)

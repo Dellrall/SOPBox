@@ -337,6 +337,41 @@ test.describe("download your data", () => {
   });
 });
 
+test.describe("outlets", () => {
+  test("a manager starts at their outlet and adds staff there", async ({ browser, baseURL }, testInfo) => {
+    const owner = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const tag = `${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    expect((await owner.request.post("/api/auth/register", {
+      data: { workspace_name: `Outlets ${tag}`, display_name: "Oli Owner", email: `o${tag}@example.com`, username: `o${tag}`, password: PASSWORD },
+    })).ok()).toBe(true);
+    const outlets = await (await owner.request.post("/api/outlets", { data: { name: "Sri Gombak" } })).json();
+    const gombak = outlets.find((o: { name: string }) => o.name === "Sri Gombak").id;
+    expect((await owner.request.post("/api/users", {
+      data: { username: `m${tag}`, display_name: "Mia Manager", role: "manager", password: PASSWORD, outlet_id: gombak },
+    })).ok()).toBe(true);
+    await owner.close();
+
+    const context = await browser.newContext({ baseURL, ...testInfo.project.use });
+    expect((await context.request.post("/api/auth/login", { data: { username: `m${tag}`, password: PASSWORD } })).ok()).toBe(true);
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open the menu" }).click();
+    await expect(page.getByRole("button", { name: "Outlet: Sri Gombak. Switch outlet" })).toBeVisible();
+    await page.getByRole("button", { name: "Close the menu" }).click();
+
+    await openPage(page, "Team");
+    await expect(page.getByRole("combobox", { name: "Role" })).toHaveCount(0);
+    await page.getByLabel("Name", { exact: true }).fill("Sam Staff");
+    await page.getByLabel("Username", { exact: true }).fill(`s${tag}`);
+    await page.getByLabel("Starting password").fill(PASSWORD);
+    await page.getByRole("button", { name: "Create account" }).tap();
+    await expect(page.getByText("Account created.")).toBeVisible();
+    await expect(page.getByText(`s${tag} · Staff`)).toBeVisible();
+    await expectFitsScreen(page);
+    await context.close();
+  });
+});
+
 test.describe("closing the business", () => {
   test("the owner downloads a copy, closes it, sees it read-only, and reopens it", async ({ browser, baseURL }, testInfo) => {
     // Its own workspace: closing one the other tests share would stop them.
