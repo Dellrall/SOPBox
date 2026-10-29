@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import {
   ArrowLeftRight,
+  Boxes,
+  ChevronDown,
   ClipboardCheck,
   ClipboardList,
   History,
+  Layers,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -23,6 +26,7 @@ import { CodePrompt, MfaGate } from "./Mfa";
 import Pricing from "./Pricing";
 import Privacy from "./Privacy";
 import Contact from "./Contact";
+import { CategoriesAndStorage } from "./Categories";
 import { PolicyLinks } from "./Site";
 import Activity from "./Activity";
 import Approvals from "./Approvals";
@@ -50,6 +54,7 @@ export type PageId =
   | "receive"
   | "records"
   | "products"
+  | "categories"
   | "purchasing"
   | "approvals"
   | "activity"
@@ -63,6 +68,7 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
   { id: "receive", label: "Receiving check", icon: ScanLine, roles: ["owner", "manager", "staff"], access: "receive" },
   { id: "records", label: "Delivery records", icon: Truck, roles: ["owner", "manager", "staff"], access: "records" },
   { id: "products", label: "Products & SOP", icon: PackageSearch, roles: ["owner", "manager", "staff"], access: "products" },
+  { id: "categories", label: "Categories & storage", icon: Layers, roles: ["owner", "manager", "staff"], access: "products" },
   { id: "purchasing", label: "Purchase orders", icon: ShoppingCart, roles: ["owner", "manager", "staff"], access: "purchasing" },
   { id: "approvals", label: "Approvals", icon: ClipboardCheck, roles: ["owner", "manager", "staff"], access: "approvals" },
   { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager", "staff"], access: "activity" },
@@ -71,6 +77,21 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
   { id: "team", label: "Team", icon: Users, roles: ["owner"] },
   { id: "settings", label: "Settings", icon: SettingsIcon, roles: ["owner", "manager", "staff"] },
 ];
+
+/** The menu: pages used often stand alone; the rest sit in groups that open and close. */
+type Group = { label: string; icon: LucideIcon; items: PageId[] };
+const MENU: (PageId | Group)[] = [
+  "dashboard",
+  "receive",
+  "approvals",
+  { label: "Deliveries", icon: Truck, items: ["records", "purchasing"] },
+  { label: "Stock", icon: Boxes, items: ["stocktake", "stock"] },
+  { label: "Catalogue", icon: PackageSearch, items: ["products", "categories"] },
+  "team",
+  "activity",
+  "settings",
+];
+const OPEN_GROUPS = "sopbox-menu-open";
 
 function sectionAllowed(me: Me, section: SectionKey, edit = false): boolean {
   if (me.role !== "staff") return true;
@@ -263,6 +284,7 @@ const IDLE: Record<PageId, Scene> = {
   receive: { who: "fish", action: "wave", text: "Snap the delivery order and I'll read the lines for you." },
   records: { who: "fish", action: "read" },
   products: { who: "cabbage", action: "count" },
+  categories: { who: "cabbage", action: "count" },
   purchasing: { who: "carrot", action: "write" },
   approvals: { who: "carrot", action: "read" },
   activity: { who: "fish", action: "read" },
@@ -407,6 +429,51 @@ function Shell({
     if (!nav.some((item) => item.id === page)) setPage(nav[0]?.id ?? "settings");
   }, [nav, page]);
 
+  // Which groups are open, remembered on this device; the group of the page you are on always opens.
+  const [openGroups, setOpenGroups] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(OPEN_GROUPS) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+  const toggleGroup = (label: string, open: boolean) =>
+    setOpenGroups((all) => {
+      const next = open ? [...all, label] : all.filter((g) => g !== label);
+      try {
+        localStorage.setItem(OPEN_GROUPS, JSON.stringify(next));
+      } catch {
+        // private window: the menu just forgets
+      }
+      return next;
+    });
+  useEffect(() => {
+    const group = MENU.find((m): m is Group => typeof m !== "string" && m.items.includes(page));
+    if (group && !openGroups.includes(group.label)) toggleGroup(group.label, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  const menuButton = (n: (typeof NAV)[number], sub = false) => {
+    const active = page === n.id;
+    const Icon = n.icon;
+    return (
+      <button
+        key={n.id}
+        onClick={() => go(n.id)}
+        aria-current={active ? "page" : undefined}
+        className={`group flex w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition ${sub ? "py-2" : "py-2.5"} ${
+          active ? "bg-white text-brand-950 shadow-sm" : "text-white/75 hover:bg-white/[0.08] hover:text-white"
+        }`}
+      >
+        {!sub && <Icon aria-hidden className={`h-[18px] w-[18px] ${active ? "text-brand-600" : "text-white/55 group-hover:text-white"}`} />}
+        <span className="flex-1">{n.label}</span>
+        {n.id === "approvals" && pending > 0 && (
+          <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-bold text-brand-950">{pending}</span>
+        )}
+      </button>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-surface text-ink lg:flex">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:shadow">
@@ -473,24 +540,39 @@ function Shell({
           </div>
         </div>
         <nav aria-label="Main" className="mt-5 flex-1 space-y-1 overflow-y-auto px-3">
-          {nav.map((n) => {
-            const active = page === n.id;
-            const Icon = n.icon;
+          {MENU.map((m) => {
+            if (typeof m === "string") {
+              const n = nav.find((item) => item.id === m);
+              return n ? menuButton(n) : null;
+            }
+            const items = m.items.map((id) => nav.find((item) => item.id === id)).filter((n) => n !== undefined);
+            if (items.length === 0) return null;
+            if (items.length === 1) return menuButton(items[0]!);
+            const open = openGroups.includes(m.label);
+            const here = items.some((n) => n.id === page);
+            const Icon = m.icon;
+            const listId = `menu-${m.label.toLowerCase()}`;
             return (
-              <button
-                key={n.id}
-                onClick={() => go(n.id)}
-                aria-current={active ? "page" : undefined}
-                className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
-                  active ? "bg-white text-brand-950 shadow-sm" : "text-white/75 hover:bg-white/[0.08] hover:text-white"
-                }`}
-              >
-                <Icon aria-hidden className={`h-[18px] w-[18px] ${active ? "text-brand-600" : "text-white/55 group-hover:text-white"}`} />
-                <span className="flex-1">{n.label}</span>
-                {n.id === "approvals" && pending > 0 && (
-                  <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-bold text-brand-950">{pending}</span>
+              <div key={m.label}>
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  aria-controls={listId}
+                  onClick={() => toggleGroup(m.label, !open)}
+                  className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition hover:bg-white/[0.08] hover:text-white ${
+                    here && !open ? "text-white" : "text-white/75"
+                  }`}
+                >
+                  <Icon aria-hidden className={`h-[18px] w-[18px] ${here ? "text-leaf" : "text-white/55 group-hover:text-white"}`} />
+                  <span className="flex-1">{m.label}</span>
+                  <ChevronDown aria-hidden className={`h-4 w-4 text-white/50 transition-transform ${open ? "rotate-180" : ""}`} />
+                </button>
+                {open && (
+                  <div id={listId} className="mb-1 ml-[1.35rem] mt-0.5 space-y-0.5 border-l border-white/15 pl-3">
+                    {items.map((n) => menuButton(n, true))}
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
         </nav>
@@ -548,6 +630,9 @@ function Shell({
         )}
         {page === "records" && <Records key={visit} />}
         {page === "products" && <Products key={visit} canEdit={sectionAllowed(me, "products", true)} />}
+        {page === "categories" && (
+          <CategoriesAndStorage key={visit} canEditCategories={sectionAllowed(me, "products", true)} canEditStorage={me.role !== "staff"} />
+        )}
         {page === "purchasing" && (
           <PurchaseOrders
             key={visit}

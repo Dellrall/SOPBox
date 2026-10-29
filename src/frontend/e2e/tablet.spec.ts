@@ -31,7 +31,12 @@ test.describe("signed in", () => {
     const nav = page.getByRole("navigation", { name: "Main" });
     // Upright, the pages are in a drawer behind the menu button; on its side, the sidebar is always there.
     const drawer = await menu.isVisible();
-    const labels = (await nav.getByRole("button").allTextContents()).map((l) => l.trim()).filter(Boolean);
+    if (drawer) await menu.click();
+    // Open every group, so all pages are listed.
+    const closed = nav.locator("button[aria-expanded=false]");
+    while ((await closed.count()) > 0) await closed.first().click();
+    const labels = (await nav.locator("button:not([aria-expanded])").allTextContents()).map((l) => l.trim()).filter(Boolean);
+    if (drawer) await page.getByRole("button", { name: "Close the menu" }).click();
     expect(labels.length).toBeGreaterThan(3);
     for (const label of labels) {
       if (drawer) await menu.click();

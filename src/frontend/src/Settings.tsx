@@ -459,7 +459,7 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
         id: "workspace",
         label: "Workspace",
         icon: Building2,
-        blurb: "The business's name, outlets and storage areas, branches, and kitchen tablets.",
+        blurb: "The business's name, outlets, branches, and kitchen tablets.",
         show: manager,
         body: (
           <>

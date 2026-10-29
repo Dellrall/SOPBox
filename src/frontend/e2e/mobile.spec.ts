@@ -35,6 +35,7 @@ async function openPage(page: Page, label: string) {
   await page.getByRole("button", { name: "Open the menu" }).click();
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect(nav).toBeInViewport();
+  await openGroups(page);
   await nav.getByRole("button", { name: label, exact: true }).click();
   await expect(nav).not.toBeInViewport();
   // Receiving check stays mounted (hidden) on other pages, so look for the visible heading.
@@ -48,9 +49,17 @@ async function openSettings(page: Page, tab: string) {
   await expect(page.getByRole("tabpanel").getByRole("heading", { level: 2, name: tab, exact: true })).toBeVisible();
 }
 
+/** Opens every closed group in the menu, so all pages can be clicked. */
+async function openGroups(page: Page) {
+  const closed = page.getByRole("navigation", { name: "Main" }).locator("button[aria-expanded=false]");
+  while ((await closed.count()) > 0) await closed.first().click();
+}
+
+/** The pages in the menu (not the group buttons that open and close). */
 async function navLabels(page: Page) {
   await page.getByRole("button", { name: "Open the menu" }).click();
-  const labels = await page.getByRole("navigation", { name: "Main" }).getByRole("button").allInnerTexts();
+  await openGroups(page);
+  const labels = await page.getByRole("navigation", { name: "Main" }).locator("button:not([aria-expanded])").allInnerTexts();
   await page.getByRole("button", { name: "Close the menu" }).click();
   return labels.map((l) => l.trim()).filter(Boolean);
 }
