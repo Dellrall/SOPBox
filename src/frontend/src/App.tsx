@@ -140,6 +140,14 @@ export default function App() {
       .catch(() => setMe(null));
   }, []);
 
+  // Fade out index.html's loading screen once the first real page is drawn.
+  useEffect(() => {
+    const boot = document.getElementById("boot");
+    if (me === undefined || !boot) return;
+    boot.classList.add("done");
+    setTimeout(() => boot.remove(), 250);
+  }, [me]);
+
   useEffect(() => {
     const refreshSession = () => {
       api.session().then(setMe).catch(() => undefined);
@@ -148,13 +156,8 @@ export default function App() {
     return () => window.removeEventListener("focus", refreshSession);
   }, []);
 
-  if (me === undefined)
-    return (
-      <div className="flex min-h-screen items-center justify-center" role="status">
-        <span className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
-        <span className="sr-only">Loading</span>
-      </div>
-    );
+  // The loading screen from index.html stays up until then.
+  if (me === undefined) return null;
   if (path === "/pricing") return <Pricing navigate={navigate} signedIn={me !== null} />;
   if (path === "/privacy") return <Privacy navigate={navigate} signedIn={me !== null} />;
   if (path === "/contact") return <Contact key={search} navigate={navigate} signedIn={me !== null} />;
