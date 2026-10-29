@@ -340,7 +340,8 @@ test.describe("closing the business", () => {
     const page = await context.newPage();
     await page.goto("/");
     await openSettings(page, "Data & privacy");
-    const close = page.getByRole("button", { name: "Close the business" });
+    await page.getByRole("button", { name: "Close this business" }).tap();
+    const close = page.getByRole("button", { name: "I understand, close the business" });
     await page.getByLabel(`Type ${name} to confirm`).fill(name);
     await expect(close).toBeDisabled(); // a copy first, or say none is needed
     const download = page.waitForEvent("download");
@@ -351,7 +352,7 @@ test.describe("closing the business", () => {
     expect((await context.request.post("/api/categories", { data: { name: "Dairy" } })).status()).toBe(403);
     await expectFitsScreen(page);
     await page.getByRole("button", { name: "Reopen the business" }).tap();
-    await expect(page.getByRole("heading", { name: "Close the business" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Danger zone" })).toBeVisible();
     expect((await context.request.post("/api/categories", { data: { name: "Dairy" } })).status()).toBe(201);
     await context.close();
   });
