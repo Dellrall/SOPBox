@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 import { StorageAreas } from "./Places";
 import type { Category } from "./types";
-import { Empty, ErrorNote, PageTitle, TempInput, cardClass, dangerButton, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
+import { DeleteIconButton, EditIconButton, Empty, ErrorNote, PageTitle, TempInput, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 const num = (text: string): number | null => (text.trim() === "" ? null : Number(text));
 const range = (c: Category) =>
@@ -150,13 +150,9 @@ export default function Categories({
                   <p className="font-medium">{c.name}</p>
                   <p className="text-sm text-slate-600">{range(c)}</p>
                 </div>
-                <div className={canEdit ? "flex gap-2" : "hidden"}>
-                  <button className={secondaryButton} onClick={() => setEditing(c.id)}>
-                    Edit
-                  </button>
-                  <button className={dangerButton} onClick={() => void remove(c)}>
-                    Delete
-                  </button>
+                <div className={canEdit ? "flex gap-1" : "hidden"}>
+                  <EditIconButton label={`Edit ${c.name}`} onClick={() => setEditing(c.id)} />
+                  <DeleteIconButton label={`Delete ${c.name}`} onClick={() => void remove(c)} />
                 </div>
               </div>
             )}
