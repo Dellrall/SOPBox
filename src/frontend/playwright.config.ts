@@ -19,10 +19,12 @@ export default defineConfig({
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
-  // Chromium only, with each phone's screen size, touch and user agent.
+  // Chromium only, with each device's screen size, touch and user agent.
   projects: [
-    { name: "small-android", use: { ...devices["Galaxy S8"], browserName: "chromium" } },
-    { name: "iphone-se", use: { ...devices["iPhone SE"], browserName: "chromium" } },
+    { name: "small-android", testIgnore: "tablet.spec.ts", use: { ...devices["Galaxy S8"], browserName: "chromium" } },
+    { name: "iphone-se", testIgnore: "tablet.spec.ts", use: { ...devices["iPhone SE"], browserName: "chromium" } },
+    { name: "ipad-upright", testMatch: "tablet.spec.ts", use: { ...devices["iPad Mini"], browserName: "chromium" } },
+    { name: "ipad-sideways", testMatch: "tablet.spec.ts", use: { ...devices["iPad (gen 7) landscape"], browserName: "chromium" } },
   ],
   webServer: {
     command: `npm run build && ${process.env.PYTHON ?? "python3"} e2e/server.py`,

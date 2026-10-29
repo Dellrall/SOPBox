@@ -82,10 +82,12 @@ export function KitchenSignIn({
   screen,
   onSignedIn,
   onUsePassword,
+  onForgotten,
 }: {
   screen: KitchenScreen;
   onSignedIn: (me: Me) => void;
   onUsePassword: () => void;
+  onForgotten: () => void;
 }) {
   const [person, setPerson] = useState<{ id: number; display_name: string } | null>(null);
   const [pin, setPin] = useState("");
@@ -116,7 +118,7 @@ export function KitchenSignIn({
           <h3 className="font-semibold text-brand-950">Who's signing in?</h3>
           {screen.people.length === 0 ? (
             <p className="rounded-xl border border-line bg-white px-4 py-3 text-sm text-muted">
-              Nobody has a PIN yet. Each person sets one in Settings, under Sign-in &amp; security.
+              Nobody has a PIN yet. Each person sets one in Settings, under Security.
             </p>
           ) : (
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -172,9 +174,21 @@ export function KitchenSignIn({
           </button>
         </form>
       )}
-      <button type="button" onClick={onUsePassword} className="text-sm font-semibold text-muted hover:text-ink hover:underline">
-        Sign in another way
-      </button>
+      <div className="flex flex-wrap justify-between gap-x-6 gap-y-2 text-sm font-semibold">
+        <button type="button" onClick={onUsePassword} className="text-muted hover:text-ink hover:underline">
+          Sign in another way
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!window.confirm(`Stop using this device as ${screen.device_name}? A manager can set it up again in Settings.`)) return;
+            api.forgetKitchenTablet().then(onForgotten, (err: Error) => window.alert(err.message));
+          }}
+          className="text-red-700 hover:underline"
+        >
+          Stop using as a kitchen tablet
+        </button>
+      </div>
     </div>
   );
 }

@@ -168,6 +168,7 @@ export const api = {
   unlink: (provider: "google" | "telegram") => del(`/auth/${provider}`),
   setPin: (pin: string | null) => put<void>("/auth/pin", { pin }),
   kitchenScreen: () => get<KitchenScreen | null>("/auth/kitchen"),
+  forgetKitchenTablet: () => del("/auth/kitchen"),
   kitchenLogin: (user_id: number, pin: string) => post<Me>("/auth/kitchen/login", { user_id, pin }),
   kitchenDevices: () => get<KitchenDevice[]>("/kitchen-devices"),
   addKitchenDevice: (name: string) => post<KitchenDevice>("/kitchen-devices", { name }),

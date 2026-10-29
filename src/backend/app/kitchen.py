@@ -55,6 +55,14 @@ def remove_device(conn: psycopg.Connection, ws: int, device_id: int) -> None:
         raise NotFoundError("kitchen tablet not found")
 
 
+def forget(conn: psycopg.Connection, request: Request, response: Response) -> None:
+    """The tablet itself stops being a kitchen tablet. Holding its cookie is the proof, as for signing in."""
+    device = _device(conn, request)
+    if device is not None:
+        conn.execute("DELETE FROM kitchen_devices WHERE id = %s", (device["id"],))
+    response.delete_cookie(COOKIE, path="/")
+
+
 def _device(conn: psycopg.Connection, request: Request) -> dict | None:
     token = request.cookies.get(COOKIE)
     if not token:
