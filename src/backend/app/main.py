@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, hq, inquiries, locations, mfa, notifications, plans, sales, stocktakes
+from app import apikeys, export, hq, inquiries, locations, mfa, notifications, plans, sales, stocktakes
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -1205,6 +1205,17 @@ def api_stock(client: KeyClient, conn: Conn):
 def api_record_sale(body: ApiSaleIn, client: KeyClient, conn: Conn):
     """Record a sale from the key's storage area, by product code."""
     return apikeys.record_sale(conn, client, body)
+
+
+# ---- exporting your data ----------------------------------------------------------------------
+
+
+@app.get("/api/export", dependencies=[dangerous("downloaded a copy of the workspace's data")])
+def export_data(user: User, conn: Conn):
+    """Anyone: their own account, and the sections they can see, as one ZIP."""
+    auth.limit("export", str(user.id), 10, 3600)
+    name, content = export.build(conn, user)
+    return Response(content, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 # ---- plans, sales enquiries and support -----------------------------------------------------------
