@@ -1,0 +1,304 @@
+import { useState } from "react";
+import {
+  ArrowLeftRight,
+  ArrowRight,
+  Building2,
+  Check,
+  ClipboardCheck,
+  ClipboardList,
+  History,
+  Layers,
+  LayoutDashboard,
+  PackageSearch,
+  ScanLine,
+  Settings as SettingsIcon,
+  ShoppingCart,
+  Truck,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import type { PageId } from "./App";
+import { SETUP_STEPS, showSetupAgain, showStep } from "./Guide";
+import { MascotFigure } from "./Mascot";
+import { ENTERPRISE, FREE, PRO } from "./Pricing";
+import type { Me } from "./types";
+import { PageTitle, cardClass, primaryButton, secondaryButton } from "./ui";
+
+/** One page of the app: what it is for and how to do the usual things there. */
+type Guide = { page: PageId; title: string; icon: LucideIcon; what: string; how: string[] };
+
+const GUIDES: Guide[] = [
+  {
+    page: "dashboard",
+    title: "Dashboard",
+    icon: LayoutDashboard,
+    what: "Today at a glance: deliveries waiting for a decision, products running low, and orders still to arrive.",
+    how: ["Tap a number to open the list behind it.", "Start a receiving check straight from the top of the page."],
+  },
+  {
+    page: "receive",
+    title: "Receiving check",
+    icon: ScanLine,
+    what: "Check a delivery as it arrives, against each product's rules.",
+    how: [
+      "Photograph the supplier's delivery order: the lines are read for you. Or type them in.",
+      "Pick the storage area the stock goes to.",
+      "Enter the temperature and quantity of each line, and add photos of anything wrong.",
+      "Lines that pass are accepted and added to stock. Anything that fails goes to Approvals.",
+    ],
+  },
+  {
+    page: "approvals",
+    title: "Approvals",
+    icon: ClipboardCheck,
+    what: "Deliveries that failed a check, waiting for a manager. Stock only counts once a delivery is accepted.",
+    how: ["Open a delivery to see its readings and photos.", "Accept it, reject it, or return it to the supplier. Your name is recorded with the decision."],
+  },
+  {
+    page: "records",
+    title: "Delivery records",
+    icon: Truck,
+    what: "Every delivery received, with its readings, photos and outcome.",
+    how: ["Search by supplier, PO, delivery number, product or person.", "Open one to see exactly what was checked, by whom and when."],
+  },
+  {
+    page: "purchasing",
+    title: "Purchase orders",
+    icon: ShoppingCart,
+    what: "What you ordered from each supplier and how much of it has arrived.",
+    how: [
+      "Create an order with the products and quantities, then issue it.",
+      "When the goods arrive, tap Receive on the order: the receiving check starts with its lines filled in.",
+      "Part deliveries are tracked until everything has arrived.",
+    ],
+  },
+  {
+    page: "stocktake",
+    title: "Stock Count",
+    icon: ClipboardList,
+    what: "Count what is on the shelf, storage area by storage area.",
+    how: [
+      "Choose the storage area, then count each product as whole bundles plus loose items.",
+      "Leave a product blank if you did not count it. Enter 0 only when you counted none.",
+      "Save the count: the difference from the expected stock shows up as a loss or a gain.",
+    ],
+  },
+  {
+    page: "stock",
+    title: "Stock & sales",
+    icon: ArrowLeftRight,
+    what: "What each outlet and storage area holds, transfers between them, and sales.",
+    how: [
+      "Move stock between storage areas or outlets with a transfer.",
+      "Upload your till's sales so the next count shows only real losses.",
+    ],
+  },
+  {
+    page: "products",
+    title: "Products & SOP",
+    icon: PackageSearch,
+    what: "What you buy, the rules each delivery is checked against, and how your team handles it.",
+    how: [
+      "Tap Add product: pick its category, set the pack size, the safe temperature and the minimum stock.",
+      "Write the SOP: the steps your team follows when it arrives. The SOP writer can draft one for you.",
+      "Import from a sheet adds many products at once from a supplier list.",
+    ],
+  },
+  {
+    page: "categories",
+    title: "Categories & storage",
+    icon: Layers,
+    what: "Categories group products and set the temperature they arrive at. Storage areas are where stock sits in each outlet.",
+    how: [
+      "Add a category such as Chilled or Frozen, with its temperature range.",
+      "Add storage areas such as Chiller or Freezer to each outlet. Use the pencil to rename and the bin to delete an empty one.",
+    ],
+  },
+  {
+    page: "team",
+    title: "Team",
+    icon: Users,
+    what: "The accounts of the people who work with you, and what each one may do.",
+    how: [
+      "Owner: creates every account, makes managers and sets the outlet each person works at.",
+      "Manager: looks after the staff at their outlet, adds staff and assistant managers, and can disable accounts.",
+      "Assistant manager: adds and looks after staff at their outlet, but cannot disable anyone.",
+      "Staff: receive deliveries and use the sections you give them under Section access.",
+    ],
+  },
+  {
+    page: "activity",
+    title: "Activity log",
+    icon: History,
+    what: "Every reading, decision, stock count and account change, newest first.",
+    how: ["Filter by person or by kind of action to see who did what and when."],
+  },
+  {
+    page: "settings",
+    title: "Settings",
+    icon: SettingsIcon,
+    what: "Your profile, how you sign in and, for owners and managers, the workspace.",
+    how: [
+      "Security: turn on two-step sign-in, add a passkey, or link Google or Telegram.",
+      "Workspace: the business name, outlets, HQ branches and kitchen tablets.",
+      "Integrations: connect your till and your team's Telegram group.",
+      "Data & privacy: download a copy of everything.",
+    ],
+  },
+];
+
+/** Outlets and the plans that add more of them. */
+function OutletsAndPlans({ me, go }: { me: Me; go: (page: PageId) => void }) {
+  const manager = me.role !== "staff";
+  const tiers = [FREE, PRO, ENTERPRISE];
+  return (
+    <section id="guide-outlets" aria-labelledby="outlets-title" className={`${cardClass} space-y-4`}>
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+          <Building2 aria-hidden className="h-5 w-5" />
+        </span>
+        <div>
+          <h2 id="outlets-title" className="text-lg font-bold text-brand-950">
+            Outlets and plans
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            An outlet is a place that receives deliveries: a restaurant, a shop or a central kitchen. Each one has its own storage areas,
+            stock and team.
+          </p>
+        </div>
+      </div>
+      <ol className="list-decimal space-y-1.5 pl-5 text-sm text-ink">
+        <li>The owner adds and renames outlets under Settings, Workspace.</li>
+        <li>On Team, the owner sets the outlet each person works at, and hires a manager for it.</li>
+        <li>That manager adds their own staff and assistant managers, so the owner does not have to.</li>
+        <li>Everyone starts at their own outlet. Switch outlets from the card at the top of the menu.</li>
+      </ol>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {tiers.map((t) => (
+          <div key={t.name} className={`rounded-2xl p-4 ring-1 ${t === PRO ? "bg-brand-50 ring-brand-200" : "ring-line"}`}>
+            <p className="font-bold text-brand-950">{t.name}</p>
+            <p className="text-xs text-muted">{t.tagline}</p>
+            <ul className="mt-2 space-y-1 text-sm">
+              {t.items.map((item) => (
+                <li key={item} className="flex gap-1.5">
+                  <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {manager && (
+          <button
+            type="button"
+            className={primaryButton}
+            onClick={() => {
+              window.history.replaceState(null, "", `${window.location.pathname}#billing`);
+              go("settings");
+            }}
+          >
+            Upgrade to Pro <ArrowRight aria-hidden className="h-4 w-4" />
+          </button>
+        )}
+        <a href="/pricing" className={secondaryButton}>
+          Compare plans
+        </a>
+        <a href="/contact?topic=sales" className={secondaryButton}>
+          Ask about Enterprise
+        </a>
+      </div>
+    </section>
+  );
+}
+
+/** Help & guides: what each page is for and how to use it, the setup checklist again, and outlets and plans. */
+export default function Help({ me, go, canOpen }: { me: Me; go: (page: PageId) => void; canOpen: (page: PageId) => boolean }) {
+  const [restored, setRestored] = useState(false);
+  const guides = GUIDES.filter((g) => canOpen(g.page));
+
+  return (
+    <div className="space-y-6">
+      <PageTitle title="Help & guides" subtitle="What each page is for and how to use it. Tap Show me and the helper walks you through it." />
+      {me.role === "owner" && (
+        <section className={`${cardClass} flex flex-wrap items-center gap-3`}>
+          <MascotFigure who="cabbage" action="wave" size={48} />
+          <div className="min-w-0 flex-1 basis-56">
+            <p className="font-semibold text-ink">Setup checklist</p>
+            <p className="text-sm text-muted">The first steps for a new workspace, with the helper showing you each one.</p>
+          </div>
+          <button
+            type="button"
+            className={secondaryButton}
+            onClick={() => {
+              showSetupAgain(me);
+              setRestored(true);
+              go("dashboard");
+            }}
+          >
+            {restored ? "Shown on the Dashboard" : "Show it on the Dashboard"}
+          </button>
+        </section>
+      )}
+      <nav aria-label="Guides" className="flex flex-wrap gap-2">
+        {guides.map((g) => (
+          <a key={g.page} href={`#guide-${g.page}`} className="rounded-full bg-white px-3 py-1.5 text-sm font-medium text-brand-800 ring-1 ring-line hover:bg-brand-50">
+            {g.title}
+          </a>
+        ))}
+        <a href="#guide-outlets" className="rounded-full bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700">
+          Outlets and plans
+        </a>
+      </nav>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {guides.map((g) => {
+          const step = me.role === "owner" ? SETUP_STEPS.find((s) => s.page === g.page) : undefined;
+          return (
+            <section key={g.page} id={`guide-${g.page}`} aria-labelledby={`guide-${g.page}-title`} className={`${cardClass} scroll-mt-4 space-y-3`}>
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                  <g.icon aria-hidden className="h-5 w-5" />
+                </span>
+                <h2 id={`guide-${g.page}-title`} className="text-base font-bold text-brand-950">
+                  {g.title}
+                </h2>
+              </div>
+              <p className="text-sm text-muted">{g.what}</p>
+              <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
+                {g.how.map((h) => (
+                  <li key={h}>{h}</li>
+                ))}
+              </ol>
+              <div className="flex flex-wrap gap-2">
+                {step && (
+                  <button type="button" className={primaryButton} onClick={() => showStep(step, go)}>
+                    Show me
+                  </button>
+                )}
+                <button type="button" className={secondaryButton} onClick={() => go(g.page)}>
+                  Open {g.title} <ArrowRight aria-hidden className="h-4 w-4" />
+                </button>
+              </div>
+            </section>
+          );
+        })}
+      </div>
+      <OutletsAndPlans me={me} go={go} />
+      <p className="text-sm text-muted">
+        Still stuck?{" "}
+        <button
+          type="button"
+          className="font-semibold text-brand-700 underline"
+          onClick={() => {
+            window.history.replaceState(null, "", `${window.location.pathname}#help`);
+            go("settings");
+          }}
+        >
+          Ask the SOPBox team
+        </button>
+        .
+      </p>
+    </div>
+  );
+}

@@ -4,6 +4,7 @@ import { api } from "./api";
 import { DeliveriesChart, LowStockBars } from "./DashboardCharts";
 import { useMascot } from "./Mascot";
 import { LatestNotification } from "./Inbox";
+import { SetupChecklist } from "./Guide";
 import type { PageId } from "./App";
 import type { DashboardSummary, Me, Notification, PurchaseOrder } from "./types";
 import { Empty, ErrorNote, PageTitle, SectionTitle, StatusBadge, cardClass, panelClass, primaryButton, secondaryButton, when } from "./ui";
@@ -117,7 +118,6 @@ export default function Dashboard({
   onOpenNotification: (n: Notification) => void;
 }) {
   const [data, setData] = useState<DashboardSummary | null>(null);
-  const [hasTeam, setHasTeam] = useState(false);
   const [error, setError] = useState("");
   const [coming, setComing] = useState<PurchaseOrder[] | null>(null);
 
@@ -127,11 +127,6 @@ export default function Dashboard({
       .then(setData)
       .catch((e: Error) => setError(e.message));
     // Only the owner can list accounts, and only the owner sees the team step.
-    if (me.role === "owner")
-      api
-        .users()
-        .then((users) => setHasTeam(users.some((u) => u.role !== "owner")))
-        .catch(() => setHasTeam(false));
     if (canViewPurchasing)
       api
         .purchaseOrders("issued")
@@ -143,7 +138,7 @@ export default function Dashboard({
           ),
         )
         .catch(() => setComing(null));
-  }, [me.role, canViewPurchasing]);
+  }, [canViewPurchasing]);
 
   const waiting = data?.pending_count ?? 0;
   const lowCount = data?.low_stock_products.length ?? 0;
@@ -177,6 +172,9 @@ export default function Dashboard({
     return (
       <div>
         <PageTitle title={`Welcome, ${firstName}`} subtitle={`Let's get ${me.workspace.name} ready for its first receiving check.`} />
+        {me.role === "owner" ? (
+          <SetupChecklist me={me} go={go} canHide={false} />
+        ) : (
         <section className={`${cardClass} max-w-2xl`}>
           <SectionTitle>Getting started</SectionTitle>
           <ol className="mt-2 divide-y divide-line">
@@ -192,14 +190,6 @@ export default function Dashboard({
                 </button>
               )}
             </Step>
-            {me.role === "owner" && (
-              <Step done={hasTeam} title="Create accounts for your team">
-                <p className="mt-1 text-sm text-muted">Staff receive deliveries; managers also approve failures.</p>
-                <button className={`${secondaryButton} mt-3`} onClick={() => go("team")}>
-                  Open Team
-                </button>
-              </Step>
-            )}
             <Step done={data.delivery_count > 0} title="Record your first delivery">
               <p className="mt-1 text-sm text-muted">Photograph the supplier's order or type the lines, then check them.</p>
               {data.product_count > 0 && canStartReceive && (
@@ -210,12 +200,14 @@ export default function Dashboard({
             </Step>
           </ol>
         </section>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
+      {me.role === "owner" && <SetupChecklist me={me} go={go} />}
       {/* Photo: Yanhao Fang on Unsplash (Unsplash License). */}
       <header className="relative overflow-hidden rounded-3xl bg-brand-950 text-white shadow-sm">
         <img

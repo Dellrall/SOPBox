@@ -1211,6 +1211,16 @@ class MfaEnabledOut(BaseModel):
 # ---- plans, enquiries and support -------------------------------------------------------------
 
 
+class SetupOut(BaseModel):
+    """Which first steps of setting up a workspace are done."""
+
+    outlet: bool  # an outlet has its own name
+    storage: bool  # a storage area was added or renamed
+    product: bool
+    team: bool  # someone besides the owner
+    delivery: bool
+
+
 class PlanOut(BaseModel):
     plan: Literal["free", "pro", "enterprise"]
     label: str

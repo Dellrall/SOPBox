@@ -13,7 +13,7 @@ import psycopg
 from app import plans
 from app.auditlog import audit
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
-from app.models import OutletOut, StockLevelOut, StorageOut, TransferIn, TransferLineOut, TransferOut
+from app.models import OutletOut, SetupOut, StockLevelOut, StorageOut, TransferIn, TransferLineOut, TransferOut
 
 DEFAULT_OUTLET = "Main outlet"
 DEFAULT_STORAGE = "Store"
@@ -214,6 +214,19 @@ def delete_storage(conn: psycopg.Connection, ws: int, by: str, storage_id: int) 
         _remove_storages(conn, ws, [storage_id])
         audit(conn, ws, by, "storage.deleted", None, label)
     return list_outlets(conn, ws)
+
+
+def setup_progress(conn: psycopg.Connection, ws: int) -> SetupOut:
+    """The owner's setup checklist, worked out from what the workspace already has."""
+    row = conn.execute(
+        "SELECT EXISTS (SELECT 1 FROM outlets WHERE workspace_id = %(ws)s AND name <> %(outlet)s) AS outlet, "
+        "EXISTS (SELECT 1 FROM storages WHERE workspace_id = %(ws)s AND name <> %(storage)s) AS storage, "
+        "EXISTS (SELECT 1 FROM products WHERE workspace_id = %(ws)s) AS product, "
+        "EXISTS (SELECT 1 FROM users WHERE workspace_id = %(ws)s AND role <> 'owner') AS team, "
+        "EXISTS (SELECT 1 FROM deliveries WHERE workspace_id = %(ws)s) AS delivery",
+        {"ws": ws, "outlet": DEFAULT_OUTLET, "storage": DEFAULT_STORAGE},
+    ).fetchone()
+    return SetupOut(**row)
 
 
 def stock_in(conn: psycopg.Connection, ws: int, storage_id: int) -> list[StockLevelOut]:

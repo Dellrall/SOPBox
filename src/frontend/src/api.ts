@@ -1,5 +1,6 @@
 import type {
   Plan,
+  Setup,
   Pricing,
   ApiKey,
   KitchenDevice,
@@ -262,6 +263,7 @@ export const api = {
   // plans, sales and support
   pricing: () => get<Pricing>("/pricing"),
   plan: () => get<Plan>("/plan"),
+  setup: () => get<Setup>("/setup"),
   redeemPlanCode: (code: string) => post<Plan>("/plan/redeem", { code }),
   salesInquiry: (body: { topic: "sales" | "question"; name: string; company: string; email: string; phone: string; outlets: number | null; message: string }) =>
     post<{ id: number }>("/inquiries", body),

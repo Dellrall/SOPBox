@@ -86,7 +86,7 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
             <button className={secondaryButton} onClick={() => setImporting((s) => !s)} aria-expanded={importing}>
               <ScanText aria-hidden className="h-4 w-4" /> Import from a sheet
             </button>
-            <button className={primaryButton} onClick={() => setEditing("new")}>
+            <button className={primaryButton} data-guide="add-product" onClick={() => setEditing("new")}>
               Add product
             </button>
           </div>

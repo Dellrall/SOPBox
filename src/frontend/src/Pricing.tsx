@@ -16,8 +16,8 @@ export const price = (p: PricingData | null, key: string) => {
 /** In this page a price not decided yet reads "Coming soon" rather than "TBC". */
 const shown = (p: PricingData | null, key: string) => (p?.prices[key] == null ? "Coming soon" : price(p, key));
 
-type Tier = { name: string; tagline: string; items: string[] };
-const FREE: Tier = {
+export type Tier = { name: string; tagline: string; items: string[] };
+export const FREE: Tier = {
   name: "Free",
   tagline: "For a single store",
   items: [
@@ -28,7 +28,7 @@ const FREE: Tier = {
     "Two-step sign-in",
   ],
 };
-const PRO: Tier = {
+export const PRO: Tier = {
   name: "Pro",
   tagline: "For businesses with more than one outlet",
   items: [
@@ -39,7 +39,7 @@ const PRO: Tier = {
     "Add customization or priority support",
   ],
 };
-const ENTERPRISE: Tier = {
+export const ENTERPRISE: Tier = {
   name: "Enterprise",
   tagline: "For groups and franchises",
   items: ["Everything in Pro", "Customization included", "Priority support included", "One price for your whole group"],

@@ -38,6 +38,10 @@ if __name__ == "__main__":
         close_pool()
         with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as conn:
             conn.execute("ALTER TABLE workspaces ALTER COLUMN plan SET DEFAULT 'enterprise'")
+        # Many tests make their own workspace, all from 127.0.0.1: lift the per-address cap here only.
+        from app import auth
+
+        auth._REGISTER_PER_HOUR = 100
         try:
             uvicorn.run("app.main:app", host="127.0.0.1", port=PORT, log_level="warning")
         finally:
