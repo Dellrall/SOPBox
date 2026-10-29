@@ -100,14 +100,25 @@ export type PublicPath = PublicRoute | `${PublicRoute}?${string}`;
 const PUBLIC: PublicRoute[] = ["/signin", "/register", "/pricing", "/privacy", "/contact"];
 const asPublic = (path: string): PublicRoute => PUBLIC.find((p) => p === path) ?? "/";
 
+/**
+ * Signed-in pages live at /w/<workspace id>/<page>, e.g. /w/12/records. The id is not a secret:
+ * the server checks every request against the session, so another workspace's id opens nothing.
+ */
+export const appAddress = (path: string): { ws: number; page: string } | null => {
+  const m = /^\/w\/(\d+)(?:\/([a-z]+))?\/?$/.exec(path);
+  return m ? { ws: Number(m[1]), page: m[2] ?? "" } : null;
+};
+
 export default function App() {
   // undefined while we ask the server whether there is a session, null when signed out.
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [path, setPath] = useState<PublicRoute>(() => asPublic(window.location.pathname));
   // The query too, so /contact -> /contact?topic=sales opens the sales form without a reload.
   const [search, setSearch] = useState(window.location.search);
-  // The HQ branch being worked in; null for the person's own workspace.
-  const [branch, setBranchId] = useState<number | null>(null);
+  // The HQ branch being worked in; null for the person's own workspace. A link can name one.
+  const [branch, setBranchId] = useState<number | null>(() => appAddress(window.location.pathname)?.ws ?? null);
+  // The workspace the opening address named, to say so when it is not one of this person's.
+  const [linked, setLinked] = useState(() => appAddress(window.location.pathname)?.ws ?? null);
 
   useEffect(() => {
     const onPop = () => {
@@ -126,8 +137,8 @@ export default function App() {
   }, []);
 
   const signedIn = useCallback((who: Me) => {
-    // The app itself lives at /, so a refresh after signing in lands back in it.
-    window.history.replaceState(null, "", "/");
+    // A link into the app (/w/...) opens once signed in; otherwise the app takes over from /.
+    if (!appAddress(window.location.pathname)) window.history.replaceState(null, "", "/");
     setPath("/"); // so signing out later shows the welcome page, matching the address
     setMe(who);
   }, []);
@@ -162,7 +173,7 @@ export default function App() {
   if (path === "/privacy") return <Privacy navigate={navigate} signedIn={me !== null} />;
   if (path === "/contact") return <Contact key={search} navigate={navigate} signedIn={me !== null} />;
   if (me === null) {
-    if (path === "/") return <Landing navigate={navigate} />;
+    if (path === "/" && !appAddress(window.location.pathname)) return <Landing navigate={navigate} />;
     return <AuthPage mode={path === "/register" ? "register" : "signin"} navigate={navigate} onSignedIn={signedIn} />;
   }
   if (me.mfa_pending) return <MfaGate onDone={setMe} onSignOut={() => void api.logout().finally(() => setMe(null))} />;
@@ -170,6 +181,7 @@ export default function App() {
   const choice = me.workspaces.find((w) => w.id === branch && w.id !== me.workspace.id);
   setBranch(choice?.id ?? null); // every API call from here on names the branch
   const working = choice ? { ...me, role: choice.role, workspace: { id: choice.id, name: choice.name } } : me;
+  const lost = linked !== null && linked !== me.workspace.id && !me.workspaces.some((w) => w.id === linked);
   return (
     <>
       <CodePrompt />
@@ -177,9 +189,16 @@ export default function App() {
         key={working.workspace.id}
         me={working}
         onMeChanged={setMe}
-        onSwitch={setBranchId}
+        lost={lost}
+        onSwitch={(id) => {
+          setLinked(null);
+          setBranchId(id);
+        }}
         onSignedOut={() => {
           setBranchId(null);
+          setLinked(null);
+          window.history.replaceState(null, "", "/");
+          setPath("/");
           setMe(null);
         }}
       />
@@ -251,20 +270,59 @@ const IDLE: Record<PageId, Scene> = {
 
 function Shell({
   me,
+  lost,
   onMeChanged,
   onSwitch,
   onSignedOut,
 }: {
   me: Me;
+  /** The opening address named a workspace this person is not in. */
+  lost: boolean;
   onMeChanged: (me: Me) => void;
   onSwitch: (workspaceId: number) => void;
   onSignedOut: () => void;
 }) {
-  // Connecting Google or Telegram comes back to /settings.
-  const [page, setPage] = useState<PageId>(() => (window.location.pathname === "/settings" ? "settings" : firstPage(me)));
+  // The page from the address: /w/<id>/<page>, or /settings where connecting Google or Telegram comes back to.
+  const [page, setPage] = useState<PageId>(() => {
+    const at = appAddress(window.location.pathname);
+    // A link to a workspace this person is not in still opens the same page, in their own.
+    const wanted = at && (at.ws === me.workspace.id || lost) ? at.page : window.location.pathname === "/settings" ? "settings" : "";
+    return NAV.find((n) => n.id === wanted)?.id ?? firstPage(me);
+  });
+  const [lostShown, setLostShown] = useState(lost);
+  const reachable = (ws: number) => ws === me.workspace.id || me.workspaces.some((w) => w.id === ws);
+
+  // Keep the address on this workspace and page. Moving to another page, or into another workspace,
+  // adds a history entry; the first address on opening replaces a bare, old or unusable one.
+  const opened = useRef(false);
   useEffect(() => {
-    if (window.location.pathname !== "/") window.history.replaceState(null, "", "/");
-  }, []);
+    const want = `/w/${me.workspace.id}/${page}`;
+    const { pathname, search, hash } = window.location;
+    if (pathname !== want) {
+      const from = appAddress(pathname);
+      if (opened.current || (from && from.ws !== me.workspace.id && reachable(from.ws))) window.history.pushState(null, "", want);
+      else window.history.replaceState(null, "", want + search + hash); // keeps the Settings tab and sign-in link results
+    }
+    opened.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, me.workspace.id]);
+
+  // Back and forward: another page here, or another workspace (the app re-opens in it).
+  useEffect(() => {
+    const onPop = () => {
+      const at = appAddress(window.location.pathname);
+      if (!at) return;
+      if (at.ws !== me.workspace.id) {
+        if (reachable(at.ws)) onSwitch(at.ws);
+        return;
+      }
+      const id = NAV.find((n) => n.id === at.page)?.id;
+      if (id) setPage(id);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me.workspace.id]);
   const [menuOpen, setMenuOpen] = useState(false);
   // Swipe left on the open menu (or the dimmed page beside it) to close it; the menu follows the finger.
   const swipeStart = useRef<{ x: number; y: number; sideways: boolean | null } | null>(null);
@@ -449,6 +507,16 @@ function Shell({
       </aside>
 
       <main id="main" className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
+        {lostShown && (
+          <p role="status" className="mb-4 flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+            <span className="flex-1">
+              That link is for a workspace you are not in, so you are in <strong>{me.workspace.name}</strong>.
+            </span>
+            <button type="button" aria-label="Dismiss" onClick={() => setLostShown(false)} className="rounded p-0.5 hover:bg-amber-100">
+              <X aria-hidden className="h-4 w-4" />
+            </button>
+          </p>
+        )}
         <ClosedBanner me={me} onOpen={() => go("settings")} />
         <LastSignIn me={me} onReview={() => go("settings")} />
         <InboxPanel onOpen={openNotification} />
