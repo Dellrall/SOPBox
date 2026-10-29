@@ -88,7 +88,8 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
             </div>
             <p className="mt-4 text-sm text-white/60">Set up in minutes. Your team signs in with accounts you create.</p>
           </div>
-          <div className="relative">
+          {/* As wide as the phone, so the crew stays perched on it at every screen width. */}
+          <div className="relative mx-auto w-full max-w-sm">
             <DeliveryDemo />
             {/* The crew, perched on top of the demo phone, cheering the check on. */}
             <div className="pointer-events-none absolute -top-14 right-6 sm:right-10">
