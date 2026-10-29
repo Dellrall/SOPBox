@@ -653,6 +653,7 @@ class UserUpdateIn(_In):
     password: Password | None = None
     section_access: SectionAccess | None = None
     security_alerts: bool | None = None  # hears about dangerous actions, as the owner does
+    mfa_reset: bool | None = None  # true: turn their two-step sign-in off (they lost their phone)
 
     @model_validator(mode="after")
     def _clean(self) -> "UserUpdateIn":

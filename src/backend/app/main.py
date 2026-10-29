@@ -1,5 +1,6 @@
 import hmac
 import html
+from contextlib import contextmanager
 from dataclasses import replace
 import logging
 from datetime import datetime, timedelta, timezone
@@ -154,6 +155,8 @@ DashboardReader = Annotated[CurrentUser, Depends(auth.require_any_section("dashb
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    with contextmanager(get_db)() as conn:
+        mfa.encrypt_stored(conn)  # secrets saved before encryption arrived
     yield
     close_pool()
 
@@ -397,6 +400,11 @@ def mfa_enable(body: MfaCodeIn, user: User, conn: Conn):
 def mfa_verify(body: MfaCodeIn, user: Annotated[CurrentUser, Depends(_signing_in)], conn: Conn):
     mfa.verify(conn, user, body.code)
     return _me(conn, replace(user, mfa_pending=False, mfa_fresh=True))
+
+
+@app.post("/api/auth/mfa/backup-codes", response_model=MfaEnabledOut, dependencies=[dangerous("made new two-step backup codes")])
+def mfa_backup_codes(user: User, conn: Conn):
+    return mfa.new_backup_codes(conn, user)
 
 
 @app.delete("/api/auth/mfa", status_code=204, dependencies=[dangerous("turned off two-step sign-in")])

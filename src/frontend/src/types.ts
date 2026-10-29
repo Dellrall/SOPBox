@@ -92,6 +92,7 @@ export type UserUpdateIn = {
   password?: string;
   section_access?: SectionAccess;
   security_alerts?: boolean;
+  mfa_reset?: boolean;
 };
 
 export type RegisterIn = {

@@ -85,6 +85,10 @@ export function MfaGate({ onDone, onSignOut }: { onDone: (me: Me) => void; onSig
           <ShieldCheck aria-hidden className="h-6 w-6 text-brand-600" />
           <h1 className="text-lg font-semibold text-ink">Two-step sign-in</h1>
         </div>
+        <p className="text-sm text-muted">
+          Lost your phone? Type a backup code below, or sign out and sign in with a passkey. No backup codes or passkey? Ask your workspace
+          owner to reset your two-step sign-in in Team. An owner with neither asks whoever runs SOPBox.
+        </p>
         <CodeForm submitLabel="Finish signing in" onCode={async (code) => onDone(await api.mfaVerify(code))}>
           <button type="button" className={secondaryButton} onClick={onSignOut}>
             Sign out
@@ -166,7 +170,7 @@ export function TwoStep({ me, onChanged }: { me: Me; onChanged: () => void }) {
       )}
       {backups ? (
         <div className="space-y-2 rounded-xl bg-brand-50 px-3 py-2.5 text-sm">
-          <SuccessNote>Two-step sign-in is on.</SuccessNote>
+          <SuccessNote>Two-step sign-in is on. If you lose your phone, a backup code or a passkey sign-in gets you back in.</SuccessNote>
           <p>Keep these backup codes somewhere safe, away from your phone. Each works once. They are not shown again.</p>
           <ul className="grid grid-cols-2 gap-1 font-mono text-ink" data-testid="backup-codes">
             {backups.map((c) => (
@@ -187,6 +191,20 @@ export function TwoStep({ me, onChanged }: { me: Me; onChanged: () => void }) {
       ) : me.mfa_enabled ? (
         <div className="flex flex-wrap items-center gap-3">
           <span className="flex-1 text-sm font-semibold text-emerald-700">On</span>
+          <button
+            type="button"
+            className={secondaryButton}
+            onClick={() => {
+              if (!window.confirm("Make 10 new backup codes? The old ones stop working.")) return;
+              setError("");
+              api
+                .mfaBackupCodes()
+                .then((r) => setBackups(r.backup_codes))
+                .catch((e: Error) => setError(e.message));
+            }}
+          >
+            New backup codes
+          </button>
           <button
             type="button"
             className={dangerButton}
