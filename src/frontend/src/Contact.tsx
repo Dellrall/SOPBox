@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Briefcase, Clock, Mail, MessageCircleQuestion, Phone, ShieldCheck } from "lucide-react";
 import { api } from "./api";
 import type { PublicPath } from "./App";
+import { MascotFigure } from "./Mascot";
 import { SiteFooter, SiteHeader, linkTo, usePageMeta } from "./Site";
 import type { Pricing } from "./types";
 import { ErrorNote, SuccessNote, inputClass, labelClass, primaryButton } from "./ui";
@@ -151,9 +152,12 @@ export default function Contact({ navigate, signedIn }: { navigate: (to: PublicP
           aria-labelledby="contact-form"
           className="order-1 rounded-3xl bg-white p-6 shadow-lg shadow-brand-900/10 ring-1 ring-line sm:p-8 lg:order-2"
         >
-          <h2 id="contact-form" className="text-2xl font-bold">
-            Send us a message
-          </h2>
+          <div className="flex items-end justify-between gap-4">
+            <h2 id="contact-form" className="text-2xl font-bold">
+              Send us a message
+            </h2>
+            <MascotFigure who={sent ? "cabbage" : "carrot"} action={sent ? "cheer" : "write"} size={60} />
+          </div>
           {sent ? (
             <div className="mt-6">
               <SuccessNote>
