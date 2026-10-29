@@ -22,6 +22,13 @@ PAGES = {
         "Free for one store, with your whole team and every receiving check. Pro adds outlets, HQ and branch links and till "
         "API keys, priced per extra outlet for a year or once for life. Enterprise is one price for your whole group.",
     ),
+    "/docs": Page(
+        "Docs · SOPBox",
+        "How to use SOPBox: set up your outlet, products and team, check deliveries as they arrive, count stock, and run "
+        "more than one outlet with outlet managers on Pro and Enterprise.",
+        "Guides for every part of SOPBox: setting up, receiving checks, approvals, purchase orders, stock counts, your team "
+        "and their roles, and running several outlets.",
+    ),
     "/privacy": Page(
         "Privacy · SOPBox",
         "How SOPBox collects, uses, shares and protects personal data, how long it is kept, and how to download or delete "

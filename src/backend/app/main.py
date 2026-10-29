@@ -1346,6 +1346,7 @@ def _origin(request: Request) -> str:
 @app.get("/pricing", include_in_schema=False)
 @app.get("/privacy", include_in_schema=False)
 @app.get("/contact", include_in_schema=False)
+@app.get("/docs", include_in_schema=False)
 @app.get("/settings", include_in_schema=False)  # where connecting Google or Telegram comes back to
 def index(request: Request):
     """The app's single page, with this address's title, description and canonical link (seo.py)."""

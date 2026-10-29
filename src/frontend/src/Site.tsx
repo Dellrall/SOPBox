@@ -41,6 +41,7 @@ const SECTIONS = [
 ];
 const PAGES: { to: PublicPath; label: string }[] = [
   { to: "/pricing", label: "Pricing" },
+  { to: "/docs", label: "Docs" },
   { to: "/contact", label: "Contact" },
   { to: "/privacy", label: "Privacy" },
 ];
@@ -130,8 +131,8 @@ export function SiteHeader({ navigate, signedIn = false }: { navigate: Navigate;
             <a {...linkTo(navigate, "/contact?topic=sales")} className={small}>
               Contact sales
             </a>
-            <a {...linkTo(navigate, "/contact")} className={small}>
-              Help
+            <a {...linkTo(navigate, "/docs")} className={small}>
+              Help &amp; docs
             </a>
             <a {...linkTo(navigate, "/privacy")} className={small}>
               Privacy
@@ -152,6 +153,9 @@ export function SiteHeader({ navigate, signedIn = false }: { navigate: Navigate;
           ))}
           <a {...linkTo(navigate, "/pricing")} className={main}>
             Pricing
+          </a>
+          <a {...linkTo(navigate, "/docs")} className={main}>
+            Docs
           </a>
         </nav>
         <div className="ml-auto flex items-center gap-2 sm:gap-4">
@@ -204,6 +208,9 @@ export function SiteFooter({ navigate }: { navigate: Navigate }) {
           <a {...linkTo(navigate, "/pricing")} className={link}>
             Pricing
           </a>
+          <a {...linkTo(navigate, "/docs")} className={link}>
+            Docs
+          </a>
         </nav>
         <nav aria-label="Company">
           <p className={heading}>Company</p>
@@ -234,7 +241,7 @@ export function SiteFooter({ navigate }: { navigate: Navigate }) {
   );
 }
 
-/** Pricing and privacy for pages outside the public site: sign in, and the app itself. */
+/** Pricing, docs and privacy for pages outside the public site: sign in, and the app itself. */
 export function PolicyLinks({ className = "" }: { className?: string }) {
   return (
     <p className={`flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted print:hidden ${className}`}>
