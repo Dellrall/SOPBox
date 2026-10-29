@@ -39,10 +39,17 @@ def register_workspace(conn: psycopg.Connection, data: RegisterIn) -> int:
     `workspaces` and `users` have no row-level policy, so this runs before any workspace is set.
     """
     with conn.transaction():
-        ws = conn.execute(
-            "INSERT INTO workspaces (name, created_at) VALUES (%s, %s) RETURNING id",
-            (data.workspace_name, _now()),
-        ).fetchone()["id"]
+        for attempt in range(5):
+            try:
+                with conn.transaction():  # a savepoint: a repeated public id is retried with a new one
+                    ws = conn.execute(
+                        "INSERT INTO workspaces (name, created_at) VALUES (%s, %s) RETURNING id",
+                        (data.workspace_name, _now()),
+                    ).fetchone()["id"]
+                break
+            except psycopg.errors.UniqueViolation as e:
+                if e.diag.constraint_name != "workspaces_public_id_key" or attempt == 4:
+                    raise
         user_id = _insert_user(
             conn, ws, data.username, data.display_name, "owner", data.password, data.email
         )
@@ -273,7 +280,7 @@ def _describe(changes: dict) -> str:
 
 def get_workspace(conn: psycopg.Connection, workspace_id: int) -> WorkspaceSettings:
     row = conn.execute(
-        "SELECT id, name, telegram_manager_chat_id, telegram_staff_chat_id, telegram_team_chat_id, "
+        "SELECT id, public_id, name, telegram_manager_chat_id, telegram_staff_chat_id, telegram_team_chat_id, "
         "telegram_team_title, telegram_team_invite_link, mfa_policy FROM workspaces "
         "WHERE id = %s",
         (workspace_id,),

@@ -571,6 +571,7 @@ class LoginIn(_In):
 
 class WorkspaceRef(BaseModel):
     id: int
+    public_id: str  # the random id in addresses and Settings; id stays internal
     name: str
 
 
@@ -596,6 +597,7 @@ class OpsMember(BaseModel):
 
 class OpsWorkspaceOut(BaseModel):
     id: int
+    public_id: str
     name: str
     closed_on: str | None
     members: list[OpsMember]
@@ -618,6 +620,7 @@ class WorkspaceChoice(BaseModel):
     """A workspace this person can work in: their own, or a branch linked to their HQ."""
 
     id: int
+    public_id: str
     name: str
     role: Role  # their role while working there
 
@@ -732,6 +735,7 @@ MfaPolicy = Literal["off", "managers", "everyone"]
 
 class WorkspaceSettings(BaseModel):
     id: int
+    public_id: str
     name: str
     telegram_manager_chat_id: str
     telegram_staff_chat_id: str

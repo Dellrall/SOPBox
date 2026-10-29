@@ -23,10 +23,10 @@ CODE_HOURS = 24
 
 def links(conn: psycopg.Connection, ws: int) -> LinksOut:
     hq = conn.execute(
-        "SELECT h.id, h.name FROM workspaces w JOIN workspaces h ON h.id = w.hq_id WHERE w.id = %s", (ws,)
+        "SELECT h.id, h.public_id, h.name FROM workspaces w JOIN workspaces h ON h.id = w.hq_id WHERE w.id = %s", (ws,)
     ).fetchone()
     branches = conn.execute(
-        "SELECT id, name FROM workspaces WHERE hq_id = %s ORDER BY lower(name)", (ws,)
+        "SELECT id, public_id, name FROM workspaces WHERE hq_id = %s ORDER BY lower(name)", (ws,)
     ).fetchall()
     return LinksOut(hq=WorkspaceRef(**hq) if hq else None, branches=[WorkspaceRef(**b) for b in branches])
 

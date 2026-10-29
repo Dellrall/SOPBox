@@ -6,7 +6,7 @@ import type { Me } from "./types";
  * The sidebar's workspace switch, drawn in the sidebar's own colours: a native select's list
  * is painted by the phone or browser (often blue), which clashes with the deep green.
  */
-export function WorkspaceSwitch({ me, onSwitch }: { me: Me; onSwitch: (id: number) => void }) {
+export function WorkspaceSwitch({ me, onSwitch }: { me: Me; onSwitch: (publicId: string) => void }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -65,7 +65,7 @@ export function WorkspaceSwitch({ me, onSwitch }: { me: Me; onSwitch: (id: numbe
                   aria-current={current}
                   onClick={() => {
                     setOpen(false);
-                    if (!current) onSwitch(w.id);
+                    if (!current) onSwitch(w.public_id);
                   }}
                   className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-leaf ${
                     current ? "bg-white/10 font-semibold text-white" : "text-white/80 hover:bg-white/[0.07] hover:text-white"

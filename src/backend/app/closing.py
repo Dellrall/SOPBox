@@ -68,9 +68,9 @@ def delete_due(conn: psycopg.Connection) -> int:
     CASCADE); its HQ links and enquiries are let go (ON DELETE SET NULL)."""
     rows = conn.execute(
         "WITH gone AS (DELETE FROM workspaces WHERE closing_at < now() - %s * interval '1 day' "
-        "RETURNING id, name, closing_at, closed_by) "
-        "INSERT INTO closed_workspaces (id, name, closed_at, closed_by, deleted_at) "
-        "SELECT id, name, closing_at, closed_by, now() FROM gone RETURNING id",
+        "RETURNING id, public_id, name, closing_at, closed_by) "
+        "INSERT INTO closed_workspaces (id, public_id, name, closed_at, closed_by, deleted_at) "
+        "SELECT id, public_id, name, closing_at, closed_by, now() FROM gone RETURNING id",
         (GRACE_DAYS,),
     ).fetchall()
     return len(rows)

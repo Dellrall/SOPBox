@@ -44,11 +44,12 @@ export type Me = {
   display_name: string;
   role: Role;
   section_access: SectionAccess;
-  workspace: { id: number; name: string };
+  // public_id is the random id in addresses and Settings; id is the internal one the API uses.
+  workspace: { id: number; public_id: string; name: string };
   /** The sign-in before this session's, so a person notices one they did not make. */
   previous_sign_in: SignIn | null;
   /** Their own workspace first, then the branches linked to it when it is an HQ, with their role there. */
-  workspaces: { id: number; name: string; role: Role }[];
+  workspaces: { id: number; public_id: string; name: string; role: Role }[];
   /** Two-step sign-in is on. */
   mfa_enabled: boolean;
   /** Signed in, but the authenticator code is still to be entered. */
@@ -137,6 +138,7 @@ export type RegisterIn = {
 export type ProfileUpdateIn = { username?: string; display_name?: string; email?: string };
 
 export type WorkspaceSettings = {
+  public_id: string;
   id: number;
   name: string;
   telegram_manager_chat_id: string;
@@ -514,7 +516,7 @@ export type Sale = {
 
 // ---- HQ and branches ----
 
-export type WorkspaceRef = { id: number; name: string };
+export type WorkspaceRef = { id: number; public_id: string; name: string };
 export type Links = { hq: WorkspaceRef | null; branches: WorkspaceRef[] };
 
 export interface ApiKey {

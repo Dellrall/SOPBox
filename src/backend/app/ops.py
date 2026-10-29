@@ -31,9 +31,22 @@ def ops_caller(request: Request) -> None:
 Ops = Depends(ops_caller)
 
 
+def resolve(conn: psycopg.Connection, ref: str) -> int:
+    """The workspace from the id a customer reads out of Settings (public_id), or its internal number."""
+    row = conn.execute(
+        "SELECT id FROM workspaces WHERE public_id = %s UNION ALL SELECT id FROM closed_workspaces WHERE public_id = %s LIMIT 1",
+        (ref, ref),
+    ).fetchone()
+    if row:
+        return row["id"]
+    if ref.isdecimal() and len(ref) <= 18:
+        return int(ref)
+    raise NotFoundError("no such workspace")
+
+
 def workspace(conn: psycopg.Connection, ws: int) -> OpsWorkspaceOut:
     row = conn.execute(
-        "SELECT id, name, to_char(closing_at, 'YYYY-MM-DD') AS closed_on FROM workspaces WHERE id = %s", (ws,)
+        "SELECT id, public_id, name, to_char(closing_at, 'YYYY-MM-DD') AS closed_on FROM workspaces WHERE id = %s", (ws,)
     ).fetchone()
     if row is None:
         gone = conn.execute(
