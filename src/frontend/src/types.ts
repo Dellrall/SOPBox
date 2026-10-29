@@ -59,6 +59,8 @@ export type Me = {
   mfa_setup_needed: boolean;
   /** May download data: the owner, and whoever the owner allows. */
   can_export: boolean;
+  /** The outlet they work at: the app starts them there. Null: not tied to one. */
+  outlet_id?: number | null;
   /** Set while their workspace is closed: read-only, deleted for good on delete_on. */
   closing: Closing;
 };
@@ -105,6 +107,7 @@ export type UserOut = {
   security_alerts: boolean;
   mfa_enabled: boolean;
   can_export: boolean;
+  outlet_id: number | null;
 };
 
 export type UserCreateIn = {
@@ -114,6 +117,7 @@ export type UserCreateIn = {
   role: "manager" | "staff";
   password: string;
   section_access?: SectionAccess;
+  outlet_id?: number | null;
 };
 
 export type UserUpdateIn = {
@@ -126,6 +130,7 @@ export type UserUpdateIn = {
   security_alerts?: boolean;
   mfa_reset?: boolean;
   can_export?: boolean;
+  outlet_id?: number | null;
 };
 
 export type RegisterIn = {

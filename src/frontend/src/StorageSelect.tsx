@@ -16,9 +16,18 @@ export function useStorages(): StorageArea[] {
   return storages;
 }
 
-/** The server's default storage area (the first one made), used when none is picked. */
-export const firstStorageId = (storages: StorageArea[]) =>
-  storages.length ? Math.min(...storages.map((s) => s.id)) : null;
+/** The outlet picked in the sidebar: pages start on its storage areas. */
+let currentOutlet: number | null = null;
+export const setCurrentOutlet = (id: number | null) => {
+  currentOutlet = id;
+};
+
+/** The storage area used when none is picked: the first one made in the current outlet, else in the workspace. */
+export const firstStorageId = (storages: StorageArea[]) => {
+  const here = storages.filter((s) => s.outlet_id === currentOutlet);
+  const from = here.length ? here : storages;
+  return from.length ? Math.min(...from.map((s) => s.id)) : null;
+};
 
 /** Pick a storage area, grouped by outlet. */
 export function StorageSelect({

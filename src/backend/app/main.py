@@ -364,6 +364,7 @@ def _me(conn: psycopg.Connection, user: CurrentUser) -> Me:
         mfa_pending=user.mfa_pending,
         mfa_setup_needed=not user.mfa_enabled and mfa.required(user.mfa_policy, user.role),
         can_export=export.allowed(user),
+        outlet_id=user.outlet_id,
         closing=closing.state(conn, user.workspace_id),
         workspaces=[
             WorkspaceChoice(id=user.workspace_id, public_id=user.workspace_public_id, name=user.workspace_name, role=user.role),
@@ -649,17 +650,18 @@ def remove_kitchen_device(device_id: int, user: ManagerUp, conn: Conn) -> None:
 
 
 @app.get("/api/users", response_model=list[UserOut])
-def list_users(owner: OwnerOnly, conn: Conn):
-    return accounts.list_users(conn, owner)
+def list_users(user: ManagerUp, conn: Conn):
+    """The owner sees everyone; an outlet's manager sees the people at their outlet."""
+    return accounts.list_users(conn, user)
 
 
 @app.post("/api/users", dependencies=[dangerous("added a person to the team")], response_model=UserOut, status_code=201)
-def create_user(body: UserCreateIn, owner: OwnerOnly, conn: Conn):
-    return accounts.create_user(conn, owner, body)
+def create_user(body: UserCreateIn, user: ManagerUp, conn: Conn):
+    return accounts.create_user(conn, user, body)
 
 
 @app.patch("/api/users/{user_id}", dependencies=[dangerous("changed a teammate's account")], response_model=UserOut)
-def update_user(user_id: int, body: UserUpdateIn, background: BackgroundTasks, owner: OwnerOnly, conn: Conn):
+def update_user(user_id: int, body: UserUpdateIn, background: BackgroundTasks, owner: ManagerUp, conn: Conn):
     was_active = accounts.get_user(conn, owner.workspace_id, user_id).active
     updated = accounts.update_user(conn, owner, user_id, body)
     if updated.active != was_active and updated.telegram_linked:
