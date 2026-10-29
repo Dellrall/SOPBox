@@ -1,6 +1,7 @@
-"""Download your data: one ZIP for anyone, whatever their role.
+"""Download your data: one ZIP, on every plan. The owner always may, and decides who else may
+(users.can_export, in Settings > Security rules).
 
-Everyone gets their own account (profile, sign-ins, inbox) as JSON, plus a CSV for each table
+Each person gets their own account (profile, sign-ins, inbox) as JSON, plus a CSV for each table
 behind the sections they can see, so staff get only what their section access shows them and the
 owner gets the whole workspace. Row-level security already limits every table to this workspace.
 Never included: password, PIN and two-step secrets, session and key hashes, passkey keys, and
@@ -31,6 +32,11 @@ SECTIONS = {
 }
 SECRET_COLUMNS = {"token_hash", "password_hash", "pin_hash", "totp_secret", "totp_pending_secret", "code_hash", "public_key", "data"}
 TEAM_COLUMNS = "id, username, email, display_name, role, section_access, active, created_at, security_alerts"
+
+
+def allowed(user: CurrentUser) -> bool:
+    """In a branch, HQ people act as managers (auth.in_branch), so they need the permission too."""
+    return user.can_export or (user.role == "owner")
 
 
 def _text(value) -> str:

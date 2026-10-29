@@ -24,8 +24,20 @@ def test_the_owner_gets_the_whole_workspace_without_secrets(client, catalogue_id
     assert "password_hash" not in json.dumps(account)
 
 
+def test_only_people_the_owner_allows_can_download(client, make_user):
+    manager = make_user("manager")
+    me = manager.get("/api/auth/me").json()
+    assert me["can_export"] is False
+    refused = manager.get("/api/export")
+    assert refused.status_code == 403 and "owner" in refused.json()["detail"]
+    assert client.patch(f"/api/users/{me['id']}", json={"can_export": True}).json()["can_export"] is True
+    assert manager.get("/api/export").status_code == 200
+    assert client.get("/api/auth/me").json()["can_export"] is True  # the owner always may
+
+
 def test_staff_get_their_account_and_only_their_sections(client, catalogue_ids, make_user):
     staff = make_user("staff")  # default access: products, records, stocktake to view; no activity or purchasing
+    client.patch(f"/api/users/{staff.get('/api/auth/me').json()['id']}", json={"can_export": True})
     names = set(_files(staff).namelist())
     assert "my-account.json" in names and "products.csv" in names
     assert not names & {"audit_log.csv", "suppliers.csv", "team.csv", "api_keys.csv"}

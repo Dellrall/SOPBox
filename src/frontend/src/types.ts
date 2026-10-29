@@ -55,6 +55,8 @@ export type Me = {
   mfa_pending: boolean;
   /** The workspace requires two-step sign-in and it is not on yet. */
   mfa_setup_needed: boolean;
+  /** May download data: the owner, and whoever the owner allows. */
+  can_export: boolean;
 };
 
 export type MfaPolicy = "off" | "managers" | "everyone";
@@ -96,6 +98,7 @@ export type UserOut = {
   team_group_removed_until: string | null;
   security_alerts: boolean;
   mfa_enabled: boolean;
+  can_export: boolean;
 };
 
 export type UserCreateIn = {
@@ -116,6 +119,7 @@ export type UserUpdateIn = {
   section_access?: SectionAccess;
   security_alerts?: boolean;
   mfa_reset?: boolean;
+  can_export?: boolean;
 };
 
 export type RegisterIn = {

@@ -360,6 +360,37 @@ export function SecurityPolicy() {
             ))}
         </ul>
       </fieldset>
+      <fieldset>
+        <legend className={labelClass}>Can download data</legend>
+        <p className="mb-2 text-xs text-muted">
+          You always can. People you tick get Settings, Download your data, with only the sections they can already see.
+        </p>
+        <ul className="space-y-1 text-sm">
+          {users
+            .filter((u) => u.role !== "owner" && u.active)
+            .map((u) => (
+              <li key={u.id}>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={u.can_export}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      void run(
+                        async () => {
+                          const updated = await api.updateUser(u.id, { can_export: on });
+                          setUsers((all) => all.map((x) => (x.id === u.id ? updated : x)));
+                        },
+                        on ? `${u.display_name} can download data.` : `${u.display_name} can no longer download data.`,
+                      );
+                    }}
+                  />
+                  {u.display_name} <span className="text-muted">({u.role})</span>
+                </label>
+              </li>
+            ))}
+        </ul>
+      </fieldset>
       <ErrorNote message={error} />
       {saved && <SuccessNote>{saved}</SuccessNote>}
     </section>

@@ -343,7 +343,7 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
       {me.role === "owner" && <HqLinks />}
       {me.role !== "staff" && <ApiKeys />}
       {me.role !== "staff" && <PlanCard owner={me.role === "owner"} />}
-      <ExportCard />
+      {me.can_export && <ExportCard />}
       <SupportCard />
     </div>
   );

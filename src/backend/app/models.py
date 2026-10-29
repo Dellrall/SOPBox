@@ -602,6 +602,7 @@ class Me(BaseModel):
     mfa_enabled: bool = False  # two-step sign-in is on
     mfa_pending: bool = False  # signed in, but the authenticator code is still to be entered
     mfa_setup_needed: bool = False  # the workspace requires two-step sign-in and it is not on yet
+    can_export: bool = False  # may download data: the owner, and whoever the owner allows
     # Their own workspace first, then the branches linked to it when it is an HQ.
     workspaces: list[WorkspaceChoice] = []
 
@@ -654,6 +655,7 @@ class UserUpdateIn(_In):
     section_access: SectionAccess | None = None
     security_alerts: bool | None = None  # hears about dangerous actions, as the owner does
     mfa_reset: bool | None = None  # true: turn their two-step sign-in off (they lost their phone)
+    can_export: bool | None = None  # may download the workspace's data (Settings)
 
     @model_validator(mode="after")
     def _clean(self) -> "UserUpdateIn":
@@ -677,6 +679,7 @@ class UserOut(BaseModel):
     team_group_removed_until: str | None = None
     security_alerts: bool = False
     mfa_enabled: bool = False
+    can_export: bool = False
 
 
 class TeamGroupIn(_In):
