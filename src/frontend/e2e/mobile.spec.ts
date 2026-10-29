@@ -136,6 +136,18 @@ for (const who of ["owner", "manager", "staff"] as const) {
 test.describe("phone layout", () => {
   test.use({ storageState: stateFile("owner") });
 
+  test("on a small phone the helper starts small with its message folded away", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
+    const show = page.getByRole("button", { name: "Show the helper's messages" });
+    await expect(show).toBeVisible();
+    await show.tap();
+    await expect(show).toBeHidden();
+    await page.reload(); // the person's choice is remembered
+    await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
+    await expect(show).toBeHidden();
+  });
+
   test("every Settings tab fits a phone", async ({ page }, testInfo) => {
     await page.goto("/");
     await openPage(page, "Settings");
