@@ -262,6 +262,7 @@ export const api = {
   // plans, sales and support
   pricing: () => get<Pricing>("/pricing"),
   plan: () => get<Plan>("/plan"),
+  redeemPlanCode: (code: string) => post<Plan>("/plan/redeem", { code }),
   salesInquiry: (body: { topic: "sales" | "question"; name: string; company: string; email: string; phone: string; outlets: number | null; message: string }) =>
     post<{ id: number }>("/inquiries", body),
   upgradeRequest: (body: { billing: "annual" | "lifetime"; outlets: number; customization: boolean; priority_support: boolean; phone: string; message: string }) =>

@@ -450,6 +450,23 @@ CREATE TABLE IF NOT EXISTS inquiries (
 -- Questions from the public contact page joined later: widen the check on existing databases.
 ALTER TABLE inquiries DROP CONSTRAINT IF EXISTS inquiries_kind_check;
 ALTER TABLE inquiries ADD CONSTRAINT inquiries_kind_check CHECK (kind IN ('sales', 'question', 'upgrade', 'support'));
+-- Codes that turn Pro on, made by the team (python -m app.plan_codes). Only the SHA-256 is kept.
+CREATE TABLE IF NOT EXISTS plan_codes (
+    token_hash TEXT PRIMARY KEY,
+    paid_outlets INTEGER NOT NULL CHECK (paid_outlets >= 0),
+    days INTEGER CHECK (days > 0),  -- NULL: Pro for life
+    customization BOOLEAN NOT NULL DEFAULT FALSE,
+    uses_left INTEGER NOT NULL CHECK (uses_left >= 0),
+    expires_on DATE,  -- last day it can be entered
+    note TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS plan_code_uses (
+    token_hash TEXT NOT NULL REFERENCES plan_codes(token_hash) ON DELETE CASCADE,
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    used_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (token_hash, workspace_id)
+);
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible

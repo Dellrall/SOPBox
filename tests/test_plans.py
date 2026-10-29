@@ -5,7 +5,7 @@ from datetime import date, timedelta
 import psycopg
 from fastapi.testclient import TestClient
 
-from app import set_plan
+from app import plan_codes, set_plan
 from app.main import app
 
 
@@ -74,3 +74,43 @@ def test_a_visitor_asks_a_question_from_the_contact_page(_database, anon):
     assert anon.post("/api/inquiries", json={**question, "message": "Does it work offline?"}).status_code == 201
     with psycopg.connect(_database, autocommit=True) as conn:
         assert conn.execute("SELECT kind FROM inquiries").fetchall() == [("question",)]
+
+
+def _code(capsys, *args: str) -> str:
+    assert plan_codes.main(list(args)) == 0
+    return capsys.readouterr().out.strip()
+
+
+def test_a_code_from_the_team_turns_pro_on_once_per_workspace(client, _database, capsys):
+    _free(_database, client)
+    code = _code(capsys, "--outlets", "2", "--days", "30", "--uses", "2")
+    assert code.startswith("PRO-") and len(code) == 23
+
+    assert client.post("/api/plan/redeem", json={"code": "PRO-NOPE-NOPE-NOPE-NOPE"}).status_code == 422
+    typed = code.lower().replace("-", " ")  # case, spaces and dashes do not matter
+    plan = client.post("/api/plan/redeem", json={"code": typed}).json()
+    assert (plan["plan"], plan["billing"], plan["outlets_allowed"]) == ("pro", "annual", 3)
+    assert plan["until"] == str(date.today() + timedelta(days=30))
+    assert client.post("/api/outlets", json={"name": "Outlet KL"}).status_code == 201
+
+    # Not twice in one workspace, and a second yearly code adds its days to what is left.
+    assert client.post("/api/plan/redeem", json={"code": code}).status_code == 422
+    more = _code(capsys, "--outlets", "1", "--days", "10")
+    plan = client.post("/api/plan/redeem", json={"code": more}).json()
+    assert plan["until"] == str(date.today() + timedelta(days=40)) and plan["outlets_allowed"] == 3  # never fewer outlets
+
+    with psycopg.connect(_database) as conn:
+        assert conn.execute("SELECT count(*) FROM plan_codes WHERE uses_left = 0").fetchone()[0] == 1
+        assert conn.execute("SELECT count(*) FROM audit_log WHERE action = 'plan.code_redeemed'").fetchone()[0] == 2
+
+
+def test_only_owners_redeem_and_expired_codes_do_not_work(client, make_user, _database, capsys):
+    _free(_database, client)
+    old = _code(capsys, "--outlets", "1", "--lifetime", "--expires", str(date.today() - timedelta(days=1)))
+    assert client.post("/api/plan/redeem", json={"code": old}).status_code == 422
+    code = _code(capsys, "--outlets", "1", "--lifetime")
+    assert make_user("manager").post("/api/plan/redeem", json={"code": code}).status_code == 403
+    plan = client.post("/api/plan/redeem", json={"code": code}).json()
+    assert (plan["billing"], plan["until"]) == ("lifetime", None)
+    yearly = _code(capsys, "--outlets", "5", "--days", "30")
+    assert client.post("/api/plan/redeem", json={"code": yearly}).status_code == 409  # would cut life to a year
