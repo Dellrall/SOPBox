@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 import { DEFAULT_STAFF_ACCESS, SECTION_ACCESS_AREAS, type Accountability, type SectionAccess, type UserOut } from "./types";
-import { USERNAME_HINT, USERNAME_PATTERN, cleanUsername, usernameProblem } from "./username";
+import { USERNAME_HINT, USERNAME_PATTERN, UsernameStatus, cleanUsername, usernameProblem, useUsernameCheck } from "./username";
 import { Empty, ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 function SectionAccessFields({
@@ -41,6 +41,7 @@ function SectionAccessFields({
 function CreateForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
+  const usernameCheck = useUsernameCheck(username);
   const [email, setEmail] = useState("");
   const [dropped, setDropped] = useState(false);
   const [role, setRole] = useState<"manager" | "staff">("staff");
@@ -112,6 +113,7 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
               setDropped(cleaned.removed);
             }}
           />
+          <UsernameStatus check={usernameCheck} />
           <p id="u-username-hint" className={`mt-1 text-xs ${dropped ? "font-semibold text-amber-800" : "text-muted"}`} aria-live="polite">
             {dropped ? "Spaces and symbols can't be used, so they were left out. " : ""}
             {USERNAME_HINT}

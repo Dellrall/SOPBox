@@ -31,6 +31,7 @@ from app.errors import (
 )
 from app.extraction import extract_lines, extract_products, write_sop
 from app.models import (
+    UsernameCheck,
     ApiKeyCreated,
     ApiKeyIn,
     ApiKeyOut,
@@ -314,6 +315,14 @@ def _signed_in(
 ) -> Me:
     auth.start_session(conn, request, response, user_id, method, **session)
     return _me(conn, auth.get_me(conn, user_id))
+
+
+@app.get("/api/auth/username-available", response_model=UsernameCheck)
+def username_available(username: Annotated[str, Query(max_length=254)], request: Request, conn: Conn):
+    """For the sign-up and profile forms, as the person types."""
+    auth.check_username_lookup_allowed(request.client.host if request.client else "unknown")
+    user = auth.optional_user(request, conn)
+    return accounts.username_available(conn, username, user.id if user else None)
 
 
 @app.post("/api/auth/login", response_model=Me)

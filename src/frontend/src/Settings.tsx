@@ -6,7 +6,7 @@ import { HqLinks, Outlets } from "./Places";
 import { KitchenTablets, SignInSecurity } from "./Security";
 import { setStocktakeStartsExpanded, stocktakeStartsExpanded } from "./Stocktake";
 import type { Me, WorkspaceSettings } from "./types";
-import { USERNAME_HINT, USERNAME_PATTERN, cleanUsername, usernameProblem } from "./username";
+import { USERNAME_HINT, USERNAME_PATTERN, UsernameStatus, cleanUsername, usernameProblem, useUsernameCheck } from "./username";
 import { ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 /** A fixed id, like Discord's: names change, this never does. */
@@ -24,6 +24,7 @@ function IdLine({ label, id }: { label: string; id: number }) {
 
 function Profile({ me, onChanged }: { me: Me; onChanged: (me: Me) => void }) {
   const [username, setUsername] = useState(me.username);
+  const usernameCheck = useUsernameCheck(username, username === me.username);
   const [name, setName] = useState(me.display_name);
   const [email, setEmail] = useState(me.email ?? "");
   const [error, setError] = useState("");
@@ -69,6 +70,7 @@ function Profile({ me, onChanged }: { me: Me; onChanged: (me: Me) => void }) {
             value={username}
             onChange={(e) => setUsername(cleanUsername(e.target.value).value)}
           />
+          <UsernameStatus check={usernameCheck} />
           <p className="mt-1 text-xs text-muted">{USERNAME_HINT} You sign in with the new one after saving.</p>
         </div>
         <div>

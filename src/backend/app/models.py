@@ -557,6 +557,12 @@ class RegisterIn(_In):
         return self
 
 
+class UsernameCheck(BaseModel):
+    username: str  # as it would be saved
+    available: bool
+    problem: str  # why not, or ""
+
+
 class LoginIn(_In):
     # A username or an email address.
     username: str = Field(min_length=1, max_length=254)

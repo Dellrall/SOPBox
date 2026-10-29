@@ -134,6 +134,8 @@ export const api = {
   login: (username: string, password: string) => post<Me>("/auth/login", { username, password }),
   register: (body: RegisterIn) => post<Me>("/auth/register", body),
   logout: () => post<void>("/auth/logout"),
+  usernameAvailable: (username: string) =>
+    get<{ username: string; available: boolean; problem: string }>(`/auth/username-available?username=${encodeURIComponent(username)}`),
   updateProfile: (body: ProfileUpdateIn) => patch<Me>("/auth/me", body),
   changePassword: (current_password: string, new_password: string) =>
     post<void>("/auth/password", { current_password, new_password }),
