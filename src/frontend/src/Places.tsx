@@ -4,11 +4,9 @@ import { api } from "./api";
 import type { Links, Outlet } from "./types";
 import { ErrorNote, SectionTitle, SuccessNote, cardClass, dangerButton, inputClass, primaryButton, secondaryButton } from "./ui";
 
-/** Managers set up outlets and the storage areas in each (Store, Substore). */
-export function Outlets() {
+/** The outlets and a way to change them, shared by the outlet list and the storage areas. */
+function useOutlets() {
   const [outlets, setOutlets] = useState<Outlet[]>([]);
-  const [newOutlet, setNewOutlet] = useState("");
-  const [newStorage, setNewStorage] = useState<Record<number, string>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -34,20 +32,31 @@ export function Outlets() {
     const name = window.prompt("New name", current)?.trim();
     if (name && name !== current) void run(() => save(name));
   };
+  return { outlets, error, busy, run, rename };
+}
+
+/** Managers add, rename and delete outlets (Settings, Workspace). Their storage areas are on Categories & storage. */
+export function Outlets() {
+  const { outlets, error, busy, run, rename } = useOutlets();
+  const [newOutlet, setNewOutlet] = useState("");
 
   return (
     <section className={`${cardClass} space-y-4`}>
       <div>
-        <SectionTitle>Outlets & storage areas</SectionTitle>
+        <SectionTitle>Outlets</SectionTitle>
         <p className="mt-1 text-sm text-muted">
-          Stock is kept per storage area, e.g. Store and Substore in each outlet. Deliveries, counts, transfers and sales each
-          name one. A storage area can be deleted only while it is empty and has no history.
+          Each shop or kitchen of the business. Its storage areas (Store, Chiller…) are set up on the Categories &amp; storage page.
         </p>
       </div>
-      {outlets.map((o) => (
-        <div key={o.id} className="space-y-2 rounded-xl border border-line p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="flex-1 font-semibold text-ink">{o.name}</span>
+      <ul className="divide-y divide-line rounded-xl border border-line">
+        {outlets.map((o) => (
+          <li key={o.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-ink">{o.name}</span>
+              <span className="block text-xs text-muted">
+                {o.storages.length} storage area{o.storages.length === 1 ? "" : "s"}
+              </span>
+            </span>
             <button type="button" className={secondaryButton} disabled={busy} onClick={() => rename(o.name, (n) => api.renameOutlet(o.id, n))}>
               Rename
             </button>
@@ -61,51 +70,9 @@ export function Outlets() {
                 Delete
               </button>
             )}
-          </div>
-          <ul className="space-y-1 pl-3">
-            {o.storages.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="flex-1">{s.name}</span>
-                <button type="button" className="text-brand-700 underline" disabled={busy} onClick={() => rename(s.name, (n) => api.renameStorage(s.id, n))}>
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  className="text-red-700 underline"
-                  disabled={busy}
-                  onClick={() => window.confirm(`Delete ${s.label}?`) && void run(() => api.deleteStorage(s.id))}
-                >
-                  Delete
-                </button>
-              </li>
-            ))}
-          </ul>
-          <form
-            className="flex flex-wrap gap-2 pl-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const name = (newStorage[o.id] ?? "").trim();
-              if (name) void run(() => api.createStorage(o.id, name)).then((ok) => ok && setNewStorage((all) => ({ ...all, [o.id]: "" })));
-            }}
-          >
-            <label className="sr-only" htmlFor={`storage-new-${o.id}`}>
-              New storage area in {o.name}
-            </label>
-            <input
-              id={`storage-new-${o.id}`}
-              maxLength={80}
-              placeholder="New storage area, e.g. Substore"
-              className={`${inputClass} min-w-40 flex-1`}
-              value={newStorage[o.id] ?? ""}
-              onChange={(e) => setNewStorage((all) => ({ ...all, [o.id]: e.target.value }))}
-            />
-            <button type="submit" className={secondaryButton} disabled={busy}>
-              <Plus aria-hidden className="h-4 w-4" />
-              Add
-            </button>
-          </form>
-        </div>
-      ))}
+          </li>
+        ))}
+      </ul>
       <form
         className="flex flex-wrap gap-2"
         onSubmit={(e) => {
@@ -129,6 +96,80 @@ export function Outlets() {
           Add outlet
         </button>
       </form>
+      <ErrorNote message={error} />
+    </section>
+  );
+}
+
+/** Where stock sits in each outlet, e.g. Store and Substore. Managers add, rename and delete them. */
+export function StorageAreas({ canEdit }: { canEdit: boolean }) {
+  const { outlets, error, busy, run, rename } = useOutlets();
+  const [newStorage, setNewStorage] = useState<Record<number, string>>({});
+
+  return (
+    <section className={`${cardClass} space-y-4`} aria-labelledby="storage-heading">
+      <div>
+        <h2 id="storage-heading" className="text-base font-bold text-brand-950">
+          Storage areas
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Stock is kept per storage area. Deliveries, counts, transfers and sales each name one. An area can be deleted only while it
+          is empty and has no history.
+        </p>
+      </div>
+      {outlets.map((o) => (
+        <div key={o.id} className="space-y-2">
+          {outlets.length > 1 && <p className="text-xs font-semibold uppercase tracking-wider text-muted">{o.name}</p>}
+          <ul className="divide-y divide-line rounded-xl border border-line">
+            {o.storages.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5 text-sm">
+                <span className="flex-1 font-medium text-ink">{s.name}</span>
+                {canEdit && (
+                  <>
+                    <button type="button" className={secondaryButton} disabled={busy} onClick={() => rename(s.name, (n) => api.renameStorage(s.id, n))}>
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      className={dangerButton}
+                      disabled={busy}
+                      onClick={() => window.confirm(`Delete ${s.label}?`) && void run(() => api.deleteStorage(s.id))}
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+          {canEdit && (
+            <form
+              className="flex flex-wrap gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const name = (newStorage[o.id] ?? "").trim();
+                if (name) void run(() => api.createStorage(o.id, name)).then((ok) => ok && setNewStorage((all) => ({ ...all, [o.id]: "" })));
+              }}
+            >
+              <label className="sr-only" htmlFor={`storage-new-${o.id}`}>
+                New storage area in {o.name}
+              </label>
+              <input
+                id={`storage-new-${o.id}`}
+                maxLength={80}
+                placeholder="New storage area, e.g. Chiller"
+                className={`${inputClass} min-w-40 flex-1`}
+                value={newStorage[o.id] ?? ""}
+                onChange={(e) => setNewStorage((all) => ({ ...all, [o.id]: e.target.value }))}
+              />
+              <button type="submit" className={secondaryButton} disabled={busy}>
+                <Plus aria-hidden className="h-4 w-4" />
+                Add
+              </button>
+            </form>
+          )}
+        </div>
+      ))}
       <ErrorNote message={error} />
     </section>
   );

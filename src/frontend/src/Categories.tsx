@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
+import { StorageAreas } from "./Places";
 import type { Category } from "./types";
-import { Empty, ErrorNote, TempInput, cardClass, dangerButton, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
+import { Empty, ErrorNote, PageTitle, TempInput, cardClass, dangerButton, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 
 const num = (text: string): number | null => (text.trim() === "" ? null : Number(text));
 const range = (c: Category) =>
@@ -50,13 +51,13 @@ function CategoryForm({
   const id = category ? `c${category.id}` : "new";
   return (
     <form
-      className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-end"
+      className="grid grid-cols-2 gap-3 @2xl:grid-cols-[2fr_1fr_1fr_auto] @2xl:items-end"
       onSubmit={(e) => {
         e.preventDefault();
         void save();
       }}
     >
-      <div>
+      <div className="col-span-2 @2xl:col-span-1">
         <label className={labelClass} htmlFor={`cat-name-${id}`}>
           Category name
         </label>
@@ -74,7 +75,7 @@ function CategoryForm({
         </label>
         <TempInput id={`cat-max-${id}`} value={max} onChange={setMax} />
       </div>
-      <div className="flex gap-2">
+      <div className="col-span-2 flex gap-2 @2xl:col-span-1">
         <button type="submit" disabled={busy} className={primaryButton}>
           {category ? "Save" : "Add"}
         </button>
@@ -84,7 +85,7 @@ function CategoryForm({
           </button>
         )}
       </div>
-      <div className="sm:col-span-4">
+      <div className="col-span-2 @2xl:col-span-4">
         <ErrorNote message={error} />
       </div>
     </form>
@@ -94,9 +95,11 @@ function CategoryForm({
 /** Categories carry the default arrival temperature for their products. */
 export default function Categories({
   categories,
+  canEdit,
   onChanged,
 }: {
   categories: Category[];
+  canEdit: boolean;
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState<number | null>(null);
@@ -118,7 +121,7 @@ export default function Categories({
   }
 
   return (
-    <section className={`${cardClass} space-y-3`} aria-labelledby="categories-heading">
+    <section className={`${cardClass} @container space-y-3`} aria-labelledby="categories-heading">
       <h2 id="categories-heading" className="text-base font-bold text-brand-950">
         Categories
       </h2>
@@ -126,7 +129,9 @@ export default function Categories({
         A product arrives at its category&apos;s temperature unless you set its own range.
       </p>
       <ErrorNote message={error} />
-      {categories.length === 0 && <Empty>No categories yet. Add the first one below, for example &quot;Frozen&quot; at -20 to -10 °C.</Empty>}
+      {categories.length === 0 && (
+        <Empty>{canEdit ? <>No categories yet. Add the first one below, for example &quot;Frozen&quot; at -20 to -10 °C.</> : "No categories yet."}</Empty>
+      )}
       <ul className="divide-y divide-line">
         {categories.map((c) => (
           <li key={c.id} className="py-2">
@@ -145,7 +150,7 @@ export default function Categories({
                   <p className="font-medium">{c.name}</p>
                   <p className="text-sm text-slate-600">{range(c)}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className={canEdit ? "flex gap-2" : "hidden"}>
                   <button className={secondaryButton} onClick={() => setEditing(c.id)}>
                     Edit
                   </button>
@@ -158,7 +163,34 @@ export default function Categories({
           </li>
         ))}
       </ul>
-      <CategoryForm onSaved={onChanged} />
+      {canEdit && <CategoryForm onSaved={onChanged} />}
     </section>
+  );
+}
+
+/** One page for how products are grouped (categories) and where stock sits (storage areas in each outlet). */
+export function CategoriesAndStorage({ canEditCategories, canEditStorage }: { canEditCategories: boolean; canEditStorage: boolean }) {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [error, setError] = useState("");
+  const load = useCallback(() => {
+    api
+      .categories()
+      .then(setCategories)
+      .catch((e: Error) => setError(e.message));
+  }, []);
+  useEffect(load, [load]);
+
+  return (
+    <div className="space-y-5">
+      <PageTitle
+        title="Categories & storage"
+        subtitle="Categories group products and set the temperature they arrive at. Storage areas are where stock sits in each outlet."
+      />
+      <ErrorNote message={error} />
+      <div className="grid items-start gap-5 xl:grid-cols-2">
+        <Categories categories={categories} canEdit={canEditCategories} onChanged={load} />
+        <StorageAreas canEdit={canEditStorage} />
+      </div>
+    </div>
   );
 }

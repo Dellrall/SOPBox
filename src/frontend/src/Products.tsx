@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScanText } from "lucide-react";
 import { ApiError, api } from "./api";
-import Categories from "./Categories";
 import ImportSheet from "./ImportSheet";
 import ProductForm from "./ProductForm";
 import type { Category, Product } from "./types";
@@ -18,7 +17,6 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
   const [products, setProducts] = useState<Product[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [editing, setEditing] = useState<Product | "new" | null>(null);
-  const [showCategories, setShowCategories] = useState(false);
   const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -85,9 +83,6 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
       <PageTitle title="Products & SOP" subtitle="What you buy, the rules each delivery is checked against, and how to handle it.">
         {canEdit && (
           <div className="flex flex-wrap gap-2 [&>button]:whitespace-nowrap">
-            <button className={secondaryButton} onClick={() => setShowCategories((s) => !s)} aria-expanded={showCategories}>
-              Categories
-            </button>
             <button className={secondaryButton} onClick={() => setImporting((s) => !s)} aria-expanded={importing}>
               <ScanText aria-hidden className="h-4 w-4" /> Import from a sheet
             </button>
@@ -113,13 +108,6 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
             reload();
           }}
           onClose={() => setImporting(false)}
-        />
-      )}
-
-      {canEdit && showCategories && (
-        <Categories
-          categories={categories}
-          onChanged={reload}
         />
       )}
 
