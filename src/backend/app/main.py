@@ -1,3 +1,4 @@
+import asyncio
 import hmac
 import html
 from contextlib import contextmanager
@@ -17,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, export, hq, inquiries, locations, mfa, notifications, plans, sales, stocktakes
+from app import apikeys, closing, export, hq, inquiries, locations, mfa, notifications, ops, plans, sales, stocktakes
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -34,6 +35,10 @@ from app.errors import (
 )
 from app.extraction import extract_lines, extract_products, write_sop
 from app.models import (
+    CloseIn,
+    ClosingOut,
+    OpsWorkspaceOut,
+    OwnerTransferIn,
     InquiryOut,
     PlanOut,
     PricingOut,
@@ -163,8 +168,26 @@ async def lifespan(_: FastAPI):
     init_db()
     with contextmanager(get_db)() as conn:
         mfa.encrypt_stored(conn)  # secrets saved before encryption arrived
+    deleter = asyncio.create_task(_delete_closed_workspaces())
     yield
+    deleter.cancel()
     close_pool()
+
+
+def _delete_due() -> None:
+    with contextmanager(get_db)() as conn:
+        if count := closing.delete_due(conn):
+            logger.info("deleted %s closed workspace(s)", count)
+
+
+async def _delete_closed_workspaces() -> None:
+    """Hourly, and at each start (an app that sleeps when idle may miss some hours)."""
+    while True:
+        try:
+            await asyncio.to_thread(_delete_due)
+        except Exception:
+            logger.exception("deleting closed workspaces failed; trying again in an hour")
+        await asyncio.sleep(3600)
 
 
 # Swagger UI loads its script from a CDN, which the strict CSP below would block.
@@ -340,6 +363,7 @@ def _me(conn: psycopg.Connection, user: CurrentUser) -> Me:
         mfa_pending=user.mfa_pending,
         mfa_setup_needed=not user.mfa_enabled and mfa.required(user.mfa_policy, user.role),
         can_export=export.allowed(user),
+        closing=closing.state(conn, user.workspace_id),
         workspaces=[
             WorkspaceChoice(id=user.workspace_id, name=user.workspace_name, role=user.role),
             *(
@@ -1219,6 +1243,34 @@ def export_data(user: User, conn: Conn):
     auth.limit("export", str(user.id), 10, 3600)
     name, content = export.build(conn, user)
     return Response(content, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+# ---- closing the business --------------------------------------------------------------------------
+
+
+@app.post("/api/workspace/close", response_model=ClosingOut, dependencies=[dangerous("closed the business")])
+def close_workspace(body: CloseIn, owner: OwnerOnly, conn: Conn):
+    """Read-only now, deleted for good after closing.GRACE_DAYS unless the owner reopens it."""
+    return closing.close(conn, owner, body.workspace_name)
+
+
+@app.post("/api/workspace/reopen", response_model=ClosingOut, dependencies=[dangerous("reopened the business")])
+def reopen_workspace(owner: OwnerOnly, conn: Conn):
+    return closing.reopen(conn, owner)
+
+
+# ---- SOPBox support only (ops.py) ------------------------------------------------------------------
+
+
+@app.get("/api/ops/workspaces/{workspace_id}", response_model=OpsWorkspaceOut, dependencies=[ops.Ops], include_in_schema=False)
+def ops_workspace(workspace_id: int, conn: Conn):
+    return ops.workspace(conn, workspace_id)
+
+
+@app.post("/api/ops/workspaces/{workspace_id}/owner", response_model=OpsWorkspaceOut, dependencies=[ops.Ops], include_in_schema=False)
+def ops_transfer_owner(workspace_id: int, body: OwnerTransferIn, conn: Conn):
+    """Hand the workspace to another member, after support has checked who is asking."""
+    return ops.transfer_owner(conn, workspace_id, body)
 
 
 # ---- plans, sales enquiries and support -----------------------------------------------------------

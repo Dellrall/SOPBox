@@ -161,12 +161,7 @@ export function ExportCard() {
     setError("");
     setBusy(true);
     try {
-      const url = URL.createObjectURL(await api.exportData());
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `sopbox-export-${new Date().toISOString().slice(0, 10)}.zip`;
-      link.click();
-      URL.revokeObjectURL(url);
+      await saveExport();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -187,6 +182,16 @@ export function ExportCard() {
       </button>
     </section>
   );
+}
+
+/** Download the ZIP of everything this person may see (export.py) and save it. */
+export async function saveExport() {
+  const url = URL.createObjectURL(await api.exportData());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `sopbox-export-${new Date().toISOString().slice(0, 10)}.zip`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 /** Anyone can ask for help; workspaces with priority support are answered first. */

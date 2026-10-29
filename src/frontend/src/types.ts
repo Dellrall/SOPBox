@@ -57,7 +57,11 @@ export type Me = {
   mfa_setup_needed: boolean;
   /** May download data: the owner, and whoever the owner allows. */
   can_export: boolean;
+  /** Set while their workspace is closed: read-only, deleted for good on delete_on. */
+  closing: Closing;
 };
+
+export type Closing = { closed_at: string | null; delete_on: string | null };
 
 export type MfaPolicy = "off" | "managers" | "everyone";
 

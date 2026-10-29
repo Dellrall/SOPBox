@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { api, setBranch, setSignedOutHandler } from "./api";
+import { ClosedBanner } from "./Closing";
 import { CodePrompt, MfaGate } from "./Mfa";
 import Pricing from "./Pricing";
 import Activity from "./Activity";
@@ -447,6 +448,7 @@ function Shell({
       </aside>
 
       <main id="main" className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
+        <ClosedBanner me={me} onOpen={() => go("settings")} />
         <LastSignIn me={me} onReview={() => go("settings")} />
         <InboxPanel onOpen={openNotification} />
         {/* Receive stays mounted so a half-filled delivery survives a look at another page. */}
