@@ -17,6 +17,28 @@ export const METHOD_LABEL: Record<string, string> = {
   kitchen_pin: "kitchen tablet PIN",
 };
 
+// The way this browser last signed in, marked "Last used" on the sign-in page. Only the method is
+// kept, never who: a shared phone shows no one's name.
+const LAST = "sopbox-last-sign-in";
+export type ShownMethod = "password" | "passkey" | "google" | "telegram";
+
+export function rememberSignIn(method: string | null | undefined) {
+  if (!method || !["password", "passkey", "google", "telegram"].includes(method)) return;
+  try {
+    localStorage.setItem(LAST, method);
+  } catch {
+    // Private windows may refuse storage; the badge is only a convenience.
+  }
+}
+
+export function lastSignIn(): ShownMethod | null {
+  try {
+    return localStorage.getItem(LAST) as ShownMethod | null;
+  } catch {
+    return null;
+  }
+}
+
 export const describeSignIn = (s: SignIn) =>
   `${new Date(s.at).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} with ${METHOD_LABEL[s.method] ?? s.method} on ${s.device}`;
 

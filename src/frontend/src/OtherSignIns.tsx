@@ -3,9 +3,20 @@ import { ArrowLeft, Fingerprint, Send } from "lucide-react";
 import { api } from "./api";
 import type { KitchenScreen, Me, SignInMethods } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
-import { consumeTelegram, passkeyError, passkeysSupported, signInWithPasskey, takeAuthReturn, telegramLoginUrl } from "./signin";
+import { consumeTelegram, lastSignIn, passkeyError, passkeysSupported, signInWithPasskey, takeAuthReturn, telegramLoginUrl, type ShownMethod } from "./signin";
 
-const optionButton = `${secondaryButton} w-full justify-center py-3 text-base`;
+const optionButton = `${secondaryButton} relative w-full justify-center py-3 text-base`;
+
+/** The small "Last used" tag on the matching sign-in button (the button needs `relative`). */
+export function LastUsed({ method, on }: { method: ShownMethod; on: ShownMethod | null }) {
+  if (method !== on) return null;
+  return (
+    <span aria-hidden data-testid="last-used" className="absolute -top-2.5 right-3 rounded-full bg-leaf px-2 py-0.5 text-[11px] font-semibold text-brand-950 shadow-sm ring-2 ring-white">
+      Last used
+    </span>
+  );
+}
+
 
 /** Google's "G", drawn as Google's brand guidelines ask for its sign-in button. */
 function GoogleMark() {
@@ -24,6 +35,7 @@ export function OtherSignIns({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
   const [methods, setMethods] = useState<SignInMethods | null>(null);
   const [error, setError] = useState(() => takeAuthReturn().error ?? "");
   const [busy, setBusy] = useState(false);
+  const last = lastSignIn();
 
   useEffect(() => {
     api.signInMethods().then(setMethods).catch(() => setMethods({ google: false, telegram_bot_id: null }));
@@ -59,16 +71,19 @@ export function OtherSignIns({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
       {passkeysSupported() && (
         <button type="button" className={optionButton} disabled={busy} onClick={() => void passkey()}>
           <Fingerprint aria-hidden className="h-5 w-5" /> Sign in with a passkey
+          <LastUsed method="passkey" on={last} />
         </button>
       )}
       {methods?.google && (
         <a href="/api/auth/google/start?mode=login" className={optionButton}>
           <GoogleMark /> Continue with Google
+          <LastUsed method="google" on={last} />
         </a>
       )}
       {methods?.telegram_bot_id && (
         <a href={telegramLoginUrl(methods.telegram_bot_id, "/signin")} className={optionButton}>
           <Send aria-hidden className="h-5 w-5 text-[#229ED9]" /> Continue with Telegram
+          <LastUsed method="telegram" on={last} />
         </a>
       )}
       <ErrorNote message={error} />

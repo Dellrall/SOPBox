@@ -48,6 +48,7 @@ export type Me = {
   workspace: { id: number; public_id: string; name: string };
   /** The sign-in before this session's, so a person notices one they did not make. */
   previous_sign_in: SignIn | null;
+  sign_in_method?: string | null; // how this session was started
   /** Their own workspace first, then the branches linked to it when it is an HQ, with their role there. */
   workspaces: { id: number; public_id: string; name: string; role: Role }[];
   /** Two-step sign-in is on. */

@@ -219,6 +219,14 @@ def start_session(
     return pending
 
 
+def sign_in_method(conn: psycopg.Connection, sign_in_id: int | None) -> str | None:
+    """How this session was started: password, passkey, google, telegram, kitchen_pin or register."""
+    if sign_in_id is None:
+        return None
+    row = conn.execute("SELECT method FROM sign_ins WHERE id = %s", (sign_in_id,)).fetchone()
+    return row["method"] if row else None
+
+
 def previous_sign_in(conn: psycopg.Connection, user_id: int, current: int | None) -> SignIn | None:
     """The sign-in before this session's (or before the newest, when the session is not known)."""
     row = conn.execute(

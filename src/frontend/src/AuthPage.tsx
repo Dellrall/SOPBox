@@ -6,7 +6,8 @@ import type { KitchenScreen, Me } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton } from "./ui";
 import { SdgFooter } from "./Sdg";
 import { PolicyLinks } from "./Site";
-import { KitchenSignIn, OtherSignIns } from "./OtherSignIns";
+import { KitchenSignIn, LastUsed, OtherSignIns } from "./OtherSignIns";
+import { lastSignIn } from "./signin";
 import { USERNAME_HINT, USERNAME_PATTERN, UsernameStatus, cleanUsername, usernameProblem, useUsernameCheck } from "./username";
 
 type Mode = "signin" | "register";
@@ -227,8 +228,9 @@ export default function AuthPage({
               {mode === "register" && <p className="mt-1 text-xs text-muted">At least 8 characters.</p>}
             </div>
             <ErrorNote message={error} />
-            <button type="submit" disabled={busy} className={`${primaryButton} w-full py-3 text-base`}>
+            <button type="submit" disabled={busy} className={`${primaryButton} relative w-full py-3 text-base`}>
               {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create workspace"}
+              {mode === "signin" && <LastUsed method="password" on={lastSignIn()} />}
             </button>
           </form>
           {mode === "signin" && !onTablet && <OtherSignIns onSignedIn={onSignedIn} />}

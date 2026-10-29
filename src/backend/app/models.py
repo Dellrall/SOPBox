@@ -635,6 +635,8 @@ class Me(BaseModel):
     workspace: WorkspaceRef
     # The sign-in before this session's, so a person notices one they did not make.
     previous_sign_in: SignIn | None = None
+    # How this session was started, so the sign-in page can mark it "Last used" next time.
+    sign_in_method: str | None = None
     mfa_enabled: bool = False  # two-step sign-in is on
     mfa_pending: bool = False  # signed in, but the authenticator code is still to be entered
     mfa_setup_needed: bool = False  # the workspace requires two-step sign-in and it is not on yet
