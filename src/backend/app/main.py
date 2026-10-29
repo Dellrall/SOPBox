@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, hq, locations, mfa, notifications, sales, stocktakes
+from app import apikeys, hq, inquiries, locations, mfa, notifications, plans, sales, stocktakes
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -34,6 +34,12 @@ from app.errors import (
 )
 from app.extraction import extract_lines, extract_products, write_sop
 from app.models import (
+    InquiryOut,
+    PlanOut,
+    PricingOut,
+    SalesInquiryIn,
+    SupportIn,
+    UpgradeRequestIn,
     MfaCodeIn,
     MfaEnabledOut,
     MfaSetupOut,
@@ -1201,6 +1207,38 @@ def api_record_sale(body: ApiSaleIn, client: KeyClient, conn: Conn):
     return apikeys.record_sale(conn, client, body)
 
 
+# ---- plans, sales enquiries and support -----------------------------------------------------------
+
+
+@app.get("/api/pricing", response_model=PricingOut)
+def pricing():
+    """Public: prices, the donation link and how to reach sales."""
+    return plans.pricing()
+
+
+@app.get("/api/plan", response_model=PlanOut)
+def current_plan(user: User, conn: Conn):
+    return plans.current(conn, user.workspace_id)
+
+
+@app.post("/api/inquiries", response_model=InquiryOut, status_code=201)
+def sales_inquiry(body: SalesInquiryIn, request: Request, conn: Conn):
+    """Public: an Enterprise or sales enquiry from the pricing page. Sales contacts them."""
+    auth.limit("inquiry", _client(request), 5, 3600)
+    return inquiries.sales(conn, body)
+
+
+@app.post("/api/plan/upgrade-request", response_model=InquiryOut, status_code=201)
+def upgrade_request(body: UpgradeRequestIn, owner: OwnerOnly, conn: Conn):
+    return inquiries.upgrade(conn, owner, body)
+
+
+@app.post("/api/support", response_model=InquiryOut, status_code=201)
+def support_request(body: SupportIn, user: User, conn: Conn):
+    auth.limit("support", str(user.id), 10, 3600)
+    return inquiries.support(conn, user, body)
+
+
 # ---- pages for browsers and search engines ---------------------------------------------------
 
 
@@ -1214,6 +1252,7 @@ def _origin(request: Request) -> str:
 @app.get("/index.html", include_in_schema=False)
 @app.get("/signin", include_in_schema=False)
 @app.get("/register", include_in_schema=False)
+@app.get("/pricing", include_in_schema=False)
 @app.get("/settings", include_in_schema=False)  # where connecting Google or Telegram comes back to
 def index(request: Request):
     """The app's single page, with absolute URLs filled in for link previews and the canonical link."""

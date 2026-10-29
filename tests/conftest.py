@@ -9,7 +9,7 @@ from app.db import close_pool, init_db
 from app.main import app
 
 PASSWORD = "correct horse battery"
-_TABLES = "workspaces, users, sessions, categories, products, pack_units, deliveries, delivery_lines, delivery_photos, delivery_photo_comments, audit_log, delivery_tags, notifications, passkeys, auth_flows, kitchen_devices, sign_ins, stocktake_lines, stocktakes, suppliers, purchase_orders, purchase_order_lines, outlets, storages, stock_levels, stock_transfers, stock_transfer_lines, sales, sale_lines, link_codes, api_keys, mfa_backup_codes"
+_TABLES = "workspaces, users, sessions, categories, products, pack_units, deliveries, delivery_lines, delivery_photos, delivery_photo_comments, audit_log, delivery_tags, notifications, passkeys, auth_flows, kitchen_devices, sign_ins, stocktake_lines, stocktakes, suppliers, purchase_orders, purchase_order_lines, outlets, storages, stock_levels, stock_transfers, stock_transfer_lines, sales, sale_lines, link_codes, api_keys, mfa_backup_codes, inquiries"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -30,6 +30,8 @@ def _database(tmp_path_factory):
     init_db()
     close_pool()
     with psycopg.connect(admin_url, autocommit=True) as conn:
+        # Most tests use outlets, HQ links and API keys; test_plans sets Free where it matters.
+        conn.execute("ALTER TABLE workspaces ALTER COLUMN plan SET DEFAULT 'enterprise'")
         conn.execute("CREATE ROLE sopbox_app LOGIN NOSUPERUSER NOBYPASSRLS")
         conn.execute("GRANT ALL ON ALL TABLES IN SCHEMA public TO sopbox_app")
         conn.execute("GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO sopbox_app")

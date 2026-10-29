@@ -59,6 +59,29 @@ export type Me = {
 
 export type MfaPolicy = "off" | "managers" | "everyone";
 
+export type Plan = {
+  plan: "free" | "pro" | "enterprise";
+  label: string;
+  pre_alpha: boolean;
+  billing: "annual" | "lifetime" | null;
+  until: string | null;
+  lapsed: boolean;
+  outlets_allowed: number | null;
+  outlets_used: number;
+  api_access: boolean;
+  hq_links: boolean;
+  customization: boolean;
+  priority_support: boolean;
+};
+
+export type Pricing = {
+  currency: string;
+  prices: Record<string, number | null>;
+  kofi_url: string;
+  sales_email: string;
+  sales_phone: string;
+};
+
 export type UserOut = {
   id: number;
   username: string;

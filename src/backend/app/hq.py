@@ -11,6 +11,8 @@ import secrets
 
 import psycopg
 
+from app import plans
+
 from app.auditlog import audit
 from app.auth import CurrentUser, token_digest
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
@@ -30,6 +32,7 @@ def links(conn: psycopg.Connection, ws: int) -> LinksOut:
 
 
 def create_code(conn: psycopg.Connection, owner: CurrentUser) -> LinkCodeOut:
+    plans.require(conn, owner.workspace_id, "hq_links")
     if links(conn, owner.workspace_id).hq is not None:
         raise ConflictError("this workspace is a branch, so it cannot have branches of its own")
     code = secrets.token_urlsafe(24)

@@ -14,7 +14,7 @@ from typing import Annotated
 import psycopg
 from fastapi import Depends, Request
 
-from app import locations, sales
+from app import locations, plans, sales
 from app.auditlog import audit
 from app import auth
 from app.auth import CurrentUser, token_digest
@@ -42,6 +42,7 @@ def list_keys(conn: psycopg.Connection, ws: int) -> list[ApiKeyOut]:
 
 def create_key(conn: psycopg.Connection, user: CurrentUser, data: ApiKeyIn) -> ApiKeyCreated:
     ws = user.workspace_id
+    plans.require(conn, ws, "api_access")
     storage_id = locations.resolve(conn, ws, data.storage_id)
     key = PREFIX + secrets.token_urlsafe(32)
     with conn.transaction():

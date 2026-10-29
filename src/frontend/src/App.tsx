@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { api, setBranch, setSignedOutHandler } from "./api";
 import { CodePrompt, MfaGate } from "./Mfa";
+import Pricing from "./Pricing";
 import Activity from "./Activity";
 import Approvals from "./Approvals";
 import AuthPage from "./AuthPage";
@@ -88,8 +89,8 @@ const initials = (name: string) =>
     .join("");
 
 /** Signed-out visitors move between three addresses: the welcome page, sign in and sign up. */
-export type PublicPath = "/" | "/signin" | "/register";
-const asPublic = (path: string): PublicPath => (path === "/signin" || path === "/register" ? path : "/");
+export type PublicPath = "/" | "/signin" | "/register" | "/pricing";
+const asPublic = (path: string): PublicPath => (path === "/signin" || path === "/register" || path === "/pricing" ? path : "/");
 
 export default function App() {
   // undefined while we ask the server whether there is a session, null when signed out.
@@ -140,6 +141,7 @@ export default function App() {
         <span className="sr-only">Loading</span>
       </div>
     );
+  if (path === "/pricing") return <Pricing navigate={navigate} signedIn={me !== null} />;
   if (me === null) {
     if (path === "/") return <Landing navigate={navigate} />;
     return <AuthPage mode={path === "/register" ? "register" : "signin"} navigate={navigate} onSignedIn={signedIn} />;

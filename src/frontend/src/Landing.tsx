@@ -106,6 +106,9 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
               <a {...link("/register")} className={ctaButton}>
                 Create a workspace <ArrowRight aria-hidden className="h-4 w-4" />
               </a>
+              <a {...link("/pricing")} className="inline-flex items-center rounded-xl px-6 py-3 text-base font-semibold text-white ring-1 ring-white/30 hover:bg-white/10">
+                Pricing
+              </a>
               <a href="#how" className="inline-flex items-center rounded-xl px-6 py-3 text-base font-semibold text-white ring-1 ring-white/30 hover:bg-white/10">
                 See how it works
               </a>
