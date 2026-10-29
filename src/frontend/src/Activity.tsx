@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import {
+  ArrowLeftRight,
   AtSign,
   Ban,
   CheckCircle2,
+  CreditCard,
   KeyRound,
   ClipboardList,
+  Link2,
+  Lock,
+  Receipt,
+  ShieldCheck,
+  Store,
+  Unlink,
+  Warehouse,
   MessageSquare,
   Pencil,
   Send,
@@ -39,12 +48,37 @@ const ACTIONS: Record<string, { label: string; group: Group; icon: LucideIcon; t
   "po.issued": { label: "Order issued", group: "orders", icon: Send, tone: "bg-brand-50 text-brand-700" },
   "po.cancelled": { label: "Order cancelled", group: "orders", icon: Ban, tone: "bg-red-50 text-red-700" },
   "stocktake.created": { label: "Stock counted", group: "stock", icon: ClipboardList, tone: "bg-violet-50 text-violet-700" },
+  "stock.transferred": { label: "Stock moved", group: "stock", icon: ArrowLeftRight, tone: "bg-violet-50 text-violet-700" },
+  "sales.recorded": { label: "Sales recorded", group: "stock", icon: Receipt, tone: "bg-violet-50 text-violet-700" },
+  "outlet.created": { label: "Outlet added", group: "stock", icon: Store, tone: "bg-brand-50 text-brand-700" },
+  "outlet.renamed": { label: "Outlet renamed", group: "stock", icon: Store, tone: "bg-slate-100 text-slate-600" },
+  "outlet.deleted": { label: "Outlet deleted", group: "stock", icon: Store, tone: "bg-red-50 text-red-700" },
+  "storage.created": { label: "Storage area added", group: "stock", icon: Warehouse, tone: "bg-brand-50 text-brand-700" },
+  "storage.renamed": { label: "Storage area renamed", group: "stock", icon: Warehouse, tone: "bg-slate-100 text-slate-600" },
+  "storage.deleted": { label: "Storage area deleted", group: "stock", icon: Warehouse, tone: "bg-red-50 text-red-700" },
   "user.created": { label: "Account created", group: "team", icon: UserPlus, tone: "bg-slate-100 text-slate-600" },
   "user.updated": { label: "Account changed", group: "team", icon: UserCog, tone: "bg-slate-100 text-slate-600" },
   "team_group.connected": { label: "Team group changed", group: "team", icon: Send, tone: "bg-slate-100 text-slate-600" },
   "team_group.member": { label: "Team group", group: "team", icon: Send, tone: "bg-slate-100 text-slate-600" },
   "user.sign_in_method": { label: "Sign-in changed", group: "team", icon: KeyRound, tone: "bg-slate-100 text-slate-600" },
   "workspace.updated": { label: "Settings changed", group: "team", icon: Settings, tone: "bg-slate-100 text-slate-600" },
+  "account.username_changed": { label: "Username changed", group: "team", icon: UserCog, tone: "bg-slate-100 text-slate-600" },
+  "owner.transferred": { label: "Ownership handed over", group: "team", icon: UserCog, tone: "bg-amber-50 text-amber-700" },
+  "mfa.enabled": { label: "Two-step sign-in turned on", group: "team", icon: ShieldCheck, tone: "bg-emerald-50 text-emerald-700" },
+  "mfa.disabled": { label: "Two-step sign-in turned off", group: "team", icon: ShieldCheck, tone: "bg-amber-50 text-amber-700" },
+  "mfa.reset": { label: "Two-step sign-in reset", group: "team", icon: ShieldCheck, tone: "bg-amber-50 text-amber-700" },
+  "mfa.backup_codes": { label: "New backup codes made", group: "team", icon: ShieldCheck, tone: "bg-slate-100 text-slate-600" },
+  "api_key.created": { label: "Till key made", group: "team", icon: KeyRound, tone: "bg-slate-100 text-slate-600" },
+  "api_key.revoked": { label: "Till key turned off", group: "team", icon: KeyRound, tone: "bg-red-50 text-red-700" },
+  "hq.code_created": { label: "Branch link code made", group: "team", icon: Link2, tone: "bg-slate-100 text-slate-600" },
+  "hq.linked": { label: "Linked to HQ", group: "team", icon: Link2, tone: "bg-brand-50 text-brand-700" },
+  "hq.unlinked": { label: "Unlinked from HQ", group: "team", icon: Unlink, tone: "bg-amber-50 text-amber-700" },
+  "hq.branch_removed": { label: "Branch unlinked", group: "team", icon: Unlink, tone: "bg-amber-50 text-amber-700" },
+  "plan.changed": { label: "Plan changed", group: "team", icon: CreditCard, tone: "bg-brand-50 text-brand-700" },
+  "plan.code_redeemed": { label: "Plan code redeemed", group: "team", icon: CreditCard, tone: "bg-brand-50 text-brand-700" },
+  "plan.upgrade_requested": { label: "Upgrade requested", group: "team", icon: CreditCard, tone: "bg-slate-100 text-slate-600" },
+  "workspace.closed": { label: "Business closed", group: "team", icon: Lock, tone: "bg-red-50 text-red-700" },
+  "workspace.reopened": { label: "Business reopened", group: "team", icon: Lock, tone: "bg-emerald-50 text-emerald-700" },
 };
 const FALLBACK = { label: "", group: "team" as Group, icon: Settings, tone: "bg-slate-100 text-slate-600" };
 
@@ -52,11 +86,16 @@ const FILTERS: { id: Group | "all"; label: string }[] = [
   { id: "all", label: "All" },
   { id: "deliveries", label: "Deliveries" },
   { id: "orders", label: "Purchase orders" },
-  { id: "stock", label: "Stock counts" },
+  { id: "stock", label: "Stock & outlets" },
   { id: "team", label: "Team & settings" },
 ];
 
-const describe = (a: AuditEntry) => ACTIONS[a.action] ?? { ...FALLBACK, label: a.action };
+/** An action this page has no name for yet still reads as words: "storage.created" -> "Storage created". */
+const words = (action: string) => {
+  const text = action.replace(/[._]+/g, " ").trim();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+const describe = (a: AuditEntry) => ACTIONS[a.action] ?? { ...FALLBACK, label: words(a.action) };
 const dayKey = (iso: string) => new Date(iso).toDateString();
 const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
