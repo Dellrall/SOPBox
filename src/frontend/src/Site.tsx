@@ -109,41 +109,71 @@ function SiteMenu({ navigate }: { navigate: Navigate }) {
   );
 }
 
-/** The public pages' header, on their deep green band: logo, a few links, sign in and sign up, and the menu. */
+/**
+ * The public pages' header, in two rows like many product sites: a thin bar with a short note and the
+ * secondary links, then the logo, the main links, sign in and one sign-up button. Phones get the menu instead.
+ */
 export function SiteHeader({ navigate, signedIn = false }: { navigate: Navigate; signedIn?: boolean }) {
+  const small = "text-xs font-medium uppercase tracking-wider text-white/65 hover:text-white";
+  const main = "rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:text-white";
   return (
-    <header className="relative z-30 mx-auto flex max-w-6xl items-center gap-3 px-5 py-5 sm:px-8">
-      <a {...linkTo(navigate, "/")} className="flex items-center gap-3">
-        <img src="/logo-128.webp" alt="" width={40} height={40} className="h-10 w-10 rounded-xl ring-2 ring-white/15" />
-        {/* On the narrowest phones the logo stands alone, so sign in and sign up stay on one line. */}
-        <span className="hidden text-lg font-bold text-white min-[400px]:inline">SOPBox</span>
-      </a>
-      <nav aria-label="Site" className="ml-auto flex items-center gap-1.5 sm:gap-2">
-        {PAGES.map((p) => (
-          <a
-            key={p.to}
-            {...linkTo(navigate, p.to)}
-            className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:text-white lg:block"
-          >
-            {p.label}
-          </a>
-        ))}
-        {signedIn ? (
-          <a href="/" className={`${headerButton} bg-leaf text-brand-950 hover:bg-[#8cc93e]`}>
-            Open SOPBox
-          </a>
-        ) : (
-          <>
-            <a {...linkTo(navigate, "/signin")} className={`${headerButton} text-white ring-1 ring-white/40 hover:bg-white/10`}>
-              Sign in
+    <header className="relative z-30">
+      <div className="border-b border-white/10 bg-black/25">
+        <div className="mx-auto flex h-9 max-w-6xl items-center gap-6 px-5 sm:px-8">
+          <p className="truncate text-xs text-white/75">
+            Free for one store, no card needed.{" "}
+            <a {...linkTo(navigate, "/pricing")} className="font-semibold text-leaf underline-offset-4 hover:underline">
+              See pricing &rarr;
             </a>
-            <a {...linkTo(navigate, "/register")} className={`${headerButton} bg-leaf text-brand-950 shadow-sm hover:bg-[#8cc93e]`}>
-              Sign up<span className="hidden sm:inline">&nbsp;free</span>
+          </p>
+          <nav aria-label="More" className="ml-auto hidden items-center gap-6 md:flex">
+            <a {...linkTo(navigate, "/contact?topic=sales")} className={small}>
+              Contact sales
             </a>
-          </>
-        )}
-        <SiteMenu navigate={navigate} />
-      </nav>
+            <a {...linkTo(navigate, "/contact")} className={small}>
+              Help
+            </a>
+            <a {...linkTo(navigate, "/privacy")} className={small}>
+              Privacy
+            </a>
+          </nav>
+        </div>
+      </div>
+      <div className="mx-auto flex max-w-6xl items-center gap-3 px-5 py-4 sm:px-8">
+        <a {...linkTo(navigate, "/")} className="flex items-center gap-3">
+          <img src="/logo-128.webp" alt="" width={40} height={40} className="h-10 w-10 rounded-xl ring-2 ring-white/15" />
+          <span className="hidden text-lg font-bold text-white min-[400px]:inline">SOPBox</span>
+        </a>
+        <nav aria-label="Site" className="ml-8 hidden items-center gap-1 lg:flex">
+          {SECTIONS.slice(0, 2).map((s) => (
+            <a key={s.href} href={s.href} className={main}>
+              {s.label}
+            </a>
+          ))}
+          <a {...linkTo(navigate, "/pricing")} className={main}>
+            Pricing
+          </a>
+        </nav>
+        <div className="ml-auto flex items-center gap-2 sm:gap-4">
+          {signedIn ? (
+            <a href="/" className={`${headerButton} bg-leaf text-brand-950 hover:bg-[#8cc93e]`}>
+              Open SOPBox
+            </a>
+          ) : (
+            <>
+              <a {...linkTo(navigate, "/signin")} className="whitespace-nowrap px-1 text-sm font-semibold text-white/90 hover:text-white">
+                Sign in
+              </a>
+              <a {...linkTo(navigate, "/register")} className={`${headerButton} bg-leaf text-brand-950 shadow-sm hover:bg-[#8cc93e]`}>
+                Sign up<span className="hidden sm:inline">&nbsp;free</span>
+              </a>
+            </>
+          )}
+          <div className="lg:hidden">
+            <SiteMenu navigate={navigate} />
+          </div>
+        </div>
+      </div>
     </header>
   );
 }
