@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import type { StorageArea } from "./types";
 import { inputClass, labelClass } from "./ui";
+import { Select } from "./Select";
 
 /** Every storage area in the workspace, outlet by outlet. Empty until loaded. */
 export function useStorages(): StorageArea[] {
@@ -39,20 +40,18 @@ export function StorageSelect({
       <label className={labelClass} htmlFor={id}>
         {label}
       </label>
-      <select id={id} className={inputClass} value={value ?? ""} onChange={(e) => onChange(Number(e.target.value))}>
-        {value === null && <option value="">Choose…</option>}
-        {outlets.map(([outletId, outlet]) => (
-          <optgroup key={outletId} label={outlet}>
-            {storages
-              .filter((s) => s.outlet_id === outletId)
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-          </optgroup>
-        ))}
-      </select>
+      <Select
+        id={id}
+        className={inputClass}
+        value={value == null ? "" : String(value)}
+        choices={[
+          ...(value === null ? [{ value: "", label: "Choose…" }] : []),
+          ...outlets.flatMap(([outletId, outlet]) =>
+            storages.filter((s) => s.outlet_id === outletId).map((s) => ({ value: String(s.id), label: s.label, group: outlet })),
+          ),
+        ]}
+        onChange={(v) => v && onChange(Number(v))}
+      />
     </div>
   );
 }

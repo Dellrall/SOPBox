@@ -3,6 +3,7 @@ import { api } from "./api";
 import { price } from "./Pricing";
 import type { Plan, Pricing } from "./types";
 import { ErrorNote, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton } from "./ui";
+import { Select } from "./Select";
 
 /** The workspace's plan, and for the owner a request to upgrade (the team turns it on after payment). */
 export function PlanCard({ owner }: { owner: boolean }) {
@@ -90,15 +91,16 @@ export function PlanCard({ owner }: { owner: boolean }) {
                 <label className={labelClass} htmlFor="up-billing">
                   Pay
                 </label>
-                <select
+                <Select
                   id="up-billing"
                   className={inputClass}
                   value={form.billing}
-                  onChange={(e) => setForm({ ...form, billing: e.target.value as "annual" | "lifetime" })}
-                >
-                  <option value="annual">Every year ({price(pricing, "pro_outlet_year")} per extra outlet)</option>
-                  <option value="lifetime">Once, for life ({price(pricing, "pro_outlet_lifetime")} per extra outlet)</option>
-                </select>
+                  choices={[
+                    { value: "annual", label: `Every year (${price(pricing, "pro_outlet_year")} per extra outlet)` },
+                    { value: "lifetime", label: `Once, for life (${price(pricing, "pro_outlet_lifetime")} per extra outlet)` },
+                  ]}
+                  onChange={(v) => setForm({ ...form, billing: v as "annual" | "lifetime" })}
+                />
               </div>
               <div>
                 <label className={labelClass} htmlFor="up-outlets">

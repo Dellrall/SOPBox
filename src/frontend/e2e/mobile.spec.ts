@@ -242,7 +242,9 @@ test.describe("phone layout", () => {
 
     await openPage(page, "Stock & sales");
     await page.getByRole("tab", { name: "Transfers" }).tap();
-    await expect(page.getByLabel("To").locator("option", { hasText: `${outlet} / Store` })).toHaveCount(1);
+    await page.getByRole("combobox", { name: "To" }).tap();
+    await page.getByRole("option", { name: `${outlet} / Store` }).tap();
+    await expect(page.getByRole("combobox", { name: "To" })).toHaveText(`${outlet} / Store`);
     await page.getByRole("tab", { name: "Sales" }).tap();
     await expect(page.getByText("Choose sales sheet")).toBeVisible();
     await expectFitsScreen(page);
@@ -383,6 +385,34 @@ test.describe("two-step sign-in", () => {
     await openSettings(page, "Security");
     await expect(page.getByText("On", { exact: true })).toBeVisible();
     await context.close();
+  });
+});
+
+test.describe("dropdowns", () => {
+  test.use({ storageState: stateFile("owner") });
+
+  test("the site's own dropdown works by touch and by keyboard", async ({ page }, testInfo) => {
+    await page.goto("/");
+    await openPage(page, "Team");
+    const role = page.getByRole("combobox", { name: "Role", exact: true });
+    await expect(role).toHaveText("Staff");
+    await role.tap();
+    await expect(page.getByRole("option", { name: "Staff" })).toHaveAttribute("aria-selected", "true");
+    await testInfo.attach("role dropdown open", { body: await page.screenshot(), contentType: "image/png" }); // fullPage would resize and close it
+    await page.getByRole("option", { name: "Manager" }).tap();
+    await expect(role).toHaveText("Manager");
+    await expect(page.getByRole("listbox")).toBeHidden();
+
+    await role.focus();
+    await page.keyboard.press("ArrowDown"); // opens on the chosen one
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("Enter");
+    await expect(role).toHaveText("Staff");
+    await expect(role).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("listbox")).toBeHidden();
+    await expect(role).toHaveText("Staff");
   });
 });
 

@@ -18,6 +18,7 @@ import {
   secondaryButton,
   when,
 } from "./ui";
+import { Select } from "./Select";
 
 const STATUS_STYLE: Record<PurchaseOrderStatus, string> = {
   draft: "bg-slate-100 text-slate-700 ring-slate-500/20",
@@ -475,11 +476,14 @@ function OrderForm({
                 <label className="sr-only" htmlFor={`po-unit-${l.key}`}>
                   Unit, line {i + 1}
                 </label>
-                <select id={`po-unit-${l.key}`} className={inputClass} value={l.unit} disabled={!units.length} onChange={(e) => setLine(l.key, { unit: e.target.value })}>
-                  {units.map((u) => (
-                    <option key={u}>{u}</option>
-                  ))}
-                </select>
+                <Select
+                  id={`po-unit-${l.key}`}
+                  className={inputClass}
+                  value={l.unit}
+                  disabled={!units.length}
+                  choices={units.map((u) => ({ value: u, label: u }))}
+                  onChange={(v) => setLine(l.key, { unit: v })}
+                />
               </div>
               <button
                 type="button"

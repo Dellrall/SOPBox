@@ -21,6 +21,7 @@ import { api } from "./api";
 import { useTeam } from "./Tags";
 import type { AuditEntry } from "./types";
 import { Empty, ErrorNote, PageTitle, inputClass, labelClass, panelClass } from "./ui";
+import { Select } from "./Select";
 
 type Group = "deliveries" | "orders" | "stock" | "team";
 
@@ -120,19 +121,13 @@ export default function Activity() {
         <label className={labelClass} htmlFor="activity-person">
           Person
         </label>
-        <select
+        <Select
           id="activity-person"
           className={`${inputClass} py-2 text-sm`}
-          value={person ?? ""}
-          onChange={(e) => setPerson(e.target.value ? Number(e.target.value) : undefined)}
-        >
-          <option value="">Everyone</option>
-          {team.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.display_name} (@{m.username})
-            </option>
-          ))}
-        </select>
+          value={person == null ? "" : String(person)}
+          choices={[{ value: "", label: "Everyone" }, ...team.map((m) => ({ value: String(m.id), label: `${m.display_name} (@${m.username})` }))]}
+          onChange={(v) => setPerson(v ? Number(v) : undefined)}
+        />
       </div>
 
       <div role="group" aria-label="Show" className="flex flex-wrap gap-2">

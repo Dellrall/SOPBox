@@ -3,6 +3,7 @@ import { AtSign, X } from "lucide-react";
 import { api } from "./api";
 import type { Delivery, TeamMember } from "./types";
 import { ErrorNote, inputClass } from "./ui";
+import { Select } from "./Select";
 
 // The team changes rarely: fetch it once per visit to the app and share it.
 let teamRequest: Promise<TeamMember[]> | null = null;
@@ -62,20 +63,14 @@ export function TagPicker({
         </ul>
       )}
       {left.length > 0 && (
-        <select
+        <Select
           id={id}
           className={`${inputClass} py-2 text-sm`}
           value=""
           disabled={disabled}
-          onChange={(e) => e.target.value && onChange([...value, Number(e.target.value)])}
-        >
-          <option value="">Tag a teammate…</option>
-          {left.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.display_name} (@{m.username})
-            </option>
-          ))}
-        </select>
+          choices={[{ value: "", label: "Tag a teammate…" }, ...left.map((m) => ({ value: String(m.id), label: `${m.display_name} (@${m.username})` }))]}
+          onChange={(v) => v && onChange([...value, Number(v)])}
+        />
       )}
     </div>
   );
@@ -119,20 +114,14 @@ export function DeliveryTags({ delivery, onChanged }: { delivery: Delivery; onCh
         <p className="text-sm text-muted">Nobody yet. Tag a teammate to let them know, or type @username in a photo comment.</p>
       )}
       {left.length > 0 && (
-        <select
+        <Select
           aria-label={`Tag a teammate on delivery #${delivery.id}`}
           className={`${inputClass} max-w-xs py-2 text-sm`}
           value=""
           disabled={busy}
-          onChange={(e) => e.target.value && void run(() => api.tagTeammates(delivery.id, [Number(e.target.value)]))}
-        >
-          <option value="">Tag a teammate…</option>
-          {left.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.display_name} (@{m.username})
-            </option>
-          ))}
-        </select>
+          choices={[{ value: "", label: "Tag a teammate…" }, ...left.map((m) => ({ value: String(m.id), label: `${m.display_name} (@${m.username})` }))]}
+          onChange={(v) => v && void run(() => api.tagTeammates(delivery.id, [Number(v)]))}
+        />
       )}
       <ErrorNote message={error} />
     </section>
