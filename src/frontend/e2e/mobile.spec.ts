@@ -277,7 +277,8 @@ test.describe("phone layout", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Open the menu" }).click();
     const nav = page.getByRole("complementary").or(page.locator("aside"));
-    await nav.getByLabel("Workspace").selectOption({ label: name });
+    await nav.getByRole("button", { name: /Switch workspace/ }).click();
+    await nav.getByRole("list", { name: "Workspaces" }).getByRole("button", { name }).click();
     await expect(page).toHaveTitle(new RegExp(name));
     await expectFitsScreen(page);
   });
