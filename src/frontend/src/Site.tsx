@@ -165,7 +165,7 @@ export function SiteHeader({ navigate, signedIn = false }: { navigate: Navigate;
                 Sign in
               </a>
               <a {...linkTo(navigate, "/register")} className={`${headerButton} bg-leaf text-brand-950 shadow-sm hover:bg-[#8cc93e]`}>
-                Sign up<span className="hidden sm:inline">&nbsp;free</span>
+                Get started<span className="hidden sm:inline">&nbsp;free</span>
               </a>
             </>
           )}
