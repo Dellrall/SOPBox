@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import {
   ArrowLeftRight,
+  BookOpen,
   Boxes,
   ChevronDown,
   ClipboardCheck,
@@ -43,6 +44,7 @@ import Settings from "./Settings";
 import Stocktake from "./Stocktake";
 import StockMoves from "./StockMoves";
 import Team from "./Team";
+import Help from "./Help";
 import { MascotDock, type Scene } from "./Mascot";
 import { WorkspaceSwitch } from "./WorkspaceSwitch";
 import { OutletSwitch } from "./OutletSwitch";
@@ -62,6 +64,7 @@ export type PageId =
   | "stocktake"
   | "stock"
   | "team"
+  | "help"
   | "settings";
 
 const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?: SectionKey }[] = [
@@ -76,6 +79,7 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
   { id: "stocktake", label: "Stock Count", icon: ClipboardList, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "stock", label: "Stock & sales", icon: ArrowLeftRight, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "team", label: "Team", icon: Users, roles: ["owner", "manager"] },
+  { id: "help", label: "Help & guides", icon: BookOpen, roles: ["owner", "manager", "staff"] },
   { id: "settings", label: "Settings", icon: SettingsIcon, roles: ["owner", "manager", "staff"] },
 ];
 
@@ -90,6 +94,7 @@ const MENU: (PageId | Group)[] = [
   { label: "Catalogue", icon: PackageSearch, items: ["products", "categories"] },
   "team",
   "activity",
+  "help",
   "settings",
 ];
 const OPEN_GROUPS = "sopbox-menu-open";
@@ -292,6 +297,7 @@ const IDLE: Record<PageId, Scene> = {
   stocktake: { who: "cabbage", action: "count" },
   stock: { who: "carrot", action: "count" },
   team: { who: "crew", action: "wave" },
+  help: { who: "cabbage", action: "read", text: "Pick a page to read about, or tap Show me and I'll walk you through it." },
   settings: { who: "cabbage", action: "sleep" },
 };
 
@@ -432,6 +438,7 @@ function Shell({
       ),
     [me],
   );
+  const canOpen = (id: PageId) => nav.some((item) => item.id === id);
 
   useEffect(() => {
     if (!nav.some((item) => item.id === page)) setPage(nav[0]?.id ?? "settings");
@@ -669,6 +676,7 @@ function Shell({
         {page === "stocktake" && <Stocktake key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "stock" && <StockMoves key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "team" && <Team key={visit} me={me} />}
+        {page === "help" && <Help key={visit} me={me} go={go} canOpen={canOpen} />}
         {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}
         {/* Pushed to the bottom on short pages. */}
         <div className="mt-auto pt-12">
@@ -676,7 +684,7 @@ function Shell({
           <PolicyLinks className="mt-3" />
         </div>
       </main>
-      <MascotDock fallback={IDLE[page]} go={go} />
+      <MascotDock fallback={IDLE[page]} go={go} page={page} />
     </div>
   );
 }

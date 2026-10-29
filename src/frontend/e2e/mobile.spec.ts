@@ -382,6 +382,39 @@ test.describe("outlets", () => {
   });
 });
 
+test.describe("setup guide", () => {
+  test("a new owner follows the checklist with the helper and finds Help & guides", async ({ browser, baseURL }, testInfo) => {
+    const context = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const tag = `${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    expect((await context.request.post("/api/auth/register", {
+      data: { workspace_name: `Setup ${tag}`, display_name: "Nia New", email: `n${tag}@example.com`, username: `n${tag}`, password: PASSWORD },
+    })).ok()).toBe(true);
+    const page = await context.newPage();
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: `Let's set up Setup ${tag}` })).toBeVisible();
+    await expect(page.getByText("0 of 5 done")).toBeVisible();
+    await expectFitsScreen(page);
+
+    // Show me opens the page; the helper talks it through and rings the storage areas.
+    await page.getByRole("button", { name: "Show me: Set up your storage areas" }).tap();
+    await expect(page.getByRole("heading", { name: "Categories & storage", level: 1 })).toBeVisible();
+    const guide = page.getByRole("dialog", { name: "Setup guide: Set up your storage areas" });
+    await expect(guide).toContainText("Every outlet starts with one called Store.");
+    await expect(page.locator("section.guide-spot")).toHaveAttribute("aria-labelledby", "storage-heading");
+    await guide.getByRole("button", { name: "Next" }).tap();
+    await guide.getByRole("button", { name: "Next" }).tap();
+    await guide.getByRole("button", { name: "Got it" }).tap();
+    await expect(guide).toBeHidden();
+    await expect(page.locator(".guide-spot")).toHaveCount(0);
+
+    await openPage(page, "Help & guides");
+    await expect(page.getByRole("heading", { name: "Outlets and plans" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Upgrade to Pro" })).toBeVisible();
+    await expectFitsScreen(page);
+    await context.close();
+  });
+});
+
 test.describe("closing the business", () => {
   test("the owner downloads a copy, closes it, sees it read-only, and reopens it", async ({ browser, baseURL }, testInfo) => {
     // Its own workspace: closing one the other tests share would stop them.

@@ -48,6 +48,7 @@ from app.models import (
     MfaCodeIn,
     MfaEnabledOut,
     MfaSetupOut,
+    SetupOut,
     UsernameCheck,
     ApiKeyCreated,
     ApiKeyIn,
@@ -1292,6 +1293,11 @@ def ops_transfer_owner(workspace: str, body: OwnerTransferIn, conn: Conn):
 def pricing():
     """Public: prices, the donation link and how to reach sales."""
     return plans.pricing()
+
+
+@app.get("/api/setup", response_model=SetupOut)
+def setup_progress(owner: OwnerOnly, conn: Conn):
+    return locations.setup_progress(conn, owner.workspace_id)
 
 
 @app.get("/api/plan", response_model=PlanOut)

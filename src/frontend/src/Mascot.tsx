@@ -30,6 +30,46 @@ const publishErrors = (next: typeof errors) => {
   listeners.forEach((l) => l());
 };
 
+/** A setup tour stop: on `page` the helper talks through `lines` and rings `spot`, a CSS selector. */
+export type Tour = { page: PageId; step: string; lines: string[]; spot?: string };
+let tour: Tour | null = null;
+/** Start a tour stop, or end it with null. */
+export const startTour = (next: Tour | null) => {
+  tour = next;
+  listeners.forEach((l) => l());
+};
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
+};
+
+/** Ring the part of the page the tour talks about, once it has rendered, and bring it into view. */
+function useSpot(selector: string | undefined) {
+  useEffect(() => {
+    if (!selector) return;
+    let spot: Element | null = null;
+    let tries = 0;
+    let timer = 0;
+    const find = () => {
+      spot = document.querySelector(selector);
+      if (!spot) {
+        if (++tries < 20) timer = window.setTimeout(find, 150);
+        return;
+      }
+      spot.classList.add("guide-spot");
+      const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      spot.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+    };
+    timer = window.setTimeout(find, 50);
+    return () => {
+      clearTimeout(timer);
+      spot?.classList.remove("guide-spot");
+    };
+  }, [selector]);
+}
+
 /** Make the helper sad while this error message is on screen (empty = no error). */
 export function useMascotSad(message: string) {
   useEffect(() => {
@@ -393,7 +433,7 @@ const PET_LINES = ["Hehe, that tickles!", "Purr… thank you!", "More please!", 
  * Typing anywhere makes the helper drum along like Bongo Cat. Clicking it opens the page an alert
  * points to; right-clicking (long-press on touch) pets it.
  */
-export function MascotDock({ fallback, go }: { fallback: Scene; go: (page: PageId) => void }) {
+export function MascotDock({ fallback, go, page }: { fallback: Scene; go: (page: PageId) => void; page: PageId }) {
   const scene = useSyncExternalStore(
     (l) => {
       listeners.add(l);
@@ -408,6 +448,15 @@ export function MascotDock({ fallback, go }: { fallback: Scene; go: (page: PageI
     },
     () => errors[errors.length - 1]?.text ?? "",
   );
+  const onTour = useSyncExternalStore(subscribe, () => tour);
+  const stop = onTour?.page === page ? onTour : null;
+  const [line, setLine] = useState(0);
+  useEffect(() => setLine(0), [onTour]);
+  // Leaving the page ends its tour stop.
+  useEffect(() => {
+    if (tour && tour.page !== page) startTour(null);
+  }, [page]);
+  useSpot(stop?.spot);
   const [tucked, setTucked] = useState(readTucked);
   const [paw, setPaw] = useState(0);
   const [typing, setTyping] = useState(false);
@@ -451,13 +500,42 @@ export function MascotDock({ fallback, go }: { fallback: Scene; go: (page: PageI
   };
 
   // Petting and typing cheer it up for a moment; otherwise an error on screen makes it sad.
-  const action: Action = petLine ? "pet" : typing ? "type" : error ? "sad" : scene.action;
+  const action: Action = petLine ? "pet" : typing ? "type" : error ? "sad" : stop ? (line ? "read" : "wave") : scene.action;
   const text = petLine || (tucked ? "" : error ? `Oh no… ${error}` : scene.text);
   // An error on screen takes over the bubble, so the alert's link waits until it is gone.
   const target = error ? undefined : scene.to;
 
   let bubble: ReactNode = null;
-  if (text)
+  if (stop && !petLine)
+    // A tour stop is a little chat: one line at a time, shown even when messages are folded away.
+    bubble = (
+      <div role="dialog" aria-label={`Setup guide: ${stop.step}`} className="mascot-pop pointer-events-auto relative mb-10 w-60 rounded-2xl rounded-br-sm bg-white p-3 text-sm text-ink shadow-lg ring-1 ring-line sm:w-72">
+        <p className="text-xs font-semibold uppercase tracking-wider text-brand-700">{stop.step}</p>
+        <p key={line} aria-live="polite" className="mascot-pop mt-1 font-medium">
+          {stop.lines[line]}
+        </p>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="text-xs text-muted">
+            {line + 1} of {stop.lines.length}
+          </span>
+          <span className="flex gap-1.5">
+            {line > 0 && (
+              <button type="button" className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-slate-100" onClick={() => setLine(line - 1)}>
+                Back
+              </button>
+            )}
+            <button
+              type="button"
+              className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+              onClick={() => (line < stop.lines.length - 1 ? setLine(line + 1) : startTour(null))}
+            >
+              {line < stop.lines.length - 1 ? "Next" : "Got it"}
+            </button>
+          </span>
+        </div>
+      </div>
+    );
+  else if (text)
     bubble = (
       <div className="mascot-pop pointer-events-auto relative mb-10 max-w-52 rounded-2xl rounded-br-sm bg-white py-2 pl-3 pr-7 text-xs font-medium text-ink shadow-lg ring-1 ring-line sm:max-w-60 sm:text-sm">
         <p aria-live="polite" className="line-clamp-4">{text}</p>
@@ -505,7 +583,7 @@ export function MascotDock({ fallback, go }: { fallback: Scene; go: (page: PageI
     )}
     <div className="pointer-events-none fixed bottom-2 right-2 z-20 flex items-end gap-1 print:hidden sm:bottom-4 sm:right-4">
       {!roam && bubble}
-      {tucked && !petLine && (scene.text || error) && (
+      {tucked && !stop && !petLine && (scene.text || error) && (
         <button
           type="button"
           onClick={() => setTuck(false)}

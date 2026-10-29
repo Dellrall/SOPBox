@@ -71,6 +71,9 @@ export type Closing = { closed_at: string | null; delete_on: string | null };
 
 export type MfaPolicy = "off" | "managers" | "everyone";
 
+/** Which first steps of setting up the workspace are done. */
+export type Setup = { outlet: boolean; storage: boolean; product: boolean; team: boolean; delivery: boolean };
+
 export type Plan = {
   plan: "free" | "pro" | "enterprise";
   label: string;

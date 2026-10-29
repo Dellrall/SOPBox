@@ -135,3 +135,9 @@
 .mascot-tear { animation: mascot-tear 1.3s ease-in infinite }
 @keyframes mascot-run { 0%, 100% { transform: translateY(0) rotate(-6deg) } 50% { transform: translateY(-7px) rotate(6deg) } }
 .mascot-run { animation: mascot-run 0.28s ease-in-out infinite; transform-origin: 50% 100% }
+/* The part of the page the setup guide is talking about. */
+@keyframes guide-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(120 184 42 / 0.45) } 50% { box-shadow: 0 0 0 10px rgb(120 184 42 / 0) } }
+.guide-spot { outline: 3px solid var(--color-leaf); outline-offset: 4px; border-radius: 1rem; animation: guide-pulse 1.6s ease-out infinite }
+@media (prefers-reduced-motion: reduce) {
+  .guide-spot { animation: none }
+}
