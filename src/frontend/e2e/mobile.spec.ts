@@ -42,6 +42,12 @@ async function openPage(page: Page, label: string) {
   await page.waitForLoadState("networkidle");
 }
 
+async function openSettings(page: Page, tab: string) {
+  await openPage(page, "Settings");
+  await page.getByRole("tab", { name: tab }).tap();
+  await expect(page.getByRole("tabpanel").getByRole("heading", { level: 2, name: tab, exact: true })).toBeVisible();
+}
+
 async function navLabels(page: Page) {
   await page.getByRole("button", { name: "Open the menu" }).click();
   const labels = await page.getByRole("navigation", { name: "Main" }).getByRole("button").allInnerTexts();
@@ -194,7 +200,7 @@ test.describe("phone layout", () => {
   test("a storage area added in Settings can be picked when moving stock", async ({ page }, testInfo) => {
     const outlet = `Outlet ${testInfo.project.name}`;
     await page.goto("/");
-    await openPage(page, "Settings");
+    await openSettings(page, "Workspace");
     await page.getByLabel("New outlet").fill(outlet);
     await page.getByRole("button", { name: "Add outlet" }).tap();
     await expect(page.getByText(outlet, { exact: true })).toBeVisible();
@@ -211,7 +217,7 @@ test.describe("phone layout", () => {
   test("a manager makes an API key a till can use", async ({ page, playwright, baseURL }, testInfo) => {
     const name = `Till ${testInfo.project.name} ${Date.now()}`;
     await page.goto("/");
-    await openPage(page, "Settings");
+    await openSettings(page, "Integrations");
     await page.getByLabel("Key name").fill(name);
     await page.getByRole("button", { name: "Make a key" }).tap();
     const key = (await page.getByTestId("api-key").textContent()) ?? "";
@@ -244,7 +250,7 @@ test.describe("phone layout", () => {
 
   test("the Settings switch opens every stock count category", async ({ page }) => {
     await page.goto("/");
-    await openPage(page, "Settings");
+    await openSettings(page, "Preferences");
     await page.getByLabel(/Open every category on Stock counts/).check();
     await openPage(page, "Stock Count");
     for (const name of [/^Chiller/, /^Frozen/, /^Room/, /^Packaging/])
@@ -268,7 +274,7 @@ test.describe("download your data", () => {
   test.use({ storageState: stateFile("owner") });
   test("the owner downloads a ZIP of the workspace's data from Settings", async ({ page }) => {
     await page.goto("/");
-    await openPage(page, "Settings");
+    await openSettings(page, "Data & privacy");
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download my data" }).tap();
     expect((await download).suggestedFilename()).toMatch(/^sopbox-export-.*\.zip$/);
@@ -287,7 +293,7 @@ test.describe("closing the business", () => {
     })).ok()).toBe(true);
     const page = await context.newPage();
     await page.goto("/");
-    await openPage(page, "Settings");
+    await openSettings(page, "Data & privacy");
     const close = page.getByRole("button", { name: "Close the business" });
     await page.getByLabel(`Type ${name} to confirm`).fill(name);
     await expect(close).toBeDisabled(); // a copy first, or say none is needed
@@ -314,7 +320,7 @@ test.describe("two-step sign-in", () => {
     })).ok()).toBe(true);
     const page = await context.newPage();
     await page.goto("/");
-    await openPage(page, "Settings");
+    await openSettings(page, "Security");
     await page.getByRole("button", { name: "Set up two-step sign-in" }).tap();
     const secret = (await page.getByTestId("mfa-secret").textContent()) ?? "";
     await page.getByLabel("Code from your authenticator app").fill(totp(secret));
@@ -330,7 +336,7 @@ test.describe("two-step sign-in", () => {
     await expectFitsScreen(page);
     await page.getByLabel("Code from your authenticator app").fill(totp(secret, 1));
     await page.getByRole("button", { name: "Finish signing in" }).tap();
-    await openPage(page, "Settings");
+    await openSettings(page, "Security");
     await expect(page.getByText("On", { exact: true })).toBeVisible();
     await context.close();
   });

@@ -178,7 +178,7 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
               lifetime == null ? "per extra outlet, a year" : `per extra outlet, a year, or ${price(pricing, "pro_outlet_lifetime")} once`
             }
           >
-            <a href={signedIn ? "/settings" : "/register"} className={`${primaryButton} ${wide}`}>
+            <a href={signedIn ? "/settings#billing" : "/register"} className={`${primaryButton} ${wide}`}>
               {signedIn ? "Upgrade in Settings" : "Start free, upgrade later"}
             </a>
           </PlanCard>
