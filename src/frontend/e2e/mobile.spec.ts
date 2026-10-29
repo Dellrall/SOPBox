@@ -280,6 +280,15 @@ test.describe("phone layout", () => {
     await nav.getByRole("button", { name: /Switch workspace/ }).click();
     await nav.getByRole("list", { name: "Workspaces" }).getByRole("button", { name }).click();
     await expect(page).toHaveTitle(new RegExp(name));
+    const branchUrl = page.url();
+    // The address names the branch: back returns to HQ, forward to the branch, and a refresh stays there.
+    await page.goBack();
+    await expect(page).not.toHaveTitle(new RegExp(name));
+    await page.goForward();
+    await expect(page).toHaveTitle(new RegExp(name));
+    await page.reload();
+    await expect(page).toHaveTitle(new RegExp(name));
+    expect(page.url()).toBe(branchUrl);
     await expectFitsScreen(page);
   });
 
@@ -374,6 +383,39 @@ test.describe("two-step sign-in", () => {
     await openSettings(page, "Security");
     await expect(page.getByText("On", { exact: true })).toBeVisible();
     await context.close();
+  });
+});
+
+test.describe("addresses", () => {
+  test.use({ storageState: stateFile("owner") });
+
+  test("each page has its own address: refresh, back and links work", async ({ page, browser }) => {
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/w\/\d+\/dashboard$/);
+    const ws = /\/w\/(\d+)\//.exec(page.url())![1];
+    await openPage(page, "Delivery records");
+    await expect(page).toHaveURL(new RegExp(`/w/${ws}/records$`));
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1, name: "Delivery records" })).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/w/${ws}/dashboard$`));
+    await expect(page.locator("main h1:visible")).not.toHaveText("Delivery records");
+
+    // Another workspace's id opens nothing of it: the same page, in the person's own workspace.
+    await page.goto("/w/999999/records");
+    await expect(page.getByText("That link is for a workspace you are not in")).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/w/${ws}/records$`));
+
+    // Signed out, a link asks for sign-in and then opens where it pointed.
+    const fresh = await browser.newContext({ baseURL: page.url().split("/w/")[0], storageState: { cookies: [], origins: [] } });
+    const visitor = await fresh.newPage();
+    await visitor.goto(`/w/${ws}/records`);
+    await visitor.getByLabel("Username or email").fill(PEOPLE.owner.username);
+    await visitor.getByLabel("Password", { exact: true }).fill(PASSWORD);
+    await visitor.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(visitor.getByRole("heading", { level: 1, name: "Delivery records" })).toBeVisible();
+    await expect(visitor).toHaveURL(new RegExp(`/w/${ws}/records$`));
+    await fresh.close();
   });
 });
 

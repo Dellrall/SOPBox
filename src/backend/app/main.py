@@ -1338,10 +1338,18 @@ def index(request: Request):
     return HTMLResponse(body, headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/w/{rest:path}", include_in_schema=False)
+def app_page(request: Request, rest: str):
+    """A signed-in page, /w/<workspace id>/<page>: the same single page, kept out of search results."""
+    response = index(request)
+    response.headers["X-Robots-Tag"] = "noindex"
+    return response
+
+
 @app.get("/robots.txt", include_in_schema=False)
 def robots(request: Request):
     return PlainTextResponse(
-        f"User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: {_origin(request)}/sitemap.xml\n"
+        f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /w/\n\nSitemap: {_origin(request)}/sitemap.xml\n"
     )
 
 

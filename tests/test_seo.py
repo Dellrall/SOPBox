@@ -8,7 +8,17 @@ def test_robots_allows_the_site_hides_the_api_and_names_the_sitemap(anon):
     assert resp.status_code == 200
     assert "Allow: /" in resp.text
     assert "Disallow: /api/" in resp.text
+    assert "Disallow: /w/" in resp.text
     assert "Sitemap: http://testserver/sitemap.xml" in resp.text
+
+
+def test_signed_in_pages_are_served_but_kept_out_of_search_results(anon, tmp_path, monkeypatch):
+    (tmp_path / "index.html").write_text("<title>Home</title>")
+    monkeypatch.setattr(main, "FRONTEND_DIST", tmp_path)
+    resp = anon.get("/w/12/records")
+    assert resp.status_code == 200 and "<title>Home</title>" in resp.text
+    assert resp.headers["x-robots-tag"] == "noindex"
+    assert "x-robots-tag" not in anon.get("/").headers
 
 
 def test_the_sitemap_lists_the_public_pages(anon):
