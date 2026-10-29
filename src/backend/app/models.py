@@ -598,13 +598,17 @@ class Me(BaseModel):
 
 
 class ProfileUpdateIn(_In):
-    """A person's own name and email. Only the fields that are sent change; an empty email removes it."""
+    """A person's own username, name and email. Only the fields that are sent change; an empty email
+    removes it. The account's id never changes, so records stay theirs after a rename."""
 
+    username: Username | None = None
     display_name: str | None = Field(default=None, min_length=1, max_length=80)
     email: str | None = Field(default=None, max_length=254)
 
     @model_validator(mode="after")
     def _clean(self) -> "ProfileUpdateIn":
+        if self.username is not None:
+            self.username = _username(self.username)
         if self.email is not None:
             self.email = _email(self.email) or ""
         return self
