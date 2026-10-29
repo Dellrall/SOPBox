@@ -19,6 +19,9 @@ class Settings:
     # python -c "import secrets; print(secrets.token_urlsafe(32))". Keep it: losing or changing it
     # leaves people only their backup codes until their two-step sign-in is reset.
     mfa_encryption_key: str
+    # Lets SOPBox support call /api/ops/ (ops.py), e.g. to hand a workspace to a new owner. Unset or
+    # shorter than 32 characters: those routes do not exist.
+    ops_token: str
 
 
 def get_settings() -> Settings:
@@ -33,4 +36,5 @@ def get_settings() -> Settings:
         google_client_id=env("GOOGLE_CLIENT_ID", ""),
         google_client_secret=env("GOOGLE_CLIENT_SECRET", ""),
         mfa_encryption_key=env("MFA_ENCRYPTION_KEY", ""),
+        ops_token=env("OPS_TOKEN", ""),
     )

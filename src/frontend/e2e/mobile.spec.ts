@@ -260,6 +260,35 @@ test.describe("download your data", () => {
   });
 });
 
+test.describe("closing the business", () => {
+  test("the owner downloads a copy, closes it, sees it read-only, and reopens it", async ({ browser, baseURL }, testInfo) => {
+    // Its own workspace: closing one the other tests share would stop them.
+    const context = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const username = `close${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    const name = `Shut ${username}`;
+    expect((await context.request.post("/api/auth/register", {
+      data: { workspace_name: name, display_name: "Cleo Owner", email: `${username}@example.com`, username, password: PASSWORD },
+    })).ok()).toBe(true);
+    const page = await context.newPage();
+    await page.goto("/");
+    await openPage(page, "Settings");
+    const close = page.getByRole("button", { name: "Close the business" });
+    await page.getByLabel(`Type ${name} to confirm`).fill(name);
+    await expect(close).toBeDisabled(); // a copy first, or say none is needed
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download your data" }).tap();
+    expect((await download).suggestedFilename()).toMatch(/\.zip$/);
+    await close.tap();
+    await expect(page.getByRole("alert").filter({ hasText: "This business is closed." })).toBeVisible();
+    expect((await context.request.post("/api/categories", { data: { name: "Dairy" } })).status()).toBe(403);
+    await expectFitsScreen(page);
+    await page.getByRole("button", { name: "Reopen the business" }).tap();
+    await expect(page.getByRole("heading", { name: "Close the business" })).toBeVisible();
+    expect((await context.request.post("/api/categories", { data: { name: "Dairy" } })).status()).toBe(201);
+    await context.close();
+  });
+});
+
 test.describe("two-step sign-in", () => {
   test("turning it on makes the next sign-in ask for a code", async ({ browser, baseURL }, testInfo) => {
     const context = await browser.newContext({ baseURL, ...testInfo.project.use });

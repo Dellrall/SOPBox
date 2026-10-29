@@ -411,6 +411,17 @@ ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS plan_until DATE;  -- annual: pai
 ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS paid_outlets INTEGER NOT NULL DEFAULT 0 CHECK (paid_outlets >= 0);
 ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS customization BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS priority_support_until DATE;
+-- Closing a business (closing.py): read-only from closing_at, deleted GRACE_DAYS later.
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS closing_at TIMESTAMPTZ;
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS closed_by TEXT;
+-- What is left of a deleted workspace: no foreign key, so it outlives it.
+CREATE TABLE IF NOT EXISTS closed_workspaces (
+    id BIGINT PRIMARY KEY,
+    name TEXT NOT NULL,
+    closed_at TIMESTAMPTZ NOT NULL,
+    closed_by TEXT,
+    deleted_at TIMESTAMPTZ NOT NULL
+);
 -- Sales enquiries, upgrade requests and support requests, for the team (and later the internal
 -- operations site). Public enquiries have no workspace, so this is guarded by code, not RLS.
 CREATE TABLE IF NOT EXISTS inquiries (

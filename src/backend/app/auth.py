@@ -360,13 +360,29 @@ def current_user(request: Request, conn: Conn) -> CurrentUser:
         raise AuthError("sign in to continue")
     if user.mfa_pending:
         raise MfaRequiredError("enter the code from your authenticator app to finish signing in")
+    home = user.workspace_id
     branch = request.headers.get(WORKSPACE_HEADER) or request.query_params.get("workspace", "")
     if branch and not request.url.path.startswith("/api/auth/"):
         if not branch.isdecimal() or len(branch) > 18:
             raise ForbiddenError("you cannot work in that workspace")
         user = in_branch(conn, user, int(branch))
     act_as(conn, user)
+    if request.method not in ("GET", "HEAD") and not request.url.path.startswith(_OPEN_WHEN_CLOSED):
+        refuse_if_closed(conn, home, user.workspace_id)
     return user
+
+
+# A closed business is read-only (closing.py), but people still sign in and out, finish two-step
+# sign-in, clear their inbox, and the owner can reopen it.
+_OPEN_WHEN_CLOSED = ("/api/auth/", "/api/inbox/", "/api/workspace/reopen")
+
+
+def refuse_if_closed(conn: psycopg.Connection, *workspace_ids: int) -> None:
+    row = conn.execute(
+        "SELECT bool_or(closing_at IS NOT NULL) AS closed FROM workspaces WHERE id = ANY(%s)", (list(workspace_ids),)
+    ).fetchone()
+    if row["closed"]:
+        raise ForbiddenError("this business is closed, so nothing can be changed; its owner can reopen it in Settings")
 
 
 def act_as(conn: psycopg.Connection, user: CurrentUser) -> None:

@@ -574,6 +574,39 @@ class WorkspaceRef(BaseModel):
     name: str
 
 
+class ClosingOut(BaseModel):
+    """Set while the business is closed (closing.py): read-only, and deleted for good on delete_on."""
+
+    closed_at: str | None = None
+    delete_on: str | None = None  # YYYY-MM-DD
+
+
+class CloseIn(_In):
+    workspace_name: str = Field(min_length=1, max_length=200)  # typed again, so it is not closed by a slip
+
+
+class OpsMember(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    email: str | None
+    role: Role
+    active: bool
+
+
+class OpsWorkspaceOut(BaseModel):
+    id: int
+    name: str
+    closed_on: str | None
+    members: list[OpsMember]
+
+
+class OwnerTransferIn(_In):
+    username: str = Field(min_length=1, max_length=40)  # the new owner, already an active member
+    reason: str = Field(min_length=3, max_length=300)  # kept in the activity log and told to the team
+    old_owner: Literal["manager", "remove"] = "manager"
+
+
 class SignIn(BaseModel):
     id: int
     at: str
@@ -603,6 +636,7 @@ class Me(BaseModel):
     mfa_pending: bool = False  # signed in, but the authenticator code is still to be entered
     mfa_setup_needed: bool = False  # the workspace requires two-step sign-in and it is not on yet
     can_export: bool = False  # may download data: the owner, and whoever the owner allows
+    closing: ClosingOut = ClosingOut()  # their own workspace's
     # Their own workspace first, then the branches linked to it when it is an HQ.
     workspaces: list[WorkspaceChoice] = []
 

@@ -3,6 +3,7 @@ import { Copy } from "lucide-react";
 import { api } from "./api";
 import { ApiKeys } from "./ApiKeys";
 import { ExportCard, PlanCard, SupportCard } from "./Billing";
+import { CloseBusiness } from "./Closing";
 import { SecurityPolicy, TwoStep } from "./Mfa";
 import { HqLinks, Outlets } from "./Places";
 import { KitchenTablets, SignInSecurity } from "./Security";
@@ -345,6 +346,7 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
       {me.role !== "staff" && <PlanCard owner={me.role === "owner"} />}
       {me.can_export && <ExportCard />}
       <SupportCard />
+      {me.role === "owner" && <CloseBusiness me={me} onChanged={() => void api.session().then((m) => m && onMeChanged(m))} />}
     </div>
   );
 }

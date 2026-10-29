@@ -90,6 +90,8 @@ def key_client(request: Request, conn: Annotated[psycopg.Connection, Depends(get
     if row is None:
         raise AuthError("send a valid API key as the header Authorization: Bearer <key>")
     auth.limit("api-key", str(row.pop("id")), PER_MINUTE, 60)
+    if request.method != "GET":
+        auth.refuse_if_closed(conn, row["workspace_id"])
     scope_to_workspace(conn, row["workspace_id"])
     return KeyClient(**row)
 

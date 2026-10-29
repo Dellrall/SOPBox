@@ -14,6 +14,7 @@ import type {
   TeamMember,
   Category,
   CategoryIn,
+  Closing,
   DashboardSummary,
   DecisionIn,
   Delivery,
@@ -242,6 +243,8 @@ export const api = {
   createSale: (body: SaleIn) => post<Sale>("/sales", body),
   salesTemplate: () => download("/sales/template.csv"),
   exportData: () => download("/export"),
+  closeWorkspace: (workspace_name: string) => post<Closing>("/workspace/close", { workspace_name }),
+  reopenWorkspace: () => post<Closing>("/workspace/reopen"),
 
   // API keys for a till (owners and managers)
   apiKeys: () => get<ApiKey[]>("/api-keys"),
