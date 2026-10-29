@@ -107,7 +107,8 @@ export default function AuthPage({
           <span className="sr-only">: back to the welcome page</span>
         </a>
 
-        <div className="my-10 max-w-xl lg:my-0">
+        {/* A kitchen tablet goes straight to the names below; phones and upright tablets skip the feature list. */}
+        <div className={`my-10 max-w-xl lg:my-0 ${onTablet ? "hidden lg:block" : ""}`}>
           <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-leaf ring-1 ring-white/15">
             <ShieldCheck aria-hidden className="h-3.5 w-3.5" /> For food &amp; beverage SMEs
           </p>
@@ -118,7 +119,7 @@ export default function AuthPage({
             SOPBox turns every delivery into a quick, guided check on a phone, so wrong temperatures, short
             packs and missing items are stopped before they reach your kitchen.
           </p>
-          <ul className="mt-8 hidden gap-5 sm:grid sm:grid-cols-2">
+          <ul className="mt-8 hidden gap-5 lg:grid lg:grid-cols-2">
             {STEPS.map(({ icon: Icon, title, text }) => (
               <li key={title} className="flex gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15">
@@ -152,7 +153,7 @@ export default function AuthPage({
             {tab("register", "Create a workspace")}
           </div>
 
-          {onTablet && <KitchenSignIn screen={kitchen} onSignedIn={onSignedIn} onUsePassword={() => setUsePassword(true)} />}
+          {onTablet && <KitchenSignIn screen={kitchen} onSignedIn={onSignedIn} onUsePassword={() => setUsePassword(true)} onForgotten={() => setKitchen(null)} />}
 
           <form hidden={onTablet} onSubmit={(e) => void submit(e)} className="mt-6 space-y-4">
             {mode === "register" && (

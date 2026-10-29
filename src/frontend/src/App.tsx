@@ -448,7 +448,7 @@ function Shell({
         </div>
       </aside>
 
-      <main id="main" className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
+      <main id="main" className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
         <ClosedBanner me={me} onOpen={() => go("settings")} />
         <LastSignIn me={me} onReview={() => go("settings")} />
         <InboxPanel onOpen={openNotification} />

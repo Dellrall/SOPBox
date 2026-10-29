@@ -393,4 +393,17 @@ test.describe("kitchen tablet", () => {
     await page.getByRole("button", { name: "Sign in", exact: true }).tap();
     await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
   });
+
+  test("the tablet itself stops being a kitchen tablet", async ({ page }) => {
+    await page.request.post("/api/auth/login", { data: { username: PEOPLE.manager.username, password: PASSWORD } });
+    expect((await page.request.post("/api/kitchen-devices", { data: { name: "Spare tablet" } })).status()).toBe(201);
+    await page.request.post("/api/auth/logout");
+    await page.goto("/signin");
+    page.once("dialog", (d) => void d.accept());
+    await page.getByRole("button", { name: "Stop using as a kitchen tablet" }).tap();
+    await expect(page.getByText("Who's signing in?")).toBeHidden();
+    await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
+  });
 });

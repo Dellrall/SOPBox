@@ -120,6 +120,15 @@ def test_removing_a_tablet_stops_it_and_staff_cannot_add_one(client, make_user):
     assert tablet.get("/api/auth/kitchen").json() is None
 
 
+def test_a_tablet_can_stop_being_a_kitchen_tablet_itself(client, make_user):
+    tablet = kitchen_tablet(make_user("manager", "mia", "Mia"))
+    assert client.delete("/api/auth/kitchen").status_code == 204  # another browser: nothing to forget
+    assert len(client.get("/api/kitchen-devices").json()) == 1
+    assert tablet.delete("/api/auth/kitchen").status_code == 204
+    assert tablet.get("/api/auth/kitchen").json() is None
+    assert client.get("/api/kitchen-devices").json() == []
+
+
 def test_a_pin_must_be_4_to_8_digits(client):
     assert client.put("/api/auth/pin", json={"pin": "12a4"}).status_code == 422
     assert client.put("/api/auth/pin", json={"pin": "123"}).status_code == 422

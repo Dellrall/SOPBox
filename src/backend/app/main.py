@@ -587,6 +587,13 @@ def _send_invites(background: BackgroundTasks, invites: list[tuple[str, str] | N
         background.add_task(send_telegram, *invite)
 
 
+@app.delete("/api/auth/kitchen", status_code=204)
+def forget_kitchen_tablet(request: Request, response: Response, conn: Conn) -> None:
+    """On a kitchen tablet: stop using this browser as one. Its people list is gone at once."""
+    # Before /api/auth/{provider}, which would take this path otherwise.
+    kitchen.forget(conn, request, response)
+
+
 @app.delete("/api/auth/{provider}", dependencies=[dangerous("unlinked a sign-in method")], status_code=204)
 def unlink_provider(provider: Literal["google", "telegram"], background: BackgroundTasks, user: User, conn: Conn) -> None:
     if provider == "telegram":

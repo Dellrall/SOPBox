@@ -546,13 +546,13 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
   return (
     <div className="space-y-5">
       <PageTitle title="Settings" subtitle="Your profile, how you sign in and, for owners, the workspace." />
-      <div className="grid gap-5 lg:grid-cols-[14rem_1fr] lg:items-start">
+      <div className="grid gap-5 md:grid-cols-[11.5rem_1fr] xl:grid-cols-[14rem_1fr] md:items-start">
         <div
           role="tablist"
           aria-label="Settings sections"
           aria-orientation="vertical"
           onKeyDown={onKey}
-          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:sticky lg:top-6 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-2xl lg:bg-white lg:p-2 lg:ring-1 lg:ring-line"
+          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:sticky md:top-6 md:mx-0 md:flex-col md:gap-1 md:overflow-visible md:rounded-2xl md:bg-white md:p-2 md:ring-1 md:ring-line"
         >
           {tabs.map((t) => {
             const Icon = t.icon;
@@ -569,11 +569,11 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
                 onClick={() => choose(t.id)}
                 className={`flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
                   on
-                    ? "bg-brand-600 text-white shadow-sm lg:bg-brand-50 lg:text-brand-800 lg:shadow-none"
-                    : "bg-white text-slate-700 ring-1 ring-line hover:bg-brand-50 lg:bg-transparent lg:ring-0"
+                    ? "bg-brand-600 text-white shadow-sm md:bg-brand-50 md:text-brand-800 md:shadow-none"
+                    : "bg-white text-slate-700 ring-1 ring-line hover:bg-brand-50 md:bg-transparent md:ring-0"
                 }`}
               >
-                <Icon aria-hidden className={`h-4 w-4 ${on ? "lg:text-brand-600" : "text-muted"}`} />
+                <Icon aria-hidden className={`h-4 w-4 ${on ? "md:text-brand-600" : "text-muted"}`} />
                 {t.label}
               </button>
             );
