@@ -25,7 +25,7 @@ from app.models import (
 _USER_COLUMNS = (
     "id, username, email, display_name, role, section_access, active, created_at, "
     "telegram_id IS NOT NULL AS telegram_linked, team_group_removed_until, security_alerts, "
-    "totp_secret IS NOT NULL AS mfa_enabled"
+    "totp_secret IS NOT NULL AS mfa_enabled, can_export"
 )
 
 
@@ -222,6 +222,8 @@ def _apply_user_changes(
             )
         if changes.get("mfa_reset"):
             mfa.reset(conn, user_id)
+        if "can_export" in changes:
+            conn.execute("UPDATE users SET can_export = %s WHERE id = %s", (changes["can_export"], user_id))
         if "security_alerts" in changes:
             conn.execute(
                 "UPDATE users SET security_alerts = %s WHERE id = %s", (changes["security_alerts"], user_id)
@@ -249,6 +251,8 @@ def _describe(changes: dict) -> str:
         parts.append("enabled" if changes["active"] else "disabled")
     if changes.get("mfa_reset"):
         parts.append("two-step sign-in reset")
+    if "can_export" in changes:
+        parts.append("may download data" if changes["can_export"] else "may no longer download data")
     if "security_alerts" in changes:
         parts.append("gets security alerts" if changes["security_alerts"] else "no longer gets security alerts")
     if "role" in changes:

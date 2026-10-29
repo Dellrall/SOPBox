@@ -389,6 +389,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_pending_secret TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_last_step BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS security_alerts BOOLEAN NOT NULL DEFAULT FALSE;
+-- Who besides the owner may download the workspace's data (export.py). The owner decides.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS can_export BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE TABLE IF NOT EXISTS mfa_backup_codes (
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     code_hash TEXT NOT NULL,

@@ -249,8 +249,8 @@ function totp(secret: string, steps = 0): string {
 }
 
 test.describe("download your data", () => {
-  test.use({ storageState: stateFile("staff") });
-  test("staff download a ZIP of their data from Settings", async ({ page }) => {
+  test.use({ storageState: stateFile("owner") });
+  test("the owner downloads a ZIP of the workspace's data from Settings", async ({ page }) => {
     await page.goto("/");
     await openPage(page, "Settings");
     const download = page.waitForEvent("download");

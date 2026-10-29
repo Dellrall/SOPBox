@@ -288,6 +288,7 @@ class CurrentUser:
     sign_in_id: int | None = None  # the sign-in that started this session
     mfa_enabled: bool = False
     mfa_policy: str = "off"  # the home workspace's: who must use two-step sign-in
+    can_export: bool = False  # the owner allowed them to download data (owners always may)
     mfa_pending: bool = False  # this session still waits for an authenticator code
     mfa_fresh: bool = False  # a code was entered in the last few minutes (mfa.FRESH_MINUTES)
     session_hash: str = ""
@@ -296,7 +297,7 @@ class CurrentUser:
 def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
     row = conn.execute(
         "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, "
-        "u.role, u.section_access, s.sign_in_id, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy, "
+        "u.role, u.section_access, s.sign_in_id, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy, u.can_export, "
         "s.mfa_pending, COALESCE(s.mfa_at > now() - interval '10 minutes', false) AS mfa_fresh, "
         "s.token_hash AS session_hash "
         "FROM sessions s JOIN users u ON u.id = s.user_id JOIN workspaces w ON w.id = u.workspace_id "
@@ -309,7 +310,7 @@ def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
 def get_me(conn: psycopg.Connection, user_id: int) -> "CurrentUser":
     row = conn.execute(
         "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, "
-        "u.role, u.section_access, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy "
+        "u.role, u.section_access, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy, u.can_export "
         "FROM users u JOIN workspaces w ON w.id = u.workspace_id WHERE u.id = %s",
         (user_id,),
     ).fetchone()

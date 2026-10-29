@@ -339,6 +339,7 @@ def _me(conn: psycopg.Connection, user: CurrentUser) -> Me:
         mfa_enabled=user.mfa_enabled,
         mfa_pending=user.mfa_pending,
         mfa_setup_needed=not user.mfa_enabled and mfa.required(user.mfa_policy, user.role),
+        can_export=export.allowed(user),
         workspaces=[
             WorkspaceChoice(id=user.workspace_id, name=user.workspace_name, role=user.role),
             *(
@@ -1212,7 +1213,9 @@ def api_record_sale(body: ApiSaleIn, client: KeyClient, conn: Conn):
 
 @app.get("/api/export", dependencies=[dangerous("downloaded a copy of the workspace's data")])
 def export_data(user: User, conn: Conn):
-    """Anyone: their own account, and the sections they can see, as one ZIP."""
+    """The owner, and whoever they allowed: their own account, and the sections they can see, as one ZIP."""
+    if not export.allowed(user):
+        raise ForbiddenError("ask your owner to let you download data")
     auth.limit("export", str(user.id), 10, 3600)
     name, content = export.build(conn, user)
     return Response(content, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"'})
