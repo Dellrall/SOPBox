@@ -1,6 +1,5 @@
 import asyncio
 import hmac
-import html
 from contextlib import contextmanager
 from dataclasses import replace
 import logging
@@ -18,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, closing, export, hq, inquiries, locations, mfa, notifications, ops, plans, sales, stocktakes
+from app import apikeys, closing, export, hq, inquiries, locations, mfa, notifications, ops, plans, sales, seo, stocktakes
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -1289,7 +1288,7 @@ def current_plan(user: User, conn: Conn):
 
 @app.post("/api/inquiries", response_model=InquiryOut, status_code=201)
 def sales_inquiry(body: SalesInquiryIn, request: Request, conn: Conn):
-    """Public: an Enterprise or sales enquiry from the pricing page. Sales contacts them."""
+    """Public: a sales enquiry or a question from the contact page. The team contacts them."""
     auth.limit("inquiry", _client(request), 5, 3600)
     return inquiries.sales(conn, body)
 
@@ -1319,13 +1318,15 @@ def _origin(request: Request) -> str:
 @app.get("/signin", include_in_schema=False)
 @app.get("/register", include_in_schema=False)
 @app.get("/pricing", include_in_schema=False)
+@app.get("/privacy", include_in_schema=False)
+@app.get("/contact", include_in_schema=False)
 @app.get("/settings", include_in_schema=False)  # where connecting Google or Telegram comes back to
 def index(request: Request):
-    """The app's single page, with absolute URLs filled in for link previews and the canonical link."""
+    """The app's single page, with this address's title, description and canonical link (seo.py)."""
     page = FRONTEND_DIST / "index.html"
     if not page.is_file():
         return PlainTextResponse("Frontend not built. Run npm run build in src/frontend.", status_code=503)
-    body = page.read_text(encoding="utf-8").replace("__ORIGIN__", html.escape(_origin(request)))
+    body = seo.render(page.read_text(encoding="utf-8"), request.url.path, _origin(request))
     # Always fetch the page fresh, so a new deploy's script and style names are picked up.
     return HTMLResponse(body, headers={"Cache-Control": "no-cache"})
 
@@ -1339,14 +1340,8 @@ def robots(request: Request):
 
 @app.get("/sitemap.xml", include_in_schema=False)
 def sitemap(request: Request):
-    # One public page: everything else is behind sign-in.
-    url = html.escape(_origin(request))
-    return Response(
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-        f"<url><loc>{url}/</loc></url></urlset>\n",
-        media_type="application/xml",
-    )
+    # The public pages: everything else is behind sign-in.
+    return Response(seo.sitemap(_origin(request)), media_type="application/xml")
 
 
 # The built frontend (npm run build). Mounted last so the API routes above win.

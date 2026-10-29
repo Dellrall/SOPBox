@@ -261,7 +261,7 @@ export const api = {
   // plans, sales and support
   pricing: () => get<Pricing>("/pricing"),
   plan: () => get<Plan>("/plan"),
-  salesInquiry: (body: { name: string; company: string; email: string; phone: string; outlets: number | null; message: string }) =>
+  salesInquiry: (body: { topic: "sales" | "question"; name: string; company: string; email: string; phone: string; outlets: number | null; message: string }) =>
     post<{ id: number }>("/inquiries", body),
   upgradeRequest: (body: { billing: "annual" | "lifetime"; outlets: number; customization: boolean; priority_support: boolean; phone: string; message: string }) =>
     post<{ id: number }>("/plan/upgrade-request", body),

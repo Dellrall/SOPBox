@@ -1,4 +1,4 @@
-"""Sales enquiries from the public pricing page, upgrade requests and support requests. Stored for
+"""Sales enquiries and questions from the public contact page, upgrade requests and support requests. Stored for
 the team; the internal operations site will list and answer them."""
 
 import psycopg
@@ -19,7 +19,9 @@ def _save(conn: psycopg.Connection, **fields) -> InquiryOut:
 
 
 def sales(conn: psycopg.Connection, data: SalesInquiryIn) -> InquiryOut:
-    return _save(conn, kind="sales", **data.model_dump())
+    """A sales enquiry or a question from the public contact page."""
+    fields = data.model_dump()
+    return _save(conn, kind=fields.pop("topic"), **fields)
 
 
 def upgrade(conn: psycopg.Connection, owner: CurrentUser, data: UpgradeRequestIn) -> InquiryOut:

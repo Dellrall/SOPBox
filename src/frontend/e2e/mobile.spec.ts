@@ -57,11 +57,27 @@ test.describe("signed out", () => {
     await page.getByLabel("Email").fill(`ana${Date.now()}@example.com`);
     await page.getByLabel("Number of outlets").fill("12");
     await page.getByRole("button", { name: "Send to sales" }).tap();
-    await expect(page.getByText("Our sales team will contact you soon.")).toBeVisible();
+    await expect(page.getByText(/Our sales team will reply to/)).toBeVisible();
     await expectFitsScreen(page);
   });
 
-  for (const path of ["/", "/signin", "/register", "/pricing"]) {
+  test("the menu reaches every public page, and a visitor asks a question", async ({ page }) => {
+    await page.goto("/");
+    for (const [name, heading] of [["Pricing", "Free for one store"], ["Privacy", "Your data stays yours"], ["Contact", "How can we help?"]]) {
+      await page.getByRole("button", { name: "Menu" }).tap();
+      await page.getByRole("navigation", { name: "Site menu" }).getByRole("link", { name, exact: true }).tap();
+      await expect(page.getByRole("heading", { level: 1, name: new RegExp(heading) })).toBeVisible();
+    }
+    await expect(page).toHaveTitle("Contact · SOPBox");
+    await page.getByLabel("Your name").fill("Ben");
+    await page.getByLabel("Email").fill(`ben${Date.now()}@example.com`);
+    await page.getByLabel("Your question").fill("Does it work offline?");
+    await page.getByRole("button", { name: "Send question" }).tap();
+    await expect(page.getByText(/The SOPBox team will reply to/)).toBeVisible();
+    await expect(page.getByRole("contentinfo").getByRole("link", { name: "Privacy" })).toBeVisible();
+  });
+
+  for (const path of ["/", "/signin", "/register", "/pricing", "/privacy", "/contact"]) {
     test(`${path} fits a phone`, async ({ page }, testInfo) => {
       await page.goto(path);
       await expect(page.locator("h1, h2").first()).toBeVisible();

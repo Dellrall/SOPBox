@@ -50,15 +50,16 @@
   </head>
   <body>
     <div id="root">
-      <!-- Shown until the app loads, and to crawlers that do not run JavaScript. -->
-      <main class="mx-auto my-12 max-w-2xl px-4">
+      <!-- Shown until the app loads, and to crawlers that do not run JavaScript. The server swaps
+           what is between the page markers for other public pages (src/backend/app/seo.py). -->
+      <!--page--><main class="mx-auto my-12 max-w-2xl px-4">
         <h1 class="text-2xl font-bold text-brand-950">SOPBox: smart receiving checks for F&amp;B businesses</h1>
         <p class="mt-3 text-muted">
           Staff photograph the supplier's delivery order, AI reads the lines, and rules check each one for
           temperature, pack conversion and quantity. Failures go to a manager to accept, reject or return,
           with Telegram alerts and a full audit log.
         </p>
-      </main>
+      </main><!--/page-->
     </div>
     <noscript>SOPBox needs JavaScript to run. Please turn it on and reload the page.</noscript>
     <script type="module" src="/src/main.tsx"></script>

@@ -426,7 +426,7 @@ CREATE TABLE IF NOT EXISTS closed_workspaces (
 -- operations site). Public enquiries have no workspace, so this is guarded by code, not RLS.
 CREATE TABLE IF NOT EXISTS inquiries (
     id {_ID},
-    kind TEXT NOT NULL CHECK (kind IN ('sales', 'upgrade', 'support')),
+    kind TEXT NOT NULL CHECK (kind IN ('sales', 'question', 'upgrade', 'support')),
     workspace_id BIGINT REFERENCES workspaces(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     company TEXT NOT NULL DEFAULT '',
@@ -438,6 +438,9 @@ CREATE TABLE IF NOT EXISTS inquiries (
     status TEXT NOT NULL DEFAULT 'new',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Questions from the public contact page joined later: widen the check on existing databases.
+ALTER TABLE inquiries DROP CONSTRAINT IF EXISTS inquiries_kind_check;
+ALTER TABLE inquiries ADD CONSTRAINT inquiries_kind_check CHECK (kind IN ('sales', 'question', 'upgrade', 'support'));
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible

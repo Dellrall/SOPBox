@@ -5,6 +5,7 @@ import type { PublicPath } from "./App";
 import type { KitchenScreen, Me } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton } from "./ui";
 import { SdgFooter } from "./Sdg";
+import { PolicyLinks } from "./Site";
 import { KitchenSignIn, OtherSignIns } from "./OtherSignIns";
 import { USERNAME_HINT, USERNAME_PATTERN, UsernameStatus, cleanUsername, usernameProblem, useUsernameCheck } from "./username";
 
@@ -237,6 +238,7 @@ export default function AuthPage({
             </p>
           )}
           <SdgFooter className="mt-10" />
+          <PolicyLinks className="mt-4" />
         </div>
       </main>
     </div>
