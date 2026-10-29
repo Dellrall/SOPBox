@@ -49,7 +49,15 @@ export type Me = {
   previous_sign_in: SignIn | null;
   /** Their own workspace first, then the branches linked to it when it is an HQ, with their role there. */
   workspaces: { id: number; name: string; role: Role }[];
+  /** Two-step sign-in is on. */
+  mfa_enabled: boolean;
+  /** Signed in, but the authenticator code is still to be entered. */
+  mfa_pending: boolean;
+  /** The workspace requires two-step sign-in and it is not on yet. */
+  mfa_setup_needed: boolean;
 };
+
+export type MfaPolicy = "off" | "managers" | "everyone";
 
 export type UserOut = {
   id: number;
@@ -63,6 +71,8 @@ export type UserOut = {
   telegram_linked: boolean;
   /** Kept out of the Telegram team group until then; year 9999 means until let back in. */
   team_group_removed_until: string | null;
+  security_alerts: boolean;
+  mfa_enabled: boolean;
 };
 
 export type UserCreateIn = {
@@ -81,6 +91,7 @@ export type UserUpdateIn = {
   active?: boolean;
   password?: string;
   section_access?: SectionAccess;
+  security_alerts?: boolean;
 };
 
 export type RegisterIn = {
@@ -101,6 +112,7 @@ export type WorkspaceSettings = {
   telegram_team_chat_id: string;
   telegram_team_title: string;
   telegram_team_invite_link: string;
+  mfa_policy: MfaPolicy;
 };
 
 export type PackUnit = { unit: string; base_qty: number };
@@ -381,7 +393,7 @@ export type PurchaseOrderIn = {
 
 export type TeamMember = { id: number; username: string; display_name: string; role: Role };
 
-export type NotificationKind = "tagged" | "approval_needed" | "decided" | "comment" | "sign_in";
+export type NotificationKind = "tagged" | "approval_needed" | "decided" | "comment" | "sign_in" | "security";
 export type Notification = {
   id: number;
   kind: NotificationKind;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { AtSign, Bell, CheckCheck, ClipboardCheck, LogIn, MessageSquare, Truck, X, type LucideIcon } from "lucide-react";
+import { AtSign, Bell, CheckCheck, ClipboardCheck, LogIn, MessageSquare, ShieldAlert, Truck, X, type LucideIcon } from "lucide-react";
 import { api } from "./api";
 import type { Inbox, Notification, NotificationKind } from "./types";
 
@@ -64,6 +64,7 @@ const KIND: Record<NotificationKind, { icon: LucideIcon; label: string }> = {
   decided: { icon: Truck, label: "Decision" },
   comment: { icon: MessageSquare, label: "Comment" },
   sign_in: { icon: LogIn, label: "New sign-in" },
+  security: { icon: ShieldAlert, label: "Security alert" },
 };
 
 const ago = (iso: string) => {

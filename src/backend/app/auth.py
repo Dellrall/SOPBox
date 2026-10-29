@@ -23,7 +23,7 @@ from psycopg.types.json import Jsonb
 from app import inbox
 from app.config import get_settings
 from app.db import get_db, scope_to_user, scope_to_workspace
-from app.errors import AuthError, ForbiddenError, RateLimitError
+from app.errors import AuthError, ForbiddenError, MfaRequiredError, RateLimitError
 from app.models import SignIn
 
 COOKIE = "sopbox_session"
@@ -112,6 +112,20 @@ def check_username_lookup_allowed(client: str) -> None:
         _username_checks[client] = [*hits, now]
 
 
+# Any other request count per address or key, in a sliding window.
+_hits: dict[str, list[float]] = {}
+
+
+def limit(bucket: str, client: str, count: int, seconds: int) -> None:
+    now = time.monotonic()
+    key = f"{bucket}:{client}"
+    with _fails_lock:
+        hits = [t for t in _hits.get(key, []) if now - t < seconds]
+        if len(hits) >= count:
+            raise RateLimitError("too many requests; wait a minute and try again")
+        _hits[key] = [*hits, now]
+
+
 # ---- sessions ---------------------------------------------------------------------------------
 
 
@@ -177,15 +191,20 @@ def _record_sign_in(conn: psycopg.Connection, request: Request, user_id: int, me
 
 def start_session(
     conn: psycopg.Connection, request: Request, response: Response, user_id: int, method: str, *, days: float = SESSION_DAYS
-) -> None:
-    """Every way of signing in ends here: one session cookie, one logged sign-in."""
+) -> bool:
+    """Every way of signing in ends here: one session cookie, one logged sign-in. With two-step
+    sign-in on, the session waits for an authenticator code, except after a passkey (already two
+    factors). Returns whether it waits."""
     token = secrets.token_urlsafe(32)
     conn.execute("DELETE FROM sessions WHERE expires_at < now()")
     sign_in_id = _record_sign_in(conn, request, user_id, method)
+    pending = method != "passkey" and conn.execute(
+        "SELECT totp_secret IS NOT NULL AS on FROM users WHERE id = %s", (user_id,)
+    ).fetchone()["on"]
     conn.execute(
-        "INSERT INTO sessions (token_hash, user_id, expires_at, sign_in_id) "
-        "VALUES (%s, %s, now() + make_interval(secs => %s), %s)",
-        (token_digest(token), user_id, days * 86400, sign_in_id),
+        "INSERT INTO sessions (token_hash, user_id, expires_at, sign_in_id, mfa_pending) "
+        "VALUES (%s, %s, now() + make_interval(secs => %s), %s, %s)",
+        (token_digest(token), user_id, days * 86400, sign_in_id, pending),
     )
     response.set_cookie(
         COOKIE,
@@ -196,6 +215,7 @@ def start_session(
         secure=get_settings().cookie_secure,
         path="/",
     )
+    return pending
 
 
 def previous_sign_in(conn: psycopg.Connection, user_id: int, current: int | None) -> SignIn | None:
@@ -265,12 +285,19 @@ class CurrentUser:
     role: Role
     section_access: dict[str, str]
     sign_in_id: int | None = None  # the sign-in that started this session
+    mfa_enabled: bool = False
+    mfa_policy: str = "off"  # the home workspace's: who must use two-step sign-in
+    mfa_pending: bool = False  # this session still waits for an authenticator code
+    mfa_fresh: bool = False  # a code was entered in the last few minutes (mfa.FRESH_MINUTES)
+    session_hash: str = ""
 
 
 def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
     row = conn.execute(
         "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, "
-        "u.role, u.section_access, s.sign_in_id "
+        "u.role, u.section_access, s.sign_in_id, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy, "
+        "s.mfa_pending, COALESCE(s.mfa_at > now() - interval '10 minutes', false) AS mfa_fresh, "
+        "s.token_hash AS session_hash "
         "FROM sessions s JOIN users u ON u.id = s.user_id JOIN workspaces w ON w.id = u.workspace_id "
         "WHERE s.token_hash = %s AND s.expires_at > now() AND u.active",
         (token_digest(token),),
@@ -281,7 +308,7 @@ def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
 def get_me(conn: psycopg.Connection, user_id: int) -> "CurrentUser":
     row = conn.execute(
         "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, "
-        "u.role, u.section_access "
+        "u.role, u.section_access, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy "
         "FROM users u JOIN workspaces w ON w.id = u.workspace_id WHERE u.id = %s",
         (user_id,),
     ).fetchone()
@@ -329,6 +356,8 @@ def current_user(request: Request, conn: Conn) -> CurrentUser:
     user = _user_for_token(conn, token) if token else None
     if user is None:
         raise AuthError("sign in to continue")
+    if user.mfa_pending:
+        raise MfaRequiredError("enter the code from your authenticator app to finish signing in")
     branch = request.headers.get(WORKSPACE_HEADER) or request.query_params.get("workspace", "")
     if branch and not request.url.path.startswith("/api/auth/"):
         if not branch.isdecimal() or len(branch) > 18:

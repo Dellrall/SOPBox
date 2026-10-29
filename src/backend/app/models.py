@@ -599,6 +599,9 @@ class Me(BaseModel):
     workspace: WorkspaceRef
     # The sign-in before this session's, so a person notices one they did not make.
     previous_sign_in: SignIn | None = None
+    mfa_enabled: bool = False  # two-step sign-in is on
+    mfa_pending: bool = False  # signed in, but the authenticator code is still to be entered
+    mfa_setup_needed: bool = False  # the workspace requires two-step sign-in and it is not on yet
     # Their own workspace first, then the branches linked to it when it is an HQ.
     workspaces: list[WorkspaceChoice] = []
 
@@ -649,6 +652,7 @@ class UserUpdateIn(_In):
     active: bool | None = None
     password: Password | None = None
     section_access: SectionAccess | None = None
+    security_alerts: bool | None = None  # hears about dangerous actions, as the owner does
 
     @model_validator(mode="after")
     def _clean(self) -> "UserUpdateIn":
@@ -670,6 +674,8 @@ class UserOut(BaseModel):
     telegram_linked: bool = False
     # Kept out of the Telegram team group until then (team_group.FOREVER: until let back in).
     team_group_removed_until: str | None = None
+    security_alerts: bool = False
+    mfa_enabled: bool = False
 
 
 class TeamGroupIn(_In):
@@ -682,6 +688,10 @@ class TeamGroupRemoveIn(_In):
     hours: Literal[1, 24, 168] | None = None
 
 
+# Who must use two-step sign-in (mfa.py).
+MfaPolicy = Literal["off", "managers", "everyone"]
+
+
 class WorkspaceSettings(BaseModel):
     id: int
     name: str
@@ -691,12 +701,14 @@ class WorkspaceSettings(BaseModel):
     telegram_team_chat_id: str = ""
     telegram_team_title: str = ""
     telegram_team_invite_link: str = ""
+    mfa_policy: MfaPolicy = "off"
 
 
 class WorkspaceUpdateIn(_In):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     telegram_manager_chat_id: str | None = Field(default=None, max_length=40)
     telegram_staff_chat_id: str | None = Field(default=None, max_length=40)
+    mfa_policy: MfaPolicy | None = None
 
     @model_validator(mode="after")
     def _chat_ids(self) -> "WorkspaceUpdateIn":
@@ -826,7 +838,7 @@ class TeamMember(BaseModel):
     role: Role
 
 
-NotificationKind = Literal["tagged", "approval_needed", "decided", "comment", "sign_in"]
+NotificationKind = Literal["tagged", "approval_needed", "decided", "comment", "sign_in", "security"]
 
 
 class Notification(BaseModel):
@@ -1126,3 +1138,19 @@ class ApiSaleIn(_In):
 class ApiSaleOut(BaseModel):
     sale: SaleOut
     unknown_codes: list[str]  # codes no active product has; left out of the sale
+
+
+# ---- two-step sign-in ------------------------------------------------------------------------
+
+
+class MfaSetupOut(BaseModel):
+    secret: str  # base32, for typing into an authenticator app
+    uri: str  # otpauth:// link that opens the app on a phone
+
+
+class MfaCodeIn(_In):
+    code: str = Field(min_length=6, max_length=20)  # 6 digits, or a backup code
+
+
+class MfaEnabledOut(BaseModel):
+    backup_codes: list[str]  # shown once; each works once

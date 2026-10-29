@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { PASSWORD, PEOPLE, STAFF_PIN, stateFile } from "./global-setup";
 
@@ -221,6 +222,49 @@ test.describe("phone layout", () => {
     await openPage(page, "Stock Count");
     for (const name of [/^Chiller/, /^Frozen/, /^Room/, /^Packaging/])
       await expect(page.getByRole("button", { name })).toHaveAttribute("aria-expanded", "true");
+  });
+});
+
+/** The authenticator app's code (RFC 6238), `steps` 30-second steps from now. */
+function totp(secret: string, steps = 0): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const bits = [...secret.replace(/\s/g, "")].map((c) => alphabet.indexOf(c).toString(2).padStart(5, "0")).join("");
+  const key = Buffer.from(bits.match(/.{8}/g)!.map((b) => parseInt(b, 2)));
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000) + steps));
+  const digest = createHmac("sha1", key).update(counter).digest();
+  const offset = digest[digest.length - 1] & 0x0f;
+  return String((digest.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0");
+}
+
+test.describe("two-step sign-in", () => {
+  test("turning it on makes the next sign-in ask for a code", async ({ browser, baseURL }, testInfo) => {
+    const context = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const username = `mfa${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    expect((await context.request.post("/api/auth/register", {
+      data: { workspace_name: `MFA ${username}`, display_name: "Mo Owner", email: `${username}@example.com`, username, password: PASSWORD },
+    })).ok()).toBe(true);
+    const page = await context.newPage();
+    await page.goto("/");
+    await openPage(page, "Settings");
+    await page.getByRole("button", { name: "Set up two-step sign-in" }).tap();
+    const secret = (await page.getByTestId("mfa-secret").textContent()) ?? "";
+    await page.getByLabel("Code from your authenticator app").fill(totp(secret));
+    await page.getByRole("button", { name: "Turn on" }).tap();
+    await expect(page.getByTestId("backup-codes").locator("li")).toHaveCount(10);
+    await page.getByRole("button", { name: "I've saved them" }).tap();
+    await expectFitsScreen(page);
+
+    await context.request.post("/api/auth/logout");
+    expect((await (await context.request.post("/api/auth/login", { data: { username, password: PASSWORD } })).json()).mfa_pending).toBe(true);
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Two-step sign-in" })).toBeVisible();
+    await expectFitsScreen(page);
+    await page.getByLabel("Code from your authenticator app").fill(totp(secret, 1));
+    await page.getByRole("button", { name: "Finish signing in" }).tap();
+    await openPage(page, "Settings");
+    await expect(page.getByText("On", { exact: true })).toBeVisible();
+    await context.close();
   });
 });
 
