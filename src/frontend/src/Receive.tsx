@@ -22,6 +22,7 @@ import {
   secondaryButton,
   TempInput,
 } from "./ui";
+import { Select } from "./Select";
 
 const MAX_PHOTOS = 4;
 
@@ -344,19 +345,13 @@ export default function Receive({
             <label className={labelClass} htmlFor="purchase-order">
               Purchase order <span className="font-normal text-muted">(optional)</span>
             </label>
-            <select
+            <Select
               id="purchase-order"
               className={inputClass}
-              value={orderId ?? ""}
-              onChange={(e) => fillFromOrder(orders.find((o) => o.id === Number(e.target.value)))}
-            >
-              <option value="">No purchase order</option>
-              {orders.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.reference} · {o.supplier}
-                </option>
-              ))}
-            </select>
+              value={orderId == null ? "" : String(orderId)}
+              choices={[{ value: "", label: "No purchase order" }, ...orders.map((o) => ({ value: String(o.id), label: `${o.reference} · ${o.supplier}` }))]}
+              onChange={(v) => fillFromOrder(orders.find((o) => o.id === Number(v)))}
+            />
             {orderId !== null && (
               <p className="mt-1 text-xs text-muted">
                 Each line is checked against what is still to come on this order. Products not on it go to a manager.
@@ -454,14 +449,13 @@ export default function Receive({
                     Unit
                   </label>
                   {product ? (
-                    <select id={`unit-${line.key}`} className={inputClass} value={line.unit} onChange={(e) => update(line.key, { unit: e.target.value })}>
-                      <option value="">Choose…</option>
-                      {units.map((u) => (
-                        <option key={u} value={u}>
-                          {u}
-                        </option>
-                      ))}
-                    </select>
+                    <Select
+                      id={`unit-${line.key}`}
+                      className={inputClass}
+                      value={line.unit}
+                      choices={[{ value: "", label: "Choose…" }, ...units.map((u) => ({ value: u, label: u }))]}
+                      onChange={(v) => update(line.key, { unit: v })}
+                    />
                   ) : (
                     <input id={`unit-${line.key}`} className={inputClass} value={line.unit} onChange={(e) => update(line.key, { unit: e.target.value })} />
                   )}

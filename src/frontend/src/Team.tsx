@@ -3,6 +3,12 @@ import { api } from "./api";
 import { DEFAULT_STAFF_ACCESS, SECTION_ACCESS_AREAS, type Accountability, type SectionAccess, type UserOut } from "./types";
 import { USERNAME_HINT, USERNAME_PATTERN, UsernameStatus, cleanUsername, usernameProblem, useUsernameCheck } from "./username";
 import { Empty, ErrorNote, PageTitle, ROLE_LABEL, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
+import { Select } from "./Select";
+
+const ROLE_CHOICES = [
+  { value: "staff", label: "Staff" },
+  { value: "manager", label: "Manager" },
+];
 
 function SectionAccessFields({
   value,
@@ -21,16 +27,17 @@ function SectionAccessFields({
             <label className="text-sm font-medium text-ink" htmlFor={`access-${key}`}>
               {label}
             </label>
-            <select
+            <Select
               id={`access-${key}`}
               className={`${inputClass} w-full`}
               value={value[key]}
-              onChange={(event) => onChange({ ...value, [key]: event.target.value as SectionAccess[typeof key] })}
-            >
-              <option value="none">No access</option>
-              <option value="view">View only</option>
-              <option value="edit">Edit + add</option>
-            </select>
+              choices={[
+                { value: "none", label: "No access" },
+                { value: "view", label: "View only" },
+                { value: "edit", label: "Edit + add" },
+              ]}
+              onChange={(v) => onChange({ ...value, [key]: v as SectionAccess[typeof key] })}
+            />
           </div>
         ))}
       </div>
@@ -130,10 +137,7 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
           <label className={labelClass} htmlFor="u-role">
             Role
           </label>
-          <select id="u-role" className={inputClass} value={role} onChange={(e) => setRole(e.target.value as "manager" | "staff")}>
-            <option value="staff">Staff</option>
-            <option value="manager">Manager</option>
-          </select>
+          <Select id="u-role" className={inputClass} value={role} choices={ROLE_CHOICES} onChange={(v) => setRole(v as "manager" | "staff")} />
         </div>
         <div>
           <label className={labelClass} htmlFor="u-password">
@@ -192,21 +196,21 @@ function TeamGroupControls({ user, onChanged }: { user: UserOut; onChanged: () =
           <label className="sr-only" htmlFor={`tg-remove-${user.id}`}>
             Remove {user.display_name} from the team group
           </label>
-          <select
+          <Select
             id={`tg-remove-${user.id}`}
             className={`${inputClass} w-auto!`}
             value=""
-            onChange={(e) => {
-              const v = e.target.value;
+            choices={[
+              { value: "", label: "Remove from group…" },
+              { value: "1", label: "For 1 hour" },
+              { value: "24", label: "For 1 day" },
+              { value: "168", label: "For 1 week" },
+              { value: "forever", label: "Until I let them back in" },
+            ]}
+            onChange={(v) => {
               if (v) void act(() => api.removeFromTeamGroup(user.id, v === "forever" ? null : (Number(v) as 1 | 24 | 168)));
             }}
-          >
-            <option value="">Remove from group…</option>
-            <option value="1">For 1 hour</option>
-            <option value="24">For 1 day</option>
-            <option value="168">For 1 week</option>
-            <option value="forever">Until I let them back in</option>
-          </select>
+          />
         </>
       )}
       <ErrorNote message={error} />
@@ -256,15 +260,13 @@ function Row({ user, onChanged, teamGroup }: { user: UserOut; onChanged: () => v
             <label className="sr-only" htmlFor={`role-${user.id}`}>
               Role of {user.display_name}
             </label>
-            <select
+            <Select
               id={`role-${user.id}`}
               className={`${inputClass} w-auto!`}
               value={user.role}
-              onChange={(e) => void change({ role: e.target.value as "manager" | "staff" })}
-            >
-              <option value="staff">Staff</option>
-              <option value="manager">Manager</option>
-            </select>
+              choices={ROLE_CHOICES}
+              onChange={(v) => void change({ role: v as "manager" | "staff" })}
+            />
             <button className={secondaryButton} onClick={() => setEditingEmail((r) => !r)}>
               {user.email ? "Change email" : "Add email"}
             </button>

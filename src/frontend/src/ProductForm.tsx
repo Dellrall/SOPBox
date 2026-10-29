@@ -3,6 +3,7 @@ import { api } from "./api";
 import SopWriter from "./SopWriter";
 import type { Category, PackUnit, Product, ProductIn } from "./types";
 import { ErrorNote, TempInput, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
+import { Select } from "./Select";
 
 const num = (text: string): number | null => (text.trim() === "" ? null : Number(text));
 
@@ -104,14 +105,13 @@ export default function ProductForm({
           <label className={labelClass} htmlFor="p-category">
             Category
           </label>
-          <select id="p-category" className={inputClass} value={selectedCategory} onChange={(e) => setCategoryId(e.target.value)}>
-            {categories.length === 0 && <option value="">No categories yet</option>}
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            id="p-category"
+            className={inputClass}
+            value={String(selectedCategory)}
+            choices={categories.length === 0 ? [{ value: "", label: "No categories yet" }] : categories.map((c) => ({ value: String(c.id), label: c.name }))}
+            onChange={setCategoryId}
+          />
         </div>
         <div>
           <label className={labelClass} htmlFor="p-unit">

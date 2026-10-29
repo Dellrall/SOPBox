@@ -14,6 +14,7 @@ import {
   primaryButton,
   secondaryButton,
 } from "./ui";
+import { Select } from "./Select";
 
 /** The 6-digit box, also taking a backup code. */
 function CodeForm({
@@ -303,21 +304,16 @@ export function SecurityPolicy() {
         <label className={labelClass} htmlFor="mfa-policy">
           Two-step sign-in required for
         </label>
-        <select
+        <Select
           id="mfa-policy"
           className={inputClass}
           value={policy}
-          onChange={(e) => {
-            const next = e.target.value as MfaPolicy;
+          choices={POLICY}
+          onChange={(v) => {
+            const next = v as MfaPolicy;
             void run(async () => setPolicy((await api.updateWorkspace({ mfa_policy: next })).mfa_policy), "Rule saved.");
           }}
-        >
-          {POLICY.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
-          ))}
-        </select>
+        />
         <p className="mt-1 text-xs text-muted">
           People it applies to can still sign in, but must turn it on before doing anything hard to undo.
         </p>

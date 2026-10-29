@@ -7,6 +7,7 @@ import { DeliveryTags } from "./Tags";
 import { CountCalendar, dayTitle, keyOf } from "./StocktakeHistory";
 import type { Delivery, DeliveryStatus } from "./types";
 import { Empty, ErrorNote, PageTitle, StatusBadge, STATUS_LABEL, inputClass, labelClass, panelClass, secondaryButton } from "./ui";
+import { Select } from "./Select";
 
 // The API returns at most this many, newest first. Filtering happens here, on what was loaded.
 const LOAD = 200;
@@ -222,23 +223,25 @@ export default function Records() {
           <label className={labelClass} htmlFor="records-supplier">
             Supplier
           </label>
-          <select id="records-supplier" className={inputClass} value={supplier} onChange={(e) => setSupplier(e.target.value)}>
-            <option value="">All suppliers</option>
-            {suppliers.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
+          <Select
+            id="records-supplier"
+            className={inputClass}
+            value={supplier}
+            choices={[{ value: "", label: "All suppliers" }, ...suppliers.map((s) => ({ value: s, label: s }))]}
+            onChange={setSupplier}
+          />
         </div>
         <div>
           <label className={labelClass} htmlFor="records-receiver">
             Received by
           </label>
-          <select id="records-receiver" className={inputClass} value={receiver} onChange={(e) => setReceiver(e.target.value)}>
-            <option value="">Anyone</option>
-            {receivers.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
+          <Select
+            id="records-receiver"
+            className={inputClass}
+            value={receiver}
+            choices={[{ value: "", label: "Anyone" }, ...receivers.map((r) => ({ value: r, label: r }))]}
+            onChange={setReceiver}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
           <div role="group" aria-label="When" className="flex flex-wrap gap-1.5">

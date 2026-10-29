@@ -5,6 +5,7 @@ import { api } from "./api";
 import { imageToJpegBase64 } from "./image";
 import type { Category, ProductIn } from "./types";
 import { ErrorNote, SectionTitle, TempInput, cardClass, inputClass, primaryButton, secondaryButton } from "./ui";
+import { Select } from "./Select";
 
 /** One suggestion as the manager is editing it. Strings, so half-typed numbers are allowed. */
 type Row = {
@@ -187,14 +188,13 @@ export default function ImportSheet({
                       {r.note && <p className="mt-1 text-xs text-amber-800">Check: {r.note}</p>}
                     </td>
                     <td className="py-2 pr-2">
-                      <select aria-label={`Category, product ${i + 1}`} className={cell} value={r.categoryId} onChange={(e) => set(r.key, { categoryId: e.target.value })}>
-                        <option value="">Choose…</option>
-                        {categories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
+                      <Select
+                        aria-label={`Category, product ${i + 1}`}
+                        className={cell}
+                        value={String(r.categoryId)}
+                        choices={[{ value: "", label: "Choose…" }, ...categories.map((c) => ({ value: String(c.id), label: c.name }))]}
+                        onChange={(v) => set(r.key, { categoryId: v })}
+                      />
                       {!r.categoryId && r.newCategory && (
                         <button className="mt-1 text-xs font-semibold text-brand-700 hover:underline" onClick={() => void addCategory(r)}>
                           + Create category “{r.newCategory}”
