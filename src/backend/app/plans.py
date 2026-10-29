@@ -120,6 +120,10 @@ def redeem(conn: psycopg.Connection, owner: CurrentUser, code: str) -> PlanOut:
     )
     conn.execute("UPDATE plan_codes SET uses_left = uses_left - 1 WHERE token_hash = %s", (digest,))
     conn.execute("INSERT INTO plan_code_uses (token_hash, workspace_id) VALUES (%s, %s)", (digest, ws))
-    detail = f"Pro, {billing}" + (f" until {until}" if until else "") + f"; {1 + outlets} outlet(s)" + ("; customization" if customization else "")
+    total = 1 + outlets
+    detail = (
+        f"Pro {'for life' if until is None else f'until {until:%d %b %Y}'}, {total} outlet{'s' if total != 1 else ''}"
+        + (", customization" if customization else "")
+    )
     audit(conn, ws, owner.display_name, "plan.code_redeemed", None, detail)
     return current(conn, ws)
