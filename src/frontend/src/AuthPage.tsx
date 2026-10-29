@@ -6,7 +6,7 @@ import type { KitchenScreen, Me } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton } from "./ui";
 import { SdgFooter } from "./Sdg";
 import { KitchenSignIn, OtherSignIns } from "./OtherSignIns";
-import { USERNAME_HINT, USERNAME_PATTERN, cleanUsername, usernameProblem } from "./username";
+import { USERNAME_HINT, USERNAME_PATTERN, UsernameStatus, cleanUsername, usernameProblem, useUsernameCheck } from "./username";
 
 type Mode = "signin" | "register";
 
@@ -37,6 +37,7 @@ export default function AuthPage({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const usernameCheck = useUsernameCheck(username, mode !== "register");
   const [password, setPassword] = useState("");
   const [dropped, setDropped] = useState(false); // a typed character was not allowed in a username
   const [error, setError] = useState("");
@@ -199,6 +200,7 @@ export default function AuthPage({
                   setDropped(cleaned.removed);
                 }}
               />
+              {mode === "register" && <UsernameStatus check={usernameCheck} />}
               {mode === "register" && (
                 <p id="username-hint" className={`mt-1 text-xs ${dropped ? "font-semibold text-amber-800" : "text-muted"}`} aria-live="polite">
                   {dropped ? "Spaces and symbols can't be used in a username, so they were left out. " : ""}

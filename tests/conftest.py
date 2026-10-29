@@ -53,6 +53,7 @@ def _isolated_env(_database, monkeypatch):
         monkeypatch.delenv(name, raising=False)
     extraction._calls.clear()
     auth._fails.clear()
+    auth._username_checks.clear()
     auth._register_hits.clear()
     # The owner of the embedded server bypasses row-level security, so this sees every row.
     with psycopg.connect(_database, autocommit=True) as conn:

@@ -10,9 +10,11 @@ from app.auditlog import audit
 from app.auth import CurrentUser
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.models import (
+    _username,
     normalise_login,
     ProfileUpdateIn,
     RegisterIn,
+    UsernameCheck,
     UserCreateIn,
     UserOut,
     UserUpdateIn,
@@ -76,6 +78,18 @@ def _taken(err: psycopg.errors.UniqueViolation) -> ConflictError:
     if err.diag.constraint_name == "users_email_key":
         return ConflictError("that email is already used by another account")
     return ConflictError("that username is already taken")
+
+
+def username_available(conn: psycopg.Connection, username: str, own_id: int | None) -> UsernameCheck:
+    """Whether a username could be saved now. Your own counts as free. Save checks again, so two
+    people who both saw "available" cannot end up with the same one."""
+    try:
+        name = _username(username)
+    except ValueError as err:
+        return UsernameCheck(username=username, available=False, problem=str(err))
+    row = conn.execute("SELECT id FROM users WHERE lower(username) = %s", (name,)).fetchone()
+    taken = row is not None and row["id"] != own_id
+    return UsernameCheck(username=name, available=not taken, problem="that username is already taken" if taken else "")
 
 
 def authenticate(conn: psycopg.Connection, login: str, password: str) -> int:

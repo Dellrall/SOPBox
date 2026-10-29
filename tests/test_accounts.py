@@ -461,3 +461,16 @@ def test_ids_cannot_be_changed_even_inside_the_database(_database):
         for table in ("workspaces", "users", "outlets", "storages", "products"):
             with pytest.raises(psycopg.errors.GeneratedAlways):
                 conn.execute(f"UPDATE {table} SET id = 999999")
+
+
+def test_a_username_can_be_checked_as_it_is_typed(client):
+    check = lambda c, u: c.get("/api/auth/username-available", params={"username": u}).json()
+    stranger = TestClient(app)
+    assert check(stranger, "OLIVE") == {"username": "olive", "available": False, "problem": "that username is already taken"}
+    assert check(stranger, "new.cook")["available"] is True
+    assert check(stranger, "a b")["available"] is False
+    assert check(client, "olive")["available"] is True  # your own
+
+    for _ in range(30):
+        stranger.get("/api/auth/username-available", params={"username": "zed"})
+    assert stranger.get("/api/auth/username-available", params={"username": "zed"}).status_code == 429

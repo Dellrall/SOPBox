@@ -97,6 +97,21 @@ def check_register_allowed(client: str) -> None:
         _register_hits[client] = [*hits, now]
 
 
+# Checking whether a username is free is open to anyone, so cap it per address: plenty for typing,
+# too few to list who uses SOPBox.
+_USERNAME_CHECKS_PER_MINUTE = 30
+_username_checks: dict[str, list[float]] = {}
+
+
+def check_username_lookup_allowed(client: str) -> None:
+    now = time.monotonic()
+    with _fails_lock:
+        hits = [t for t in _username_checks.get(client, []) if now - t < 60]
+        if len(hits) >= _USERNAME_CHECKS_PER_MINUTE:
+            raise RateLimitError("too many username checks; wait a minute")
+        _username_checks[client] = [*hits, now]
+
+
 # ---- sessions ---------------------------------------------------------------------------------
 
 
