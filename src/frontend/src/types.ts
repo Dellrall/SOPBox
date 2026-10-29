@@ -472,3 +472,13 @@ export type Sale = {
 
 export type WorkspaceRef = { id: number; name: string };
 export type Links = { hq: WorkspaceRef | null; branches: WorkspaceRef[] };
+
+export interface ApiKey {
+  id: number;
+  name: string;
+  hint: string;
+  storage: string;
+  created_by: string;
+  created_at: string;
+  last_used_at: string | null;
+}

@@ -180,6 +180,21 @@ test.describe("phone layout", () => {
     await expectFitsScreen(page);
   });
 
+  test("a manager makes an API key a till can use", async ({ page, playwright, baseURL }, testInfo) => {
+    const name = `Till ${testInfo.project.name} ${Date.now()}`;
+    await page.goto("/");
+    await openPage(page, "Settings");
+    await page.getByLabel("Key name").fill(name);
+    await page.getByRole("button", { name: "Make a key" }).tap();
+    const key = (await page.getByTestId("api-key").textContent()) ?? "";
+    await expect(page.getByText(name, { exact: true })).toBeVisible();
+    await expectFitsScreen(page);
+
+    const till = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Authorization: `Bearer ${key}` } });
+    expect((await till.get("/api/v1/stock")).ok()).toBe(true);
+    await till.dispose();
+  });
+
   test("an HQ owner switches into a linked branch", async ({ page, playwright, baseURL }, testInfo) => {
     const branch = await playwright.request.newContext({ baseURL });
     const username = `branch${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;

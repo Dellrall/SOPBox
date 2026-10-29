@@ -366,6 +366,22 @@ CREATE TABLE IF NOT EXISTS link_codes (
     used_by BIGINT REFERENCES workspaces(id) ON DELETE SET NULL,
     used_at TIMESTAMPTZ
 );
+-- The till's own receipt or batch number for a sale sent with an API key: resending it changes nothing.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS external_ref TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS sales_external_ref_key ON sales (workspace_id, external_ref) WHERE external_ref IS NOT NULL;
+-- API keys for a till or other system (see apikeys.py). Only the key's SHA-256 is kept. Looked up
+-- before the workspace is known, so like sessions it is guarded by the application code, not RLS.
+CREATE TABLE IF NOT EXISTS api_keys (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    hint TEXT NOT NULL,
+    storage_id BIGINT NOT NULL REFERENCES storages(id) ON DELETE CASCADE,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    last_used_at TEXT
+);
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible

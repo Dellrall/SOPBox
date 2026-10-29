@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
+import { ApiKeys } from "./ApiKeys";
 import { HqLinks, Outlets } from "./Places";
 import { KitchenTablets, SignInSecurity } from "./Security";
 import { setStocktakeStartsExpanded, stocktakeStartsExpanded } from "./Stocktake";
@@ -294,6 +295,7 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
       {me.role === "owner" && <TeamGroup />}
       {me.role !== "staff" && <Outlets />}
       {me.role === "owner" && <HqLinks />}
+      {me.role !== "staff" && <ApiKeys />}
     </div>
   );
 }
