@@ -357,16 +357,16 @@ def _me(conn: psycopg.Connection, user: CurrentUser) -> Me:
         display_name=user.display_name,
         role=user.role,
         section_access=user.section_access,
-        workspace=WorkspaceRef(id=user.workspace_id, name=user.workspace_name),
+        workspace=WorkspaceRef(id=user.workspace_id, public_id=user.workspace_public_id, name=user.workspace_name),
         mfa_enabled=user.mfa_enabled,
         mfa_pending=user.mfa_pending,
         mfa_setup_needed=not user.mfa_enabled and mfa.required(user.mfa_policy, user.role),
         can_export=export.allowed(user),
         closing=closing.state(conn, user.workspace_id),
         workspaces=[
-            WorkspaceChoice(id=user.workspace_id, name=user.workspace_name, role=user.role),
+            WorkspaceChoice(id=user.workspace_id, public_id=user.workspace_public_id, name=user.workspace_name, role=user.role),
             *(
-                WorkspaceChoice(id=b.id, name=b.name, role=auth.in_branch(conn, user, b.id).role)
+                WorkspaceChoice(id=b.id, public_id=b.public_id, name=b.name, role=auth.in_branch(conn, user, b.id).role)
                 for b in hq.links(conn, user.workspace_id).branches
             ),
         ],
@@ -1268,15 +1268,16 @@ def reopen_workspace(owner: OwnerOnly, conn: Conn):
 # ---- SOPBox support only (ops.py) ------------------------------------------------------------------
 
 
-@app.get("/api/ops/workspaces/{workspace_id}", response_model=OpsWorkspaceOut, dependencies=[ops.Ops], include_in_schema=False)
-def ops_workspace(workspace_id: int, conn: Conn):
-    return ops.workspace(conn, workspace_id)
+# {workspace} is the Workspace ID the customer sees in Settings, or the internal number.
+@app.get("/api/ops/workspaces/{workspace}", response_model=OpsWorkspaceOut, dependencies=[ops.Ops], include_in_schema=False)
+def ops_workspace(workspace: str, conn: Conn):
+    return ops.workspace(conn, ops.resolve(conn, workspace))
 
 
-@app.post("/api/ops/workspaces/{workspace_id}/owner", response_model=OpsWorkspaceOut, dependencies=[ops.Ops], include_in_schema=False)
-def ops_transfer_owner(workspace_id: int, body: OwnerTransferIn, conn: Conn):
+@app.post("/api/ops/workspaces/{workspace}/owner", response_model=OpsWorkspaceOut, dependencies=[ops.Ops], include_in_schema=False)
+def ops_transfer_owner(workspace: str, body: OwnerTransferIn, conn: Conn):
     """Hand the workspace to another member, after support has checked who is asking."""
-    return ops.transfer_owner(conn, workspace_id, body)
+    return ops.transfer_owner(conn, ops.resolve(conn, workspace), body)
 
 
 # ---- plans, sales enquiries and support -----------------------------------------------------------

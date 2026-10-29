@@ -85,6 +85,10 @@ def test_support_routes_need_the_token_and_do_not_exist_without_it(client, monke
     assert client.get(f"/api/ops/workspaces/{ws}").status_code == 401  # signing in is not enough
     members = _ops(monkeypatch).get(f"/api/ops/workspaces/{ws}").json()["members"]
     assert [(m["username"], m["role"]) for m in members] == [("olive", "owner")]
+    # The Workspace ID the customer reads out of Settings works too.
+    public = client.get("/api/auth/me").json()["workspace"]["public_id"]
+    assert _ops(monkeypatch).get(f"/api/ops/workspaces/{public}").json()["id"] == ws
+    assert _ops(monkeypatch).get("/api/ops/workspaces/nosuchid").status_code == 404
 
 
 def test_support_hands_the_workspace_to_a_manager(client, make_user, monkeypatch):

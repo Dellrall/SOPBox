@@ -391,8 +391,9 @@ test.describe("addresses", () => {
 
   test("each page has its own address: refresh, back and links work", async ({ page, browser }) => {
     await page.goto("/");
-    await expect(page).toHaveURL(/\/w\/\d+\/dashboard$/);
-    const ws = /\/w\/(\d+)\//.exec(page.url())![1];
+    // A random id, not a count of workspaces.
+    await expect(page).toHaveURL(/\/w\/[0-9a-f]{12}\/dashboard$/);
+    const ws = /\/w\/([0-9a-f]{12})\//.exec(page.url())![1];
     await openPage(page, "Delivery records");
     await expect(page).toHaveURL(new RegExp(`/w/${ws}/records$`));
     await page.reload();
@@ -402,7 +403,7 @@ test.describe("addresses", () => {
     await expect(page.locator("main h1:visible")).not.toHaveText("Delivery records");
 
     // Another workspace's id opens nothing of it: the same page, in the person's own workspace.
-    await page.goto("/w/999999/records");
+    await page.goto("/w/0123456789ab/records");
     await expect(page.getByText("That link is for a workspace you are not in")).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/w/${ws}/records$`));
 

@@ -35,7 +35,7 @@ import {
 } from "./ui";
 
 /** A fixed id, like Discord's: names change, this never does. */
-function IdLine({ label, id }: { label: string; id: number }) {
+function IdLine({ label, id }: { label: string; id: number | string }) {
   return (
     <p className="flex items-center gap-1 text-xs text-muted">
       {label} <code className="font-mono text-ink">{id}</code>
@@ -238,7 +238,7 @@ function Workspace() {
     <form onSubmit={(e) => void submit(e)} className={`${cardClass} space-y-3`}>
       <div>
         <SectionTitle>Name and alerts</SectionTitle>
-        <IdLine label="Workspace ID" id={ws.id} />
+        <IdLine label="Workspace ID" id={ws.public_id} />
       </div>
       <div>
         <label className={labelClass} htmlFor="ws-name">

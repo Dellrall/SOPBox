@@ -414,6 +414,14 @@ ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS priority_support_until DATE;
 -- Closing a business (closing.py): read-only from closing_at, deleted GRACE_DAYS later.
 ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS closing_at TIMESTAMPTZ;
 ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS closed_by TEXT;
+-- The id people see, in addresses (/w/<public_id>/...) and Settings: 12 random hex characters
+-- (48 bits), so it says nothing about how many workspaces there are. Existing rows get one each
+-- when the column is added. The unique index makes a repeat impossible; creating a workspace
+-- retries with a fresh one in the (about one in ten million, at ten thousand workspaces) case it
+-- would repeat (accounts.register_workspace).
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS public_id TEXT NOT NULL
+    DEFAULT substr(replace(gen_random_uuid()::text, '-', ''), 1, 12);
+CREATE UNIQUE INDEX IF NOT EXISTS workspaces_public_id_key ON workspaces (public_id);
 -- What is left of a deleted workspace: no foreign key, so it outlives it.
 CREATE TABLE IF NOT EXISTS closed_workspaces (
     id BIGINT PRIMARY KEY,
@@ -422,6 +430,7 @@ CREATE TABLE IF NOT EXISTS closed_workspaces (
     closed_by TEXT,
     deleted_at TIMESTAMPTZ NOT NULL
 );
+ALTER TABLE closed_workspaces ADD COLUMN IF NOT EXISTS public_id TEXT;
 -- Sales enquiries, upgrade requests and support requests, for the team (and later the internal
 -- operations site). Public enquiries have no workspace, so this is guarded by code, not RLS.
 CREATE TABLE IF NOT EXISTS inquiries (

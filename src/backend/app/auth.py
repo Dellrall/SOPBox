@@ -280,6 +280,7 @@ class CurrentUser:
     id: int
     workspace_id: int
     workspace_name: str
+    workspace_public_id: str
     username: str
     email: str | None
     display_name: str
@@ -296,7 +297,7 @@ class CurrentUser:
 
 def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
     row = conn.execute(
-        "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, "
+        "SELECT u.id, u.workspace_id, w.name AS workspace_name, w.public_id AS workspace_public_id, u.username, u.email, u.display_name, "
         "u.role, u.section_access, s.sign_in_id, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy, u.can_export, "
         "s.mfa_pending, COALESCE(s.mfa_at > now() - interval '10 minutes', false) AS mfa_fresh, "
         "s.token_hash AS session_hash "
@@ -309,7 +310,7 @@ def _user_for_token(conn: psycopg.Connection, token: str) -> CurrentUser | None:
 
 def get_me(conn: psycopg.Connection, user_id: int) -> "CurrentUser":
     row = conn.execute(
-        "SELECT u.id, u.workspace_id, w.name AS workspace_name, u.username, u.email, u.display_name, "
+        "SELECT u.id, u.workspace_id, w.name AS workspace_name, w.public_id AS workspace_public_id, u.username, u.email, u.display_name, "
         "u.role, u.section_access, u.totp_secret IS NOT NULL AS mfa_enabled, w.mfa_policy, u.can_export "
         "FROM users u JOIN workspaces w ON w.id = u.workspace_id WHERE u.id = %s",
         (user_id,),
@@ -340,7 +341,7 @@ def in_branch(conn: psycopg.Connection, user: CurrentUser, branch_id: int) -> Cu
     if branch_id == user.workspace_id:
         return user
     row = conn.execute(
-        "SELECT name FROM workspaces WHERE id = %s AND hq_id = %s", (branch_id, user.workspace_id)
+        "SELECT name, public_id FROM workspaces WHERE id = %s AND hq_id = %s", (branch_id, user.workspace_id)
     ).fetchone()
     if row is None:
         raise ForbiddenError("you cannot work in that workspace")
@@ -348,6 +349,7 @@ def in_branch(conn: psycopg.Connection, user: CurrentUser, branch_id: int) -> Cu
         user,
         workspace_id=branch_id,
         workspace_name=row["name"],
+        workspace_public_id=row["public_id"],
         role="manager" if user.role in ("owner", "manager") else "staff",
     )
 

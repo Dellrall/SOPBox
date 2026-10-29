@@ -101,12 +101,13 @@ const PUBLIC: PublicRoute[] = ["/signin", "/register", "/pricing", "/privacy", "
 const asPublic = (path: string): PublicRoute => PUBLIC.find((p) => p === path) ?? "/";
 
 /**
- * Signed-in pages live at /w/<workspace id>/<page>, e.g. /w/12/records. The id is not a secret:
- * the server checks every request against the session, so another workspace's id opens nothing.
+ * Signed-in pages live at /w/<workspace public id>/<page>, e.g. /w/3f9a1c7e2b4d/records. The id is
+ * random, so it does not hint at how many workspaces there are, and it is not a secret: the server
+ * checks every request against the session, so another workspace's id opens nothing.
  */
-export const appAddress = (path: string): { ws: number; page: string } | null => {
-  const m = /^\/w\/(\d+)(?:\/([a-z]+))?\/?$/.exec(path);
-  return m ? { ws: Number(m[1]), page: m[2] ?? "" } : null;
+export const appAddress = (path: string): { ws: string; page: string } | null => {
+  const m = /^\/w\/([a-z0-9]{1,40})(?:\/([a-z]+))?\/?$/.exec(path);
+  return m ? { ws: m[1]!, page: m[2] ?? "" } : null;
 };
 
 export default function App() {
@@ -116,7 +117,7 @@ export default function App() {
   // The query too, so /contact -> /contact?topic=sales opens the sales form without a reload.
   const [search, setSearch] = useState(window.location.search);
   // The HQ branch being worked in; null for the person's own workspace. A link can name one.
-  const [branch, setBranchId] = useState<number | null>(() => appAddress(window.location.pathname)?.ws ?? null);
+  const [branch, setBranchId] = useState<string | null>(() => appAddress(window.location.pathname)?.ws ?? null);
   // The workspace the opening address named, to say so when it is not one of this person's.
   const [linked, setLinked] = useState(() => appAddress(window.location.pathname)?.ws ?? null);
 
@@ -178,10 +179,10 @@ export default function App() {
   }
   if (me.mfa_pending) return <MfaGate onDone={setMe} onSignOut={() => void api.logout().finally(() => setMe(null))} />;
   // In a branch, the pages see the branch and the role this person has there (see auth.in_branch).
-  const choice = me.workspaces.find((w) => w.id === branch && w.id !== me.workspace.id);
+  const choice = me.workspaces.find((w) => w.public_id === branch && w.id !== me.workspace.id);
   setBranch(choice?.id ?? null); // every API call from here on names the branch
-  const working = choice ? { ...me, role: choice.role, workspace: { id: choice.id, name: choice.name } } : me;
-  const lost = linked !== null && linked !== me.workspace.id && !me.workspaces.some((w) => w.id === linked);
+  const working = choice ? { ...me, role: choice.role, workspace: { id: choice.id, public_id: choice.public_id, name: choice.name } } : me;
+  const lost = linked !== null && linked !== me.workspace.public_id && !me.workspaces.some((w) => w.public_id === linked);
   return (
     <>
       <CodePrompt />
@@ -279,28 +280,28 @@ function Shell({
   /** The opening address named a workspace this person is not in. */
   lost: boolean;
   onMeChanged: (me: Me) => void;
-  onSwitch: (workspaceId: number) => void;
+  onSwitch: (publicId: string) => void;
   onSignedOut: () => void;
 }) {
   // The page from the address: /w/<id>/<page>, or /settings where connecting Google or Telegram comes back to.
   const [page, setPage] = useState<PageId>(() => {
     const at = appAddress(window.location.pathname);
     // A link to a workspace this person is not in still opens the same page, in their own.
-    const wanted = at && (at.ws === me.workspace.id || lost) ? at.page : window.location.pathname === "/settings" ? "settings" : "";
+    const wanted = at && (at.ws === me.workspace.public_id || lost) ? at.page : window.location.pathname === "/settings" ? "settings" : "";
     return NAV.find((n) => n.id === wanted)?.id ?? firstPage(me);
   });
   const [lostShown, setLostShown] = useState(lost);
-  const reachable = (ws: number) => ws === me.workspace.id || me.workspaces.some((w) => w.id === ws);
+  const reachable = (ws: string) => ws === me.workspace.public_id || me.workspaces.some((w) => w.public_id === ws);
 
   // Keep the address on this workspace and page. Moving to another page, or into another workspace,
   // adds a history entry; the first address on opening replaces a bare, old or unusable one.
   const opened = useRef(false);
   useEffect(() => {
-    const want = `/w/${me.workspace.id}/${page}`;
+    const want = `/w/${me.workspace.public_id}/${page}`;
     const { pathname, search, hash } = window.location;
     if (pathname !== want) {
       const from = appAddress(pathname);
-      if (opened.current || (from && from.ws !== me.workspace.id && reachable(from.ws))) window.history.pushState(null, "", want);
+      if (opened.current || (from && from.ws !== me.workspace.public_id && reachable(from.ws))) window.history.pushState(null, "", want);
       else window.history.replaceState(null, "", want + search + hash); // keeps the Settings tab and sign-in link results
     }
     opened.current = true;
@@ -312,7 +313,7 @@ function Shell({
     const onPop = () => {
       const at = appAddress(window.location.pathname);
       if (!at) return;
-      if (at.ws !== me.workspace.id) {
+      if (at.ws !== me.workspace.public_id) {
         if (reachable(at.ws)) onSwitch(at.ws);
         return;
       }
