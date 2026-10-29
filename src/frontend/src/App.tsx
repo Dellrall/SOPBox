@@ -21,6 +21,9 @@ import { api, setBranch, setSignedOutHandler } from "./api";
 import { ClosedBanner } from "./Closing";
 import { CodePrompt, MfaGate } from "./Mfa";
 import Pricing from "./Pricing";
+import Privacy from "./Privacy";
+import Contact from "./Contact";
+import { PolicyLinks } from "./Site";
 import Activity from "./Activity";
 import Approvals from "./Approvals";
 import AuthPage from "./AuthPage";
@@ -90,13 +93,16 @@ const initials = (name: string) =>
     .join("");
 
 /** Signed-out visitors move between three addresses: the welcome page, sign in and sign up. */
-export type PublicPath = "/" | "/signin" | "/register" | "/pricing";
-const asPublic = (path: string): PublicPath => (path === "/signin" || path === "/register" || path === "/pricing" ? path : "/");
+export type PublicRoute = "/" | "/signin" | "/register" | "/pricing" | "/privacy" | "/contact";
+/** A public page, optionally with a query, e.g. /contact?topic=sales. */
+export type PublicPath = PublicRoute | `${PublicRoute}?${string}`;
+const PUBLIC: PublicRoute[] = ["/signin", "/register", "/pricing", "/privacy", "/contact"];
+const asPublic = (path: string): PublicRoute => PUBLIC.find((p) => p === path) ?? "/";
 
 export default function App() {
   // undefined while we ask the server whether there is a session, null when signed out.
   const [me, setMe] = useState<Me | null | undefined>(undefined);
-  const [path, setPath] = useState<PublicPath>(() => asPublic(window.location.pathname));
+  const [path, setPath] = useState<PublicRoute>(() => asPublic(window.location.pathname));
   // The HQ branch being worked in; null for the person's own workspace.
   const [branch, setBranchId] = useState<number | null>(null);
 
@@ -107,8 +113,8 @@ export default function App() {
   }, []);
 
   const navigate = useCallback((to: PublicPath) => {
-    if (to !== window.location.pathname) window.history.pushState(null, "", to);
-    setPath(to);
+    if (to !== window.location.pathname + window.location.search) window.history.pushState(null, "", to);
+    setPath(asPublic(to.split("?")[0]!));
     window.scrollTo(0, 0);
   }, []);
 
@@ -143,6 +149,8 @@ export default function App() {
       </div>
     );
   if (path === "/pricing") return <Pricing navigate={navigate} signedIn={me !== null} />;
+  if (path === "/privacy") return <Privacy navigate={navigate} signedIn={me !== null} />;
+  if (path === "/contact") return <Contact key={window.location.search} navigate={navigate} signedIn={me !== null} />;
   if (me === null) {
     if (path === "/") return <Landing navigate={navigate} />;
     return <AuthPage mode={path === "/register" ? "register" : "signin"} navigate={navigate} onSignedIn={signedIn} />;
@@ -495,6 +503,7 @@ function Shell({
         {/* Pushed to the bottom on short pages. */}
         <div className="mt-auto pt-12">
           <SdgFooter className="border-t border-line pt-5" />
+          <PolicyLinks className="mt-3" />
         </div>
       </main>
       <MascotDock fallback={IDLE[page]} go={go} />

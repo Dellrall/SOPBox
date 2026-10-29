@@ -66,3 +66,11 @@ def test_enquiries_upgrades_and_support_are_saved(client, _database):
         rows = conn.execute("SELECT kind, email, message FROM inquiries ORDER BY id").fetchall()
     assert [r[0] for r in rows] == ["sales"] * 5 + ["upgrade", "support"]
     assert rows[0][1] == "ana@example.com" and "Pro, lifetime; 3 outlet(s); customization" in rows[5][2]
+
+
+def test_a_visitor_asks_a_question_from_the_contact_page(_database, anon):
+    question = {"topic": "question", "name": "Ben", "email": "ben@example.com", "message": ""}
+    assert anon.post("/api/inquiries", json=question).status_code == 422  # a question needs one
+    assert anon.post("/api/inquiries", json={**question, "message": "Does it work offline?"}).status_code == 201
+    with psycopg.connect(_database, autocommit=True) as conn:
+        assert conn.execute("SELECT kind FROM inquiries").fetchall() == [("question",)]

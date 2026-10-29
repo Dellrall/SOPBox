@@ -1221,6 +1221,9 @@ class PricingOut(BaseModel):
 
 
 class SalesInquiryIn(_In):
+    """From the public contact page: a question for the team, or a sales enquiry."""
+
+    topic: Literal["sales", "question"] = "sales"
     name: str = Field(min_length=1, max_length=120)
     company: str = Field(default="", max_length=120)
     email: str = Field(min_length=3, max_length=254)
@@ -1233,6 +1236,8 @@ class SalesInquiryIn(_In):
         self.email = _email(self.email) or ""
         if not self.email:
             raise ValueError("enter your email address")
+        if self.topic == "question" and not self.message.strip():
+            raise ValueError("write your question")
         return self
 
 

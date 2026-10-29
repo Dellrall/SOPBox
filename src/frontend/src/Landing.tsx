@@ -1,4 +1,3 @@
-import { useEffect, type MouseEvent } from "react";
 import {
   ArrowRight,
   BellRing,
@@ -16,11 +15,9 @@ import {
 } from "lucide-react";
 import type { PublicPath } from "./App";
 import DeliveryDemo from "./DeliveryDemo";
-import { SDGS, SdgFooter } from "./Sdg";
+import { SDGS } from "./Sdg";
+import { SiteFooter, SiteHeader, ctaButton, linkTo, usePageMeta } from "./Site";
 
-// Light green on deep green: dark text keeps it readable (contrast above 4.5:1).
-const ctaButton =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-leaf px-6 py-3 text-base font-semibold text-brand-950 shadow-sm transition hover:bg-[#8cc93e] active:scale-[0.98]";
 
 const PRINCIPLES: { icon: LucideIcon; title: string; text: string }[] = [
   {
@@ -50,19 +47,11 @@ const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
 ];
 
 export default function Landing({ navigate }: { navigate: (to: PublicPath) => void }) {
-  useEffect(() => {
-    document.title = "SOPBox · Smart receiving checks for F&B businesses";
-  }, []);
-
-  // Real links (crawlable, open in a new tab) that switch pages without a reload.
-  const link = (to: PublicPath) => ({
-    href: to,
-    onClick: (e: MouseEvent) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-      e.preventDefault();
-      navigate(to);
-    },
-  });
+  usePageMeta(
+    "SOPBox · Smart receiving checks for F&B businesses",
+    "SOPBox turns every supplier delivery into a quick phone check: AI reads the delivery order, rules check temperature, pack size and quantity, and managers approve failures. Built for food and beverage SMEs.",
+  );
+  const link = (to: PublicPath) => linkTo(navigate, to);
 
   return (
     <div className="min-h-screen bg-surface text-ink">
@@ -71,24 +60,7 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
       </a>
 
       <div className="hero-pattern text-white">
-        <header className="mx-auto flex max-w-6xl items-center gap-3 px-5 py-5 sm:px-8">
-          <img src="/logo-128.webp" alt="" width={40} height={40} className="h-10 w-10 rounded-xl ring-2 ring-white/15" />
-          <span className="text-lg font-bold">SOPBox</span>
-          <nav aria-label="Site" className="ml-auto flex items-center gap-1 sm:gap-2">
-            <a href="#how" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:text-white sm:block">
-              How it works
-            </a>
-            <a href="#features" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:text-white sm:block">
-              Features
-            </a>
-            <a href="#sdgs" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:text-white md:block">
-              SDGs
-            </a>
-            <a {...link("/signin")} className="rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">
-              Sign in
-            </a>
-          </nav>
-        </header>
+        <SiteHeader navigate={navigate} />
 
         <main id="main" className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-6 sm:px-8 lg:grid-cols-[1.1fr_1fr] lg:pb-24 lg:pt-12">
           <div>
@@ -226,20 +198,7 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
         </div>
       </section>
 
-      <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-5 py-8 text-sm text-muted sm:px-8">
-          <span className="flex items-center gap-2 font-semibold text-brand-950">
-            <ClipboardCheck aria-hidden className="h-4 w-4 text-brand-600" /> SOPBox
-          </span>
-          <span className="flex items-center gap-2">
-            <Smartphone aria-hidden className="h-4 w-4" /> Works in any phone browser, no app to install
-          </span>
-          <span className="sm:ml-auto">AI runs on RunPod. Rules and approvals stay in your hands.</span>
-        </div>
-        <div className="mx-auto max-w-6xl border-t border-line px-5 py-5 sm:px-8">
-          <SdgFooter />
-        </div>
-      </footer>
+      <SiteFooter navigate={navigate} />
     </div>
   );
 }
