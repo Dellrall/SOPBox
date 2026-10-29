@@ -61,6 +61,8 @@ export type Me = {
   can_export: boolean;
   /** The outlet they work at: the app starts them there. Null: not tied to one. */
   outlet_id?: number | null;
+  /** An assistant manager: adds and looks after staff, but disables nobody. */
+  assistant?: boolean;
   /** Set while their workspace is closed: read-only, deleted for good on delete_on. */
   closing: Closing;
 };
@@ -108,6 +110,7 @@ export type UserOut = {
   mfa_enabled: boolean;
   can_export: boolean;
   outlet_id: number | null;
+  assistant: boolean;
 };
 
 export type UserCreateIn = {
@@ -118,6 +121,7 @@ export type UserCreateIn = {
   password: string;
   section_access?: SectionAccess;
   outlet_id?: number | null;
+  assistant?: boolean;
 };
 
 export type UserUpdateIn = {
@@ -131,6 +135,7 @@ export type UserUpdateIn = {
   mfa_reset?: boolean;
   can_export?: boolean;
   outlet_id?: number | null;
+  assistant?: boolean;
 };
 
 export type RegisterIn = {

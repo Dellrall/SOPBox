@@ -48,7 +48,7 @@ import { WorkspaceSwitch } from "./WorkspaceSwitch";
 import { OutletSwitch } from "./OutletSwitch";
 import { SdgFooter } from "./Sdg";
 import type { Me, Notification, Role, SectionKey } from "./types";
-import { ROLE_LABEL } from "./ui";
+import { roleLabel } from "./ui";
 
 export type PageId =
   | "dashboard"
@@ -603,7 +603,7 @@ function Shell({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{me.display_name}</p>
             <p className="truncate text-xs text-white/60">
-              {ROLE_LABEL[me.role]} · {me.username}
+              {roleLabel(me)} · {me.username}
             </p>
           </div>
           <button onClick={() => void signOut()} aria-label="Sign out" title="Sign out" className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white">

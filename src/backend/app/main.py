@@ -365,6 +365,7 @@ def _me(conn: psycopg.Connection, user: CurrentUser) -> Me:
         mfa_setup_needed=not user.mfa_enabled and mfa.required(user.mfa_policy, user.role),
         can_export=export.allowed(user),
         outlet_id=user.outlet_id,
+        assistant=user.assistant,
         closing=closing.state(conn, user.workspace_id),
         workspaces=[
             WorkspaceChoice(id=user.workspace_id, public_id=user.workspace_public_id, name=user.workspace_name, role=user.role),

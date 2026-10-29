@@ -110,6 +110,9 @@ export const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 export const ROLE_LABEL = { owner: "Owner", manager: "Manager", staff: "Staff" } as const;
+/** The role as people say it: an assistant is a manager with the assistant flag. */
+export const roleLabel = (u: { role: keyof typeof ROLE_LABEL; assistant?: boolean }) =>
+  u.role === "manager" && u.assistant ? "Assistant manager" : ROLE_LABEL[u.role];
 
 const iconButton =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition disabled:pointer-events-none disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:h-9 sm:w-9";

@@ -642,6 +642,7 @@ class Me(BaseModel):
     mfa_setup_needed: bool = False  # the workspace requires two-step sign-in and it is not on yet
     can_export: bool = False  # may download data: the owner, and whoever the owner allows
     outlet_id: int | None = None  # the outlet they work at; the app starts them there
+    assistant: bool = False  # an assistant manager
     closing: ClosingOut = ClosingOut()  # their own workspace's
     # Their own workspace first, then the branches linked to it when it is an HQ.
     workspaces: list[WorkspaceChoice] = []
@@ -677,6 +678,7 @@ class UserCreateIn(_In):
     password: Password
     section_access: SectionAccess = Field(default_factory=SectionAccess)
     outlet_id: int | None = None  # a manager's new staff always go to the manager's outlet
+    assistant: bool = False  # with role manager: an assistant manager
 
     @model_validator(mode="after")
     def _clean(self) -> "UserCreateIn":
@@ -698,6 +700,7 @@ class UserUpdateIn(_In):
     mfa_reset: bool | None = None  # true: turn their two-step sign-in off (they lost their phone)
     can_export: bool | None = None  # may download the workspace's data (Settings)
     outlet_id: int | None = None  # sent as null: not tied to an outlet
+    assistant: bool | None = None  # with role manager: an assistant manager
 
     @model_validator(mode="after")
     def _clean(self) -> "UserUpdateIn":
@@ -723,6 +726,7 @@ class UserOut(BaseModel):
     mfa_enabled: bool = False
     can_export: bool = False
     outlet_id: int | None = None
+    assistant: bool = False
 
 
 class TeamGroupIn(_In):

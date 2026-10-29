@@ -24,7 +24,7 @@ import { USERNAME_HINT, USERNAME_PATTERN, UsernameStatus, cleanUsername, usernam
 import {
   ErrorNote,
   PageTitle,
-  ROLE_LABEL,
+  roleLabel,
   SectionTitle,
   SuccessNote,
   cardClass,
@@ -78,7 +78,7 @@ function Profile({ me, onChanged }: { me: Me; onChanged: (me: Me) => void }) {
       <div>
         <SectionTitle>Your profile</SectionTitle>
         <p className="mt-1 text-sm text-muted">
-          {ROLE_LABEL[me.role]} at {me.workspace.name}
+          {roleLabel(me)} at {me.workspace.name}
         </p>
         <IdLine label="User ID" id={me.id} />
       </div>
