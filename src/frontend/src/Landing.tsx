@@ -2,36 +2,37 @@ import {
   ArrowRight,
   BellRing,
   BookOpenCheck,
-  Bot,
   ClipboardCheck,
-  Gavel,
   History,
   PackageCheck,
   ShieldCheck,
   Smartphone,
   Thermometer,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 import type { PublicPath } from "./App";
 import DeliveryDemo from "./DeliveryDemo";
+import { MascotFigure, type Action, type Who } from "./Mascot";
 import { SDGS } from "./Sdg";
 import { SiteFooter, SiteHeader, ctaButton, linkTo, usePageMeta } from "./Site";
 
 
-const PRINCIPLES: { icon: LucideIcon; title: string; text: string }[] = [
+const PRINCIPLES: { who: Who; action: Action; title: string; text: string }[] = [
   {
-    icon: Bot,
+    who: "fish",
+    action: "read",
     title: "AI reads",
     text: "A vision model reads the supplier's delivery order into lines: item, quantity and pack unit. Staff confirm every line before it counts.",
   },
   {
-    icon: Gavel,
+    who: "carrot",
+    action: "probe",
     title: "Rules decide",
     text: "Pass or fail comes from your own rules, not the AI: the temperature range, the pack-to-unit conversion and the ordered quantity.",
   },
   {
-    icon: Users,
+    who: "cabbage",
+    action: "write",
     title: "Humans approve",
     text: "Anything that fails waits for a manager to accept, reject or return it, with a reason. Stock only moves once they decide.",
   },
@@ -87,7 +88,13 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
             </div>
             <p className="mt-4 text-sm text-white/60">Set up in minutes. Your team signs in with accounts you create.</p>
           </div>
-          <DeliveryDemo />
+          <div className="relative">
+            <DeliveryDemo />
+            {/* The crew, perched on top of the demo phone, cheering the check on. */}
+            <div className="pointer-events-none absolute -top-14 right-6 sm:right-10">
+              <MascotFigure who="crew" action="cheer" size={84} />
+            </div>
+          </div>
         </main>
       </div>
 
@@ -101,13 +108,14 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
           anything that fails is decided by a person. So it never "guesses" a delivery through.
         </p>
         <ol className="mt-10 grid gap-5 md:grid-cols-3">
-          {PRINCIPLES.map(({ icon: Icon, title, text }, i) => (
+          {PRINCIPLES.map(({ who, action, title, text }, i) => (
             <li key={title} className="rounded-2xl border border-line bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                  <Icon aria-hidden className="h-5 w-5" />
+              <div className="flex items-end justify-between gap-3">
+                <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-700">Step {i + 1}</span>
+                {/* The crew acts out each step: reading, probing, signing off. */}
+                <span className="flex h-20 w-20 items-end justify-center rounded-2xl bg-gradient-to-b from-brand-50 to-white">
+                  <MascotFigure who={who} action={action} size={64} />
                 </span>
-                <span className="text-sm font-bold text-muted">Step {i + 1}</span>
               </div>
               <h3 className="mt-4 text-lg font-bold text-brand-950">{title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{text}</p>
@@ -178,6 +186,7 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
 
       <section aria-labelledby="cta-title" className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
         <div className="hero-pattern flex flex-col items-start gap-6 rounded-3xl px-8 py-12 text-white sm:px-12 lg:flex-row lg:items-center">
+          <MascotFigure who="cabbage" action="wave" size={88} />
           <div className="flex-1">
             <h2 id="cta-title" className="text-2xl font-extrabold sm:text-3xl">
               Run your next delivery through SOPBox

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { PublicPath } from "./App";
+import { MascotFigure } from "./Mascot";
 import { SiteFooter, SiteHeader, linkTo, usePageMeta } from "./Site";
 
 const UPDATED = "29 October 2026";
@@ -185,7 +186,10 @@ export default function Privacy({ navigate, signedIn }: { navigate: (to: PublicP
             </a>
           ))}
         </nav>
-        <article className="space-y-10 rounded-3xl bg-white p-6 shadow-lg shadow-brand-900/10 ring-1 ring-line sm:p-10">
+        <article className="relative space-y-10 rounded-3xl bg-white p-6 shadow-lg shadow-brand-900/10 ring-1 ring-line sm:p-10">
+          <div className="pointer-events-none absolute -top-12 right-6">
+            <MascotFigure who="fish" action="read" size={64} />
+          </div>
           {sections.map((s) => (
             <section key={s.id} id={s.id} aria-labelledby={`${s.id}-title`} className="scroll-mt-6">
               <h2 id={`${s.id}-title`} className="text-xl font-bold">

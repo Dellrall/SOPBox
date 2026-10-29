@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, ChevronDown, Heart, LifeBuoy, Minus, Palette } from "lucide-react";
 import { api } from "./api";
 import type { PublicPath } from "./App";
+import { MascotFigure } from "./Mascot";
 import { SiteFooter, SiteHeader, ctaButton, linkTo, usePageMeta } from "./Site";
 import type { Pricing as PricingData } from "./types";
 import { cardClass, primaryButton, secondaryButton } from "./ui";
@@ -92,12 +93,14 @@ function PlanCard({
   amount,
   note,
   featured,
+  peek,
   children,
 }: {
   tier: Tier;
   amount: string;
   note: string;
   featured?: boolean;
+  peek?: React.ReactNode; // a character peeking over the card's top edge
   children: React.ReactNode;
 }) {
   return (
@@ -107,6 +110,7 @@ function PlanCard({
       {featured && (
         <p className="absolute -top-3 left-6 rounded-full bg-brand-600 px-3 py-1 text-xs font-semibold text-white">Grow to more outlets</p>
       )}
+      {peek && <div className="pointer-events-none absolute -top-11 right-5">{peek}</div>}
       <h2 className="text-xl font-bold text-ink">{tier.name}</h2>
       <p className="text-sm text-muted">{tier.tagline}</p>
       <p className="mt-5 min-h-[4.5rem]">
@@ -159,7 +163,12 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
 
       <main id="main" className="mx-auto -mt-20 max-w-6xl space-y-16 px-5 pb-16 sm:px-8">
         <div className="grid gap-6 lg:grid-cols-3">
-          <PlanCard tier={FREE} amount={`${pricing?.currency ?? "RM"} 0`} note="forever, for one outlet">
+          <PlanCard
+            tier={FREE}
+            amount={`${pricing?.currency ?? "RM"} 0`}
+            note="forever, for one outlet"
+            peek={<MascotFigure who="cabbage" action="wave" size={60} />}
+          >
             {signedIn ? (
               <a href="/" className={`${secondaryButton} ${wide}`}>
                 Open SOPBox
@@ -279,6 +288,7 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
         </section>
 
         <section className="hero-pattern flex flex-col items-center gap-5 rounded-3xl p-8 text-center text-white sm:flex-row sm:p-10 sm:text-left">
+          <MascotFigure who="carrot" action="count" size={80} />
           <div className="flex-1">
             <h2 className="text-2xl font-bold">Not sure which plan fits?</h2>
             <p className="mt-2 text-white/75">Ask us anything, or tell sales about your outlets and we will suggest a plan.</p>
