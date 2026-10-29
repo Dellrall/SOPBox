@@ -152,6 +152,43 @@ export function PlanCard({ owner }: { owner: boolean }) {
   );
 }
 
+/** Anyone can download their own account and what their sections show, as a ZIP of CSV files. */
+export function ExportCard() {
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function exportData() {
+    setError("");
+    setBusy(true);
+    try {
+      const url = URL.createObjectURL(await api.exportData());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `sopbox-export-${new Date().toISOString().slice(0, 10)}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className={`${cardClass} space-y-3`}>
+      <SectionTitle>Download your data</SectionTitle>
+      <p className="text-sm text-muted">
+        A ZIP with your account, sign-ins and inbox, and a spreadsheet (CSV) for each part of SOPBox you can see. Passwords, PINs and
+        two-step secrets are never included. The owner is told when someone downloads.
+      </p>
+      <ErrorNote message={error} />
+      <button type="button" className={primaryButton} disabled={busy} onClick={() => void exportData()}>
+        {busy ? "Preparing…" : "Download my data"}
+      </button>
+    </section>
+  );
+}
+
 /** Anyone can ask for help; workspaces with priority support are answered first. */
 export function SupportCard() {
   const [message, setMessage] = useState("");

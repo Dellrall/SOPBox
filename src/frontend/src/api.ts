@@ -122,10 +122,11 @@ async function upload<T>(path: string, file: File): Promise<T> {
   return (await res.json()) as T;
 }
 
-async function download(path: string): Promise<Blob> {
+async function download(path: string, retry = true): Promise<Blob> {
   const res = await fetch(`/api${path}`, { headers: branchHeader() });
   if (!res.ok) {
     if (res.status === 401) onSignedOut();
+    if (res.status === 428 && retry && (await askForCode())) return download(path, false);
     throw new ApiError(res.status, await errorMessage(res));
   }
   return res.blob();
@@ -240,6 +241,7 @@ export const api = {
   previewSales: (file: File, storageId: number) => upload<SalePreview>(`/sales/preview?storage_id=${storageId}`, file),
   createSale: (body: SaleIn) => post<Sale>("/sales", body),
   salesTemplate: () => download("/sales/template.csv"),
+  exportData: () => download("/export"),
 
   // API keys for a till (owners and managers)
   apiKeys: () => get<ApiKey[]>("/api-keys"),

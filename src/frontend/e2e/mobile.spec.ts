@@ -248,6 +248,18 @@ function totp(secret: string, steps = 0): string {
   return String((digest.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0");
 }
 
+test.describe("download your data", () => {
+  test.use({ storageState: stateFile("staff") });
+  test("staff download a ZIP of their data from Settings", async ({ page }) => {
+    await page.goto("/");
+    await openPage(page, "Settings");
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download my data" }).tap();
+    expect((await download).suggestedFilename()).toMatch(/^sopbox-export-.*\.zip$/);
+    await expectFitsScreen(page);
+  });
+});
+
 test.describe("two-step sign-in", () => {
   test("turning it on makes the next sign-in ask for a code", async ({ browser, baseURL }, testInfo) => {
     const context = await browser.newContext({ baseURL, ...testInfo.project.use });

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Copy } from "lucide-react";
 import { api } from "./api";
 import { ApiKeys } from "./ApiKeys";
-import { PlanCard, SupportCard } from "./Billing";
+import { ExportCard, PlanCard, SupportCard } from "./Billing";
 import { SecurityPolicy, TwoStep } from "./Mfa";
 import { HqLinks, Outlets } from "./Places";
 import { KitchenTablets, SignInSecurity } from "./Security";
@@ -343,6 +343,7 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
       {me.role === "owner" && <HqLinks />}
       {me.role !== "staff" && <ApiKeys />}
       {me.role !== "staff" && <PlanCard owner={me.role === "owner"} />}
+      <ExportCard />
       <SupportCard />
     </div>
   );
