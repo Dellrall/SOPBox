@@ -25,6 +25,7 @@ export function ClosedBanner({ me, onOpen }: { me: Me; onOpen: () => void }) {
  * read-only for 30 days, when it can still be reopened, and is then deleted for good.
  */
 export function CloseBusiness({ me, onChanged }: { me: Me; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [noCopy, setNoCopy] = useState(false);
   const [name, setName] = useState("");
@@ -70,42 +71,82 @@ export function CloseBusiness({ me, onChanged }: { me: Me; onChanged: () => void
     );
 
   const ready = (downloaded || noCopy) && name.trim() === me.workspace.name;
+  const shut = () => {
+    setOpen(false);
+    setName("");
+    setError("");
+  };
   return (
-    <section className={`${cardClass} space-y-3`}>
-      <SectionTitle>Close the business</SectionTitle>
-      <p className="text-sm text-muted">
-        For when the business stops trading. Everyone keeps read-only access for 30 days and you can reopen it until then; after that, its
-        records, team and settings are deleted for good. Selling it or handing it on? Ask SOPBox support to move it to the new owner
-        instead.
-      </p>
-      <ol className="list-decimal space-y-3 pl-5 text-sm">
-        <li>
-          <p className="mb-2">Download a copy first. You may need the records later, for tax for example, and SOPBox will not keep one.</p>
-          <button type="button" className={primaryButton} disabled={busy} onClick={() => void download()}>
-            {downloaded ? "Downloaded ✓" : "Download your data"}
-          </button>
-          {!downloaded && (
-            <label className="mt-2 flex items-center gap-2 text-muted">
-              <input type="checkbox" checked={noCopy} onChange={(e) => setNoCopy(e.target.checked)} />I do not need a copy
-            </label>
-          )}
-        </li>
-        <li>
-          <label className={labelClass} htmlFor="close-name">
-            Type {me.workspace.name} to confirm
-          </label>
-          <input id="close-name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
-        </li>
-      </ol>
-      <ErrorNote message={error} />
-      <button
-        type="button"
-        className={dangerButton}
-        disabled={busy || !ready}
-        onClick={() => void run(async () => (await api.closeWorkspace(name.trim()), onChanged()))}
-      >
-        Close the business
-      </button>
+    <section aria-labelledby="danger-zone" className="space-y-3">
+      <h3 id="danger-zone" className="text-lg font-bold text-red-700">
+        Danger zone
+      </h3>
+      <div className="flex flex-wrap items-center gap-4 rounded-2xl border-2 border-red-200 bg-white p-5">
+        <div className="min-w-0 flex-1 basis-64">
+          <p className="font-semibold text-ink">Close this business</p>
+          <p className="mt-1 text-sm text-muted">
+            Stops the business on SOPBox. Read-only for 30 days, then its records, team and settings are deleted for good.
+          </p>
+        </div>
+        <button type="button" className={dangerButton} onClick={() => setOpen(true)}>
+          Close this business
+        </button>
+      </div>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-brand-950/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="close-title"
+          onKeyDown={(e) => e.key === "Escape" && shut()}
+        >
+          <div className={`${cardClass} my-auto w-full max-w-lg space-y-4`}>
+            <div>
+              <h2 id="close-title" className="text-lg font-bold text-ink">
+                Close {me.workspace.name}?
+              </h2>
+              <p className="mt-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-800 ring-1 ring-red-200">
+                Only do this if the business has stopped trading. Everyone keeps read-only access for 30 days and you can reopen it until
+                then; after that, everything is deleted for good. Selling it or handing it on? Ask SOPBox support to move it to the new
+                owner instead.
+              </p>
+            </div>
+            <ol className="list-decimal space-y-3 pl-5 text-sm">
+              <li>
+                <p className="mb-2">Download a copy first. You may need the records later, for tax for example, and SOPBox will not keep one.</p>
+                <button type="button" className={secondaryButton} disabled={busy} onClick={() => void download()}>
+                  {downloaded ? "Downloaded ✓" : "Download your data"}
+                </button>
+                {!downloaded && (
+                  <label className="mt-2 flex items-center gap-2 text-muted">
+                    <input type="checkbox" checked={noCopy} onChange={(e) => setNoCopy(e.target.checked)} />I do not need a copy
+                  </label>
+                )}
+              </li>
+              <li>
+                <label className={labelClass} htmlFor="close-name">
+                  Type {me.workspace.name} to confirm
+                </label>
+                <input id="close-name" autoFocus className={inputClass} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+              </li>
+            </ol>
+            <ErrorNote message={error} />
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" className={secondaryButton} disabled={busy} onClick={shut}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={dangerButton}
+                disabled={busy || !ready}
+                onClick={() => void run(async () => (await api.closeWorkspace(name.trim()), onChanged()))}
+              >
+                I understand, close the business
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
