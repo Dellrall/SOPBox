@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Copy, Plus } from "lucide-react";
 import { api } from "./api";
 import type { Links, Outlet } from "./types";
-import { ErrorNote, SectionTitle, SuccessNote, cardClass, dangerButton, inputClass, primaryButton, secondaryButton } from "./ui";
+import { DeleteIconButton, EditIconButton, ErrorNote, SectionTitle, SuccessNote, cardClass, dangerButton, inputClass, primaryButton, secondaryButton } from "./ui";
 
 /** The outlets and a way to change them, shared by the outlet list and the storage areas. */
 function useOutlets() {
@@ -57,18 +57,13 @@ export function Outlets() {
                 {o.storages.length} storage area{o.storages.length === 1 ? "" : "s"}
               </span>
             </span>
-            <button type="button" className={secondaryButton} disabled={busy} onClick={() => rename(o.name, (n) => api.renameOutlet(o.id, n))}>
-              Rename
-            </button>
+            <EditIconButton label={`Rename ${o.name}`} disabled={busy} onClick={() => rename(o.name, (n) => api.renameOutlet(o.id, n))} />
             {outlets.length > 1 && (
-              <button
-                type="button"
-                className={dangerButton}
+              <DeleteIconButton
+                label={`Delete ${o.name}`}
                 disabled={busy}
                 onClick={() => window.confirm(`Delete ${o.name}?`) && void run(() => api.deleteOutlet(o.id))}
-              >
-                Delete
-              </button>
+              />
             )}
           </li>
         ))}
@@ -126,17 +121,12 @@ export function StorageAreas({ canEdit }: { canEdit: boolean }) {
                 <span className="flex-1 font-medium text-ink">{s.name}</span>
                 {canEdit && (
                   <>
-                    <button type="button" className={secondaryButton} disabled={busy} onClick={() => rename(s.name, (n) => api.renameStorage(s.id, n))}>
-                      Rename
-                    </button>
-                    <button
-                      type="button"
-                      className={dangerButton}
+                    <EditIconButton label={`Rename ${s.label}`} disabled={busy} onClick={() => rename(s.name, (n) => api.renameStorage(s.id, n))} />
+                    <DeleteIconButton
+                      label={`Delete ${s.label}`}
                       disabled={busy}
                       onClick={() => window.confirm(`Delete ${s.label}?`) && void run(() => api.deleteStorage(s.id))}
-                    >
-                      Delete
-                    </button>
+                    />
                   </>
                 )}
               </li>

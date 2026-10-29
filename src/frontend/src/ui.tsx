@@ -1,6 +1,6 @@
 import type { InputHTMLAttributes, ReactNode } from "react";
 import { useMascotSad } from "./Mascot";
-import { Inbox } from "lucide-react";
+import { Inbox, Pencil, Trash2 } from "lucide-react";
 import type { DeliveryStatus } from "./types";
 
 /** A temperature field with a ± button: the iPhone number keypad has no minus key. */
@@ -110,3 +110,24 @@ export const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 export const ROLE_LABEL = { owner: "Owner", manager: "Manager", staff: "Staff" } as const;
+
+const iconButton =
+  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition disabled:pointer-events-none disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:h-9 sm:w-9";
+
+/** A pencil for rename or edit; `label` says what, for screen readers and the tooltip. */
+export function EditIconButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick} className={`${iconButton} text-slate-600 hover:bg-slate-100 hover:text-ink`}>
+      <Pencil aria-hidden className="h-4 w-4" />
+    </button>
+  );
+}
+
+/** A red bin for delete; `label` says what, for screen readers and the tooltip. */
+export function DeleteIconButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick} className={`${iconButton} text-red-600 hover:bg-red-50 hover:text-red-700`}>
+      <Trash2 aria-hidden className="h-4 w-4" />
+    </button>
+  );
+}
