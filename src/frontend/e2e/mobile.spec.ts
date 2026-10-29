@@ -67,6 +67,15 @@ test.describe("signed out", () => {
     await expectFitsScreen(page);
   });
 
+  test("Contact sales in the top bar opens the sales form, also from the contact page", async ({ page }) => {
+    await page.setViewportSize({ width: 900, height: 800 }); // the top bar's links show from tablet width
+    await page.goto("/contact");
+    await expect(page.getByLabel("Your question")).toBeVisible();
+    await page.getByRole("navigation", { name: "More" }).getByRole("link", { name: "Contact sales" }).click();
+    await expect(page).toHaveURL(/\/contact\?topic=sales$/);
+    await expect(page.getByLabel("Number of outlets")).toBeVisible();
+  });
+
   test("the menu reaches every public page, and a visitor asks a question", async ({ page }) => {
     await page.goto("/");
     for (const [name, heading] of [["Pricing", "Free for one store"], ["Privacy", "Your data stays yours"], ["Contact", "How can we help?"]]) {

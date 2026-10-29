@@ -103,11 +103,16 @@ export default function App() {
   // undefined while we ask the server whether there is a session, null when signed out.
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [path, setPath] = useState<PublicRoute>(() => asPublic(window.location.pathname));
+  // The query too, so /contact -> /contact?topic=sales opens the sales form without a reload.
+  const [search, setSearch] = useState(window.location.search);
   // The HQ branch being worked in; null for the person's own workspace.
   const [branch, setBranchId] = useState<number | null>(null);
 
   useEffect(() => {
-    const onPop = () => setPath(asPublic(window.location.pathname));
+    const onPop = () => {
+      setPath(asPublic(window.location.pathname));
+      setSearch(window.location.search);
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -115,6 +120,7 @@ export default function App() {
   const navigate = useCallback((to: PublicPath) => {
     if (to !== window.location.pathname + window.location.search) window.history.pushState(null, "", to);
     setPath(asPublic(to.split("?")[0]!));
+    setSearch(window.location.search);
     window.scrollTo(0, 0);
   }, []);
 
@@ -150,7 +156,7 @@ export default function App() {
     );
   if (path === "/pricing") return <Pricing navigate={navigate} signedIn={me !== null} />;
   if (path === "/privacy") return <Privacy navigate={navigate} signedIn={me !== null} />;
-  if (path === "/contact") return <Contact key={window.location.search} navigate={navigate} signedIn={me !== null} />;
+  if (path === "/contact") return <Contact key={search} navigate={navigate} signedIn={me !== null} />;
   if (me === null) {
     if (path === "/") return <Landing navigate={navigate} />;
     return <AuthPage mode={path === "/register" ? "register" : "signin"} navigate={navigate} onSignedIn={signedIn} />;
