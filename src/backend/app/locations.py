@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 import psycopg
 
+from app import plans
 from app.auditlog import audit
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.models import OutletOut, StockLevelOut, StorageOut, TransferIn, TransferLineOut, TransferOut
@@ -128,8 +129,9 @@ def list_outlets(conn: psycopg.Connection, ws: int) -> list[OutletOut]:
 
 
 def create_outlet(conn: psycopg.Connection, ws: int, by: str, name: str) -> list[OutletOut]:
-    """A new outlet comes with one storage area, its store."""
+    """A new outlet comes with one storage area, its store. Free includes one outlet."""
     default_storage(conn, ws)
+    plans.require(conn, ws, "outlet")
     with conn.transaction():
         outlet = conn.execute(
             "INSERT INTO outlets (workspace_id, name) VALUES (%s, %s) RETURNING id", (ws, name)

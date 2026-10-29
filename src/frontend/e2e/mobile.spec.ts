@@ -50,7 +50,18 @@ async function navLabels(page: Page) {
 }
 
 test.describe("signed out", () => {
-  for (const path of ["/", "/signin", "/register"]) {
+  test("a visitor leaves their details for sales", async ({ page }) => {
+    await page.goto("/pricing");
+    await page.getByRole("link", { name: "Contact sales" }).tap();
+    await page.getByLabel("Your name").fill("Ana");
+    await page.getByLabel("Email").fill(`ana${Date.now()}@example.com`);
+    await page.getByLabel("Number of outlets").fill("12");
+    await page.getByRole("button", { name: "Send to sales" }).tap();
+    await expect(page.getByText("Our sales team will contact you soon.")).toBeVisible();
+    await expectFitsScreen(page);
+  });
+
+  for (const path of ["/", "/signin", "/register", "/pricing"]) {
     test(`${path} fits a phone`, async ({ page }, testInfo) => {
       await page.goto(path);
       await expect(page.locator("h1, h2").first()).toBeVisible();

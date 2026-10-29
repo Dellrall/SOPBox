@@ -398,6 +398,33 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS mfa_pending BOOLEAN NOT NULL DEFAU
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS mfa_at TIMESTAMPTZ;
 ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS mfa_policy TEXT NOT NULL DEFAULT 'off'
     CHECK (mfa_policy IN ('off', 'managers', 'everyone'));
+-- Plans (see plans.py). Workspaces that existed before plans are pre-alpha users: the column is
+-- added as TRUE, so they keep what they set up, and new workspaces then default to FALSE.
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS pre_alpha BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE workspaces ALTER COLUMN pre_alpha SET DEFAULT FALSE;
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'
+    CHECK (plan IN ('free', 'pro', 'enterprise'));
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS plan_billing TEXT CHECK (plan_billing IN ('annual', 'lifetime'));
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS plan_until DATE;  -- annual: paid up to and including
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS paid_outlets INTEGER NOT NULL DEFAULT 0 CHECK (paid_outlets >= 0);
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS customization BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS priority_support_until DATE;
+-- Sales enquiries, upgrade requests and support requests, for the team (and later the internal
+-- operations site). Public enquiries have no workspace, so this is guarded by code, not RLS.
+CREATE TABLE IF NOT EXISTS inquiries (
+    id {_ID},
+    kind TEXT NOT NULL CHECK (kind IN ('sales', 'upgrade', 'support')),
+    workspace_id BIGINT REFERENCES workspaces(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    company TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL DEFAULT '',
+    outlets INTEGER,
+    message TEXT NOT NULL DEFAULT '',
+    priority BOOLEAN NOT NULL DEFAULT FALSE,
+    status TEXT NOT NULL DEFAULT 'new',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible

@@ -1,4 +1,6 @@
 import type {
+  Plan,
+  Pricing,
   ApiKey,
   KitchenDevice,
   KitchenScreen,
@@ -250,6 +252,15 @@ export const api = {
   joinHq: (code: string) => post<Links>("/workspace/hq", { code }),
   leaveHq: () => request<Links>("DELETE", "/workspace/hq"),
   removeBranch: (id: number) => request<Links>("DELETE", `/workspace/branches/${id}`),
+
+  // plans, sales and support
+  pricing: () => get<Pricing>("/pricing"),
+  plan: () => get<Plan>("/plan"),
+  salesInquiry: (body: { name: string; company: string; email: string; phone: string; outlets: number | null; message: string }) =>
+    post<{ id: number }>("/inquiries", body),
+  upgradeRequest: (body: { billing: "annual" | "lifetime"; outlets: number; customization: boolean; priority_support: boolean; phone: string; message: string }) =>
+    post<{ id: number }>("/plan/upgrade-request", body),
+  support: (message: string) => post<{ id: number; priority: boolean }>("/support", { message }),
 
   // purchasing
   suppliers: () => get<Supplier[]>("/suppliers"),

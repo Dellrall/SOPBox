@@ -1,0 +1,196 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { api } from "./api";
+import { price } from "./Pricing";
+import type { Plan, Pricing } from "./types";
+import { ErrorNote, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton } from "./ui";
+
+/** The workspace's plan, and for the owner a request to upgrade (the team turns it on after payment). */
+export function PlanCard({ owner }: { owner: boolean }) {
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [pricing, setPricing] = useState<Pricing | null>(null);
+  const [form, setForm] = useState({
+    billing: "annual" as "annual" | "lifetime",
+    outlets: 2,
+    customization: false,
+    priority_support: false,
+    phone: "",
+    message: "",
+  });
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    api
+      .plan()
+      .then(setPlan)
+      .catch((e: Error) => setError(e.message));
+    api
+      .pricing()
+      .then(setPricing)
+      .catch(() => undefined);
+  }, []);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    try {
+      await api.upgradeRequest(form);
+      setSent(true);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  if (!plan) return <ErrorNote message={error} />;
+  const extras = [
+    plan.api_access && "till API keys",
+    plan.hq_links && "HQ links",
+    plan.customization && "customization",
+    plan.priority_support && "priority support",
+  ].filter(Boolean);
+  return (
+    <section className={`${cardClass} space-y-3`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <SectionTitle>Plan &amp; billing</SectionTitle>
+        <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-800">{plan.label}</span>
+        {plan.pre_alpha && (
+          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">Pre-alpha user</span>
+        )}
+      </div>
+      <p className="text-sm text-muted">
+        Outlets: {plan.outlets_used} of {plan.outlets_allowed ?? "unlimited"}.
+        {plan.billing === "annual" && plan.until && ` Paid until ${new Date(plan.until).toLocaleDateString()}.`}
+        {plan.billing === "lifetime" && " Paid for life."}
+        {extras.length > 0 && ` Includes ${extras.join(", ")}.`}
+      </p>
+      {plan.lapsed && (
+        <p className="text-sm font-semibold text-amber-800">
+          Your yearly plan has run out, so the workspace works as Free until it is renewed. Nothing was deleted.
+        </p>
+      )}
+      {plan.pre_alpha && (
+        <p className="text-sm text-muted">
+          Thank you for being here early. Everything you set up before plans keeps working; adding more follows your plan.
+        </p>
+      )}
+      <p className="text-sm">
+        <a href="/pricing" className="font-semibold text-brand-700 underline">
+          See prices
+        </a>
+      </p>
+      {owner &&
+        plan.plan !== "enterprise" &&
+        (sent ? (
+          <SuccessNote>Request sent. We will contact you about payment and turn the plan on.</SuccessNote>
+        ) : (
+          <form onSubmit={(e) => void submit(e)} className="space-y-3 border-t border-line pt-3">
+            <p className="text-sm font-semibold text-ink">Ask to upgrade to Pro</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className={labelClass} htmlFor="up-billing">
+                  Pay
+                </label>
+                <select
+                  id="up-billing"
+                  className={inputClass}
+                  value={form.billing}
+                  onChange={(e) => setForm({ ...form, billing: e.target.value as "annual" | "lifetime" })}
+                >
+                  <option value="annual">Every year ({price(pricing, "pro_outlet_year")} per extra outlet)</option>
+                  <option value="lifetime">Once, for life ({price(pricing, "pro_outlet_lifetime")} per extra outlet)</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="up-outlets">
+                  Outlets in total
+                </label>
+                <input
+                  id="up-outlets"
+                  type="number"
+                  min={1}
+                  max={10000}
+                  required
+                  className={inputClass}
+                  value={form.outlets}
+                  onChange={(e) => setForm({ ...form, outlets: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.customization} onChange={(e) => setForm({ ...form, customization: e.target.checked })} />
+              Customization: branding, own fields and checks, SOP templates and reports
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.priority_support}
+                onChange={(e) => setForm({ ...form, priority_support: e.target.checked })}
+              />
+              Priority support ({price(pricing, "priority_support_year")} a year)
+            </label>
+            <div>
+              <label className={labelClass} htmlFor="up-phone">
+                Phone (optional)
+              </label>
+              <input
+                id="up-phone"
+                type="tel"
+                maxLength={40}
+                autoComplete="tel"
+                className={inputClass}
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </div>
+            <ErrorNote message={error} />
+            <button type="submit" className={primaryButton}>
+              Send upgrade request
+            </button>
+          </form>
+        ))}
+    </section>
+  );
+}
+
+/** Anyone can ask for help; workspaces with priority support are answered first. */
+export function SupportCard() {
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState<null | boolean>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    try {
+      setSent((await api.support(message)).priority);
+      setMessage("");
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  return (
+    <form onSubmit={(e) => void submit(e)} className={`${cardClass} space-y-3`}>
+      <SectionTitle>Get help</SectionTitle>
+      <div>
+        <label className={labelClass} htmlFor="support-message">
+          What do you need help with?
+        </label>
+        <textarea
+          id="support-message"
+          required
+          rows={3}
+          maxLength={4000}
+          className={inputClass}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
+      </div>
+      <ErrorNote message={error} />
+      {sent !== null && <SuccessNote>{sent ? "Sent with priority. We will reply first." : "Sent. We will reply by email."}</SuccessNote>}
+      <button type="submit" className={primaryButton}>
+        Send
+      </button>
+    </form>
+  );
+}

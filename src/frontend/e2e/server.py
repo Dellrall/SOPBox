@@ -31,6 +31,13 @@ if __name__ == "__main__":
         os.environ["MFA_ENCRYPTION_KEY"] = "vKpwP0lnmhRaAZG3iYxkAU-jyjk2eJ5GWVuEB7iwyiQ"  # a test key, never used for real
         for name in ("RUNPOD_ENDPOINT_ID", "RUNPOD_API_KEY", "TELEGRAM_BOT_TOKEN", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"):
             os.environ.pop(name, None)
+        # The UI tests use outlets, HQ links and API keys, so their workspaces start on Enterprise.
+        from app.db import close_pool, init_db
+
+        init_db()
+        close_pool()
+        with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as conn:
+            conn.execute("ALTER TABLE workspaces ALTER COLUMN plan SET DEFAULT 'enterprise'")
         try:
             uvicorn.run("app.main:app", host="127.0.0.1", port=PORT, log_level="warning")
         finally:

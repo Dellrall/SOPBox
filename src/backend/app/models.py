@@ -1155,3 +1155,63 @@ class MfaCodeIn(_In):
 
 class MfaEnabledOut(BaseModel):
     backup_codes: list[str]  # shown once; each works once
+
+
+# ---- plans, enquiries and support -------------------------------------------------------------
+
+
+class PlanOut(BaseModel):
+    plan: Literal["free", "pro", "enterprise"]
+    label: str
+    pre_alpha: bool  # here before plans: keeps what it set up then
+    billing: Literal["annual", "lifetime"] | None
+    until: date | None  # annual: paid up to and including
+    lapsed: bool  # an annual plan ran out, so it counts as Free until renewed
+    outlets_allowed: int | None  # None: no limit
+    outlets_used: int
+    api_access: bool
+    hq_links: bool
+    customization: bool
+    priority_support: bool
+
+
+class PricingOut(BaseModel):
+    currency: str
+    prices: dict[str, int | None]  # None: not decided yet ("TBC")
+    kofi_url: str
+    sales_email: str
+    sales_phone: str
+
+
+class SalesInquiryIn(_In):
+    name: str = Field(min_length=1, max_length=120)
+    company: str = Field(default="", max_length=120)
+    email: str = Field(min_length=3, max_length=254)
+    phone: str = Field(default="", max_length=40)
+    outlets: int | None = Field(default=None, ge=1, le=100_000)
+    message: str = Field(default="", max_length=4000)
+
+    @model_validator(mode="after")
+    def _clean(self) -> "SalesInquiryIn":
+        self.email = _email(self.email) or ""
+        if not self.email:
+            raise ValueError("enter your email address")
+        return self
+
+
+class UpgradeRequestIn(_In):
+    billing: Literal["annual", "lifetime"]
+    outlets: int = Field(ge=1, le=10_000)  # how many outlets in total
+    customization: bool = False
+    priority_support: bool = False
+    phone: str = Field(default="", max_length=40)
+    message: str = Field(default="", max_length=4000)
+
+
+class SupportIn(_In):
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class InquiryOut(BaseModel):
+    id: int
+    priority: bool
