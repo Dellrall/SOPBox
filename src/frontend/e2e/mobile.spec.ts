@@ -129,7 +129,7 @@ test.describe("signed out", () => {
     await page.getByRole("button", { name: "Sign in", exact: true }).tap();
     await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
     // The sign-in before this one is shown, so a sign-in the person didn't make stands out.
-    await expect(page.getByRole("status").filter({ hasText: "Your last sign-in was" })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: /last sign-in:/i })).toBeVisible();
     await expectFitsScreen(page);
   });
 
@@ -466,7 +466,7 @@ test.describe("stock insights", () => {
     await expectFitsScreen(page);
 
     await openPage(page, "Purchase orders");
-    await expect(page.getByText(/Rice: \d+ kg/)).toBeVisible();
+    await page.getByText(/Rice: \d+ kg/).tap();
     await expect(page.getByText(/Uses about [\d.]+ kg a day/)).toBeVisible();
     await expectFitsScreen(page);
     await context.close();

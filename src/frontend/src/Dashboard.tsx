@@ -13,12 +13,14 @@ import { Empty, ErrorNote, PageTitle, SectionTitle, StatusBadge, cardClass, pane
 function Stat({
   label,
   value,
+  short,
   hint,
   icon: Icon,
   tone,
   onClick,
 }: {
   label: string;
+  short: string;
   value: number;
   hint: string;
   icon: LucideIcon;
@@ -28,9 +30,13 @@ function Stat({
   const body = (
     <>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-ink">{label}</p>
-        <p className="mt-1 text-3xl font-bold tabular-nums text-brand-950">{value}</p>
-        <p className="mt-1 text-xs text-muted">{hint}</p>
+        {/* Phones: four small tiles in a row, each with a short name. */}
+        <p className="text-sm font-semibold text-ink">
+          <span className="text-xs sm:hidden">{short}</span>
+          <span className="hidden sm:inline">{label}</span>
+        </p>
+        <p className="mt-0.5 text-xl font-bold tabular-nums text-brand-950 sm:mt-1 sm:text-3xl">{value}</p>
+        <p className="mt-1 hidden text-xs text-muted sm:block">{hint}</p>
       </div>
       {/* Phones: no icon, so the words get the width. */}
       <span className={`hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:flex ${tone}`}>
@@ -38,7 +44,7 @@ function Stat({
       </span>
     </>
   );
-  const className = `${cardClass} flex items-start justify-between gap-3 text-left`;
+  const className = `${panelClass} flex items-start justify-between gap-3 p-2.5 text-left sm:p-5`;
   return onClick ? (
     <button type="button" onClick={onClick} className={`${className} transition hover:border-brand-300 hover:shadow-md`}>
       {body}
@@ -208,7 +214,7 @@ export default function Dashboard({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-8">
       {me.role === "owner" && <SetupChecklist me={me} go={go} />}
       {/* Photo: Yanhao Fang on Unsplash (Unsplash License). */}
       <header className="relative overflow-hidden rounded-3xl bg-brand-950 text-white shadow-sm">
@@ -220,11 +226,11 @@ export default function Dashboard({
           className="absolute inset-0 h-full w-full object-cover object-center"
         />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-brand-950/95 via-brand-950/75 to-brand-950/20" />
-        <div className="relative flex min-h-48 flex-col justify-end gap-4 p-6 sm:min-h-52 sm:flex-row sm:items-end sm:justify-between sm:p-8">
+        <div className="relative flex flex-col justify-end gap-3 p-4 pt-6 sm:min-h-52 sm:gap-4 sm:flex-row sm:items-end sm:justify-between sm:p-8">
           <div>
             <p className="text-sm font-medium text-brand-200">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
-            <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Good to see you, {firstName}</h1>
-            <p className="mt-1 text-sm text-white/80">Today at {me.workspace.name}.</p>
+            <h1 className="mt-0.5 text-xl font-bold sm:mt-1 sm:text-3xl">Good to see you, {firstName}</h1>
+            <p className="mt-1 hidden text-sm text-white/80 sm:block">Today at {me.workspace.name}.</p>
           </div>
           {canStartReceive && (
             <button className={`${primaryButton} self-start bg-white! text-brand-800! hover:bg-brand-50! sm:self-auto`} onClick={() => go("receive")}>
@@ -245,7 +251,7 @@ export default function Dashboard({
       {canViewApprovals && pending > 0 && (
         <button
           onClick={() => go("approvals")}
-          className="flex w-full items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-amber-900 transition hover:bg-amber-100"
+          className="hidden w-full items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left sm:flex text-amber-900 transition hover:bg-amber-100"
         >
           <AlertTriangle aria-hidden className="h-5 w-5 shrink-0" />
           <span className="flex-1 text-sm font-semibold">
@@ -257,9 +263,10 @@ export default function Dashboard({
 
       <LatestNotification onOpen={onOpenNotification} />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-4 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
         <Stat
           label="Waiting for a manager"
+          short="Waiting"
           value={pending}
           hint="On hold right now"
           icon={Clock}
@@ -268,6 +275,7 @@ export default function Dashboard({
         />
         <Stat
           label="Accepted today"
+          short="Accepted"
           value={today.accepted}
           hint={`${data.accepted_count} in total`}
           icon={ThumbsUp}
@@ -276,6 +284,7 @@ export default function Dashboard({
         />
         <Stat
           label="Rejected or returned today"
+          short="Refused"
           value={today.refused}
           hint={`${data.rejected_count + data.returned_count} in total`}
           icon={PackageX}
@@ -284,6 +293,7 @@ export default function Dashboard({
         />
         <Stat
           label="Low-stock products"
+          short="Low stock"
           value={low.length}
           hint="Below minimum right now"
           icon={AlertTriangle}

@@ -73,16 +73,16 @@ export function DeliveriesChart({ activity }: { activity: DashboardSummary["rece
       </ul>
       <div className="relative mt-4 flex gap-2" aria-hidden onMouseLeave={() => setHover(null)}>
         {/* y axis */}
-        <div className="flex h-40 flex-col justify-between text-right text-[11px] leading-none tabular-nums text-slate-500">
+        <div className="flex h-24 flex-col sm:h-40 justify-between text-right text-[11px] leading-none tabular-nums text-slate-500">
           <span className="-translate-y-1/2">{top}</span>
           <span>{top / 2}</span>
           <span className="translate-y-1/2">0</span>
         </div>
         <div className="relative flex-1">
-          <div className="absolute inset-x-0 top-0 h-40 border-y border-[#e7e9e6]">
+          <div className="absolute inset-x-0 top-0 h-24 border-y sm:h-40 border-[#e7e9e6]">
             <div className="absolute inset-x-0 top-1/2 border-t border-[#e7e9e6]" />
           </div>
-          <div className="relative grid h-40" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
+          <div className="relative grid h-24 sm:h-40" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
             {days.map((d, i) => (
               <div
                 key={d.label}
