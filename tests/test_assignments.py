@@ -90,3 +90,20 @@ def test_a_planned_count_is_a_job_until_that_storage_area_is_counted(client, cat
         "lines": [{"product_id": catalogue_ids["fries"], "expected_stock": 0, "counted_stock": 0}],
     })
     assert all(j["kind"] != "count" for j in _jobs(sam).values())
+
+
+def test_team_stats_count_late_jobs_counts_and_who_may_see_them(client, catalogue_ids, make_user):
+    sam, sue = make_user("manager", "sam", "Sam Staff"), make_user("staff", "sue")
+    sam_id = next(u["id"] for u in client.get("/api/users").json() if u["username"] == "sam")
+    storage = client.get("/api/outlets").json()[0]["storages"][0]["id"]
+    plan = {"storage_id": storage, "due_date": (TODAY - timedelta(days=1)).isoformat(), "user_id": sam_id}
+    assert client.post("/api/count-plans", json=plan).status_code == 204
+    # Sam counts the next day, so the planned count was late.
+    assert sam.post("/api/stocktakes", json={
+        "count_date": TODAY.isoformat(),
+        "lines": [{"product_id": catalogue_ids["fries"], "expected_stock": 0, "counted_stock": 2}],
+    }).status_code == 201
+    stats = {r["name"]: r for r in client.get("/api/team/efficiency").json()}
+    assert (stats["Sam Staff"]["jobs_due"], stats["Sam Staff"]["jobs_on_time"], stats["Sam Staff"]["counts"]) == (1, 0, 1)
+    assert stats["Olive Owner"]["counts"] == 0
+    assert sue.get("/api/team/efficiency").status_code == 403

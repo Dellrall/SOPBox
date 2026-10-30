@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, ask, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments
+from app import apikeys, ask, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -72,6 +72,7 @@ from app.models import (
     ApiSaleIn,
     ApiSaleOut,
     Accountability,
+    Efficiency,
     KitchenDeviceIn,
     KitchenDeviceOut,
     KitchenLoginIn,
@@ -1068,6 +1069,11 @@ def team_accountability(owner: OwnerOnly, conn: Conn):
     return inbox.accountability(conn, owner.workspace_id)
 
 
+@app.get("/api/team/efficiency", response_model=list[Efficiency])
+def team_efficiency(user: ManagerUp, conn: Conn, days: int = Query(30, ge=7, le=365)):
+    return efficiency.team(conn, user.workspace_id, days)
+
+
 @app.get("/api/inbox", response_model=Inbox)
 def get_inbox(user: User, conn: Conn, limit: int = Query(default=30, ge=1, le=100)):
     return inbox.inbox(conn, user.workspace_id, user.id, limit)
@@ -1115,7 +1121,7 @@ def list_stocktakes(user: StocktakeReader, conn: Conn):
 
 @app.post("/api/stocktakes", response_model=StocktakeDetail, status_code=201)
 def create_stocktake(body: StocktakeCreateIn, user: StocktakeEditor, conn: Conn):
-    return stocktakes.create_stocktake(conn, user.workspace_id, user.display_name, body)
+    return stocktakes.create_stocktake(conn, user.workspace_id, user.display_name, body, user.id)
 
 
 @app.get("/api/stocktakes/{stocktake_id}", response_model=StocktakeDetail)

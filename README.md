@@ -181,7 +181,7 @@ cursor .        # Cursor
 ### 🧪 Run Tests
 
 ```bash
-python -m pytest                       # 390 backend tests, from the repository root (runs in CI)
+python -m pytest                       # 391 backend tests, from the repository root (runs in CI)
 
 cd src/frontend && npm ci && npx playwright install chromium
 npm run test:ui                        # 90 UI test runs on small phones and tablets

@@ -154,6 +154,7 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `GET /api/audit?actor_id=` | manager | Audit log, newest first; `actor_id` shows one person's actions by account |
 | `GET /api/team` | any signed in | Active teammates, for tagging |
 | `GET /api/team/accountability` | owner | Per-person counts from the audit log |
+| `GET /api/team/efficiency?days=30` | manager | Per person: jobs done on time, deliveries checked, checks failed, stock count gap per count |
 | `GET /api/inbox`, `POST /api/inbox/read` | any signed in | My notifications (tagged, approval needed, decision, comment); mark some (`ids`) or all read |
 | `GET /api/auth/username-available?username=` | anyone | Is a username free (the sign-up form checks as you type) |
 | `POST /api/auth/mfa/setup`, `.../enable`, `.../backup-codes`, `DELETE /api/auth/mfa` | any signed in | Set up, turn on, renew backup codes for, or turn off authenticator-app two-step sign-in |
