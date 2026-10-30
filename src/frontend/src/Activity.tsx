@@ -153,7 +153,7 @@ export default function Activity() {
 
   return (
     <div className="space-y-5">
-      <PageTitle title="Activity log" subtitle="Every reading, decision, stock count and account change, newest first." />
+      <PageTitle title="Activity log" />
       <ErrorNote message={error} />
 
       <div className="max-w-xs">

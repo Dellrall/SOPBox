@@ -113,7 +113,7 @@ export default function Approvals({ canDecide, onChanged }: { canDecide: boolean
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Approvals" subtitle="Deliveries that failed a check. Stock is only counted once you accept one, and your name is recorded with the decision.">
+      <PageTitle title="Approvals" subtitle="Stock is only counted once you accept a delivery.">
         <button className={secondaryButton} onClick={() => (forgetRecent(), void load())}>
           Refresh
         </button>

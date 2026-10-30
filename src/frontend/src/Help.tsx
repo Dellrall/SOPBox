@@ -233,7 +233,7 @@ export default function Help({ me, go, canOpen }: { me: Me; go: (page: PageId) =
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Help & guides" subtitle="What each page is for and how to use it. Tap Show me and the helper walks you through it." />
+      <PageTitle title="Help & guides" />
       {me.role === "owner" && (
         <section className={`${cardClass} flex flex-wrap items-center gap-3`}>
           <MascotFigure who="cabbage" action="wave" size={48} />

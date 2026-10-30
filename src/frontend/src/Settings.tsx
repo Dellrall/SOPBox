@@ -545,7 +545,7 @@ export default function Settings({ me, onMeChanged }: { me: Me; onMeChanged: (me
 
   return (
     <div className="space-y-5">
-      <PageTitle title="Settings" subtitle="Your profile, how you sign in and, for owners, the workspace." />
+      <PageTitle title="Settings" />
       <div className="grid gap-5 md:grid-cols-[11.5rem_1fr] xl:grid-cols-[14rem_1fr] md:items-start">
         <div
           role="tablist"

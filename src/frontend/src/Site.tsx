@@ -117,6 +117,14 @@ function SiteMenu({ navigate }: { navigate: Navigate }) {
 export function SiteHeader({ navigate, signedIn = false }: { navigate: Navigate; signedIn?: boolean }) {
   const small = "text-xs font-medium uppercase tracking-wider text-white/65 hover:text-white";
   const main = "rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:text-white";
+  // Once the thin top bar scrolls away, the logo row stays pinned to the top of the screen.
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    const check = () => setStuck(window.scrollY > 36);
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    return () => window.removeEventListener("scroll", check);
+  }, []);
   return (
     <header className="relative z-30">
       <div className="border-b border-white/10 bg-black/25">
@@ -140,7 +148,10 @@ export function SiteHeader({ navigate, signedIn = false }: { navigate: Navigate;
           </nav>
         </div>
       </div>
-      <div className="mx-auto flex max-w-6xl items-center gap-3 px-5 py-2.5 sm:px-8 sm:py-4">
+      {/* Keeps the row's space while it is pinned, so the page does not jump. */}
+      <div className="h-[60px] sm:h-[72px]">
+      <div className={stuck ? "fixed inset-x-0 top-0 z-40 bg-brand-950/95 shadow-lg backdrop-blur" : ""}>
+      <div className="mx-auto flex h-[60px] max-w-6xl items-center gap-3 px-5 sm:h-[72px] sm:px-8">
         <a {...linkTo(navigate, "/")} className="flex items-center gap-3">
           <img src="/logo-128.webp" alt="" width={40} height={40} className="h-10 w-10 rounded-xl ring-2 ring-white/15" />
           <span className="hidden text-lg font-bold text-white min-[400px]:inline">SOPBox</span>
@@ -177,6 +188,8 @@ export function SiteHeader({ navigate, signedIn = false }: { navigate: Navigate;
             <SiteMenu navigate={navigate} />
           </div>
         </div>
+      </div>
+      </div>
       </div>
     </header>
   );

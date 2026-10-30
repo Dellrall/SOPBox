@@ -180,7 +180,6 @@ export function CategoriesAndStorage({ canEditCategories, canEditStorage }: { ca
     <div className="space-y-5">
       <PageTitle
         title="Categories & storage"
-        subtitle="Categories group products and set the temperature they arrive at. Storage areas are where stock sits in each outlet."
       />
       <ErrorNote message={error} />
       <div className="grid items-start gap-5 xl:grid-cols-2">

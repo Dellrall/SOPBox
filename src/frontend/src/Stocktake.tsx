@@ -295,7 +295,7 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
     <div className="space-y-6">
       <PageTitle
         title="Stock Count"
-        subtitle="Count each product as whole bundles plus loose items. Extra loose items are rolled into bundles. Blank counts stay unchanged; enter 0 only when you counted zero."
+        subtitle="Blank counts stay unchanged; enter 0 only when you counted zero."
       >
         {canEdit && (
           <button type="button" className={secondaryButton} disabled={busy} onClick={() => void downloadTemplate()}>

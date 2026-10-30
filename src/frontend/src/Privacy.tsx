@@ -164,8 +164,7 @@ export default function Privacy({ navigate, signedIn }: { navigate: (to: PublicP
       <div className="hero-pattern pb-24 text-white sm:pb-28">
         <SiteHeader navigate={navigate} signedIn={signedIn} />
         <div className="mx-auto max-w-3xl px-5 pt-2 text-center sm:px-8 sm:pt-8">
-          <p className="text-sm font-semibold uppercase tracking-wider text-leaf">Privacy</p>
-          <h1 className="mt-2 text-3xl font-extrabold leading-tight sm:mt-3 sm:text-5xl">Your data stays yours</h1>
+          <h1 className="text-3xl font-extrabold leading-tight sm:text-5xl">Your data stays yours</h1>
           <p className="mx-auto mt-3 max-w-xl text-white/75 sm:mt-4 sm:text-lg">
             What SOPBox collects, why, who else handles it, and the choices you have.
           </p>

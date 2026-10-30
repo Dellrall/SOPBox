@@ -38,7 +38,6 @@ export default function StockMoves({ canEdit }: { canEdit: boolean }) {
     <div className="space-y-6">
       <PageTitle
         title="Stock & sales"
-        subtitle="See what each outlet and storage area holds, move stock between them, and upload sales so the next count shows only real losses."
       />
       <div role="tablist" aria-label="Stock & sales" className="flex flex-wrap gap-2">
         {tabs.map((t) => (

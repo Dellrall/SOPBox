@@ -518,18 +518,7 @@ export default function Team({ me }: { me: Me }) {
 
   return (
     <div className="space-y-4">
-      <PageTitle
-        title="Team"
-        subtitle={
-          manager
-            ? `The people at ${outlets.find((o) => o.id === me.outlet_id)?.name ?? "your outlet"}. ${
-                level === "assistant"
-                  ? "Add staff, choose their section access, reset passwords. The outlet manager disables accounts."
-                  : "Add staff and assistant managers, choose section access, reset passwords. The owner makes managers and moves people between outlets."
-              }`
-            : "Choose section access for staff and the outlet each person works at. An outlet's managers look after its staff."
-        }
-      />
+      <PageTitle title="Team" />
       <CreateForm onCreated={load} outlets={outlets} level={level} />
       <ErrorNote message={error} />
       {users?.length === 0 && <Empty>No accounts yet.</Empty>}
