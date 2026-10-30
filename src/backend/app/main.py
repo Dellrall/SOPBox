@@ -238,7 +238,7 @@ def dangerous(action: str):
 
 
 def _client(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
+    return auth.client_address(request)
 
 
 def _sign_in_limit(request: Request) -> None:
@@ -387,7 +387,7 @@ def _me(conn: psycopg.Connection, user: CurrentUser) -> Me:
 @app.post("/api/auth/register", response_model=Me, status_code=201)
 def register(body: RegisterIn, request: Request, response: Response, conn: Conn):
     """Create a workspace. Whoever does this becomes its owner, with every permission."""
-    auth.check_register_allowed(request.client.host if request.client else "unknown")
+    auth.check_register_allowed(_client(request))
     user_id = accounts.register_workspace(conn, body)
     return _signed_in(conn, request, response, user_id, "register")
 
@@ -402,7 +402,7 @@ def _signed_in(
 @app.get("/api/auth/username-available", response_model=UsernameCheck)
 def username_available(username: Annotated[str, Query(max_length=254)], request: Request, conn: Conn):
     """For the sign-up and profile forms, as the person types."""
-    auth.check_username_lookup_allowed(request.client.host if request.client else "unknown")
+    auth.check_username_lookup_allowed(_client(request))
     user = auth.optional_user(request, conn)
     return accounts.username_available(conn, username, user.id if user else None)
 

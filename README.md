@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/RunPod-serverless%20GPU-673AB7" alt="RunPod serverless GPU">
   <img src="https://img.shields.io/badge/vLLM-Qwen3--VL--8B%20FP8-FF6F00" alt="vLLM serving Qwen3-VL-8B FP8">
   <img src="https://img.shields.io/badge/Telegram-Bot%20API-26A5E4?logo=telegram&logoColor=white" alt="Telegram Bot API">
-  <img src="https://img.shields.io/badge/tests-376%20pytest%20%C2%B7%2086%20Playwright-success" alt="376 pytest and 86 Playwright tests">
+  <img src="https://img.shields.io/badge/tests-377%20pytest%20%C2%B7%2086%20Playwright-success" alt="377 pytest and 86 Playwright tests">
   <img src="https://img.shields.io/badge/SDG-12.3%20%C2%B7%208-E5243B" alt="SDG 12.3 and 8">
 </p>
 
@@ -106,7 +106,7 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 
 ### Technical Execution
 
-- **376 backend tests and 86 phone and tablet UI test runs**, both run in GitHub Actions on every change (badges above).
+- **377 backend tests and 86 phone and tablet UI test runs**, both run in GitHub Actions on every change (badges above).
 - **AI writes words, code does the maths:** reorder amounts, usage rates, gap values and price changes are computed in Python; the model only reads documents and explains results. Every AI feature still works when the GPU is off.
 - **Multi-tenant isolation twice over:** every query is scoped to the signed-in workspace, and PostgreSQL Row Level Security enforces it inside the database.
 - **AI output is untrusted input:** parsed, validated and confirmed line by line by staff; the verdict comes from rules, never the model. An hourly cap bounds GPU spend.
@@ -245,7 +245,7 @@ Open the repository in Claude Code, Codex, Cursor or another coding agent and as
 ### 🧪 Run Tests
 
 ```bash
-python -m pytest                       # 376 backend tests, from the repository root (runs in CI)
+python -m pytest                       # 377 backend tests, from the repository root (runs in CI)
 
 cd src/frontend && npm ci && npx playwright install chromium
 npm run test:ui                        # 86 UI test runs on small phones and tablets

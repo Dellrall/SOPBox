@@ -22,7 +22,7 @@ def ops_caller(request: Request) -> None:
     token = get_settings().ops_token
     if len(token) < 32:
         raise NotFoundError("not found")
-    auth.limit("ops", request.client.host if request.client else "unknown", 30, 60)
+    auth.limit("ops", auth.client_address(request), 30, 60)
     scheme, _, sent = request.headers.get("Authorization", "").partition(" ")
     if scheme.lower() != "bearer" or not hmac.compare_digest(sent.strip().encode(), token.encode()):
         raise AuthError("send the operations token as Authorization: Bearer <token>")
