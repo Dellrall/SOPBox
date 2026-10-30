@@ -155,7 +155,12 @@ function Transfers({ storages, canEdit }: { storages: Storages; canEdit: boolean
   const held = useMemo(() => new Map(rows.map((r) => [r.product_id, r])), [rows]);
   const options = rows
     .filter((r) => r.quantity > 0)
-    .map((r) => ({ value: String(r.product_id), label: `${r.name} (${r.quantity} ${r.base_unit})`, group: r.category }));
+    .map((r) => ({
+      value: String(r.product_id),
+      label: `${r.name} (${r.quantity} ${r.base_unit})`,
+      group: r.category,
+      codes: [r.barcode, r.code].filter((c): c is string => !!c),
+    }));
 
   async function submit() {
     setError("");
@@ -226,6 +231,7 @@ function Transfers({ storages, canEdit }: { storages: Storages; canEdit: boolean
                           options={options}
                           value={line.productId}
                           noun="products"
+                          scan
                           onChange={(value) => setLines((all) => all.map((l) => (l.key === line.key ? { ...l, productId: value } : l)))}
                         />
                       </div>

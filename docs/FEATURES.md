@@ -5,7 +5,7 @@
 - **Products & SOP cards** — temperature ranges, pack sizes and step-by-step SOPs per product. An **AI SOP writer** drafts steps from a manager's notes, and a second pass checks them.
 - **Import from a supplier sheet** — photograph a product or SOP sheet; the AI suggests products and SOPs for a manager to correct and add.
 - **Task lists** — daily checklists (opening, closing) and lists for when it happens (peak hour, a new starter), per role; staff tick steps and the list starts fresh each day.
-- **Purchase orders** — deliveries are checked against what is still due; **draft from low stock** sizes each line to a week of recent use plus the minimum, and says why.
+- **Purchase orders** — deliveries are checked against what is still due; **draft from low stock** sizes each line to a week of recent use plus the minimum, and says why. With 3 or more weeks of sales, next week's sales are forecast from the trend of the last 8 weeks (a straight line, kept between half and double the recent average), so rising sales order more.
 - **Stock counts that explain themselves** — after a count, **What stands out** separates repeat shortfalls from one-offs, shows each gap's value in RM, and **Explain with AI** suggests what to check.
 - **Delivered prices** — each delivery records the unit price; the dashboard flags products whose price rose 10% or more.
 - **Ask the helper** — ask in English or Malay ("what went missing this week?", "what should we order?"); answers come from your own data and link to the page.

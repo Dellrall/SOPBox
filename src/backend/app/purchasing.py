@@ -344,7 +344,8 @@ def reorder_suggestions(
             if still > 0:
                 covering.setdefault(line.product_id, []).append(f"{order.reference} ({order.status})")
     products = catalogue.list_products(conn, ws, active_only=True)
-    return insights.reorder(products, insights.daily_use(conn, ws), on_order), covering
+    use, sales, forecast = insights.daily_use(conn, ws), insights.daily_sales(conn, ws), insights.sales_forecast(conn, ws)
+    return insights.reorder(products, use, on_order, forecast, sales), covering
 
 
 def _shortfalls(

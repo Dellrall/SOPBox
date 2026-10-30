@@ -538,6 +538,7 @@ export type StockLevel = {
   product_id: number;
   name: string;
   code: string | null;
+  barcode?: string | null;
   category: string;
   base_unit: string;
   quantity: number; // in the storage area

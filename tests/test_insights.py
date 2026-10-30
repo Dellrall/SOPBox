@@ -102,3 +102,28 @@ def test_reorder_covers_a_week_of_recent_use_and_the_minimum(client, catalogue_i
 def test_staff_without_purchasing_cannot_see_suggestions(make_user, catalogue_ids):
     staff = make_user("staff")
     assert staff.get("/api/purchase-orders/reorder-suggestions").status_code == 403
+
+
+def test_trend_projects_next_week_and_stays_near_recent_sales():
+    from app.insights import trend
+
+    assert trend([10, 10]) is None  # too few weeks to call a trend
+    assert trend([14, 21, 28, 35]) == 42
+    assert trend([100, 0, 0, 0, 0]) == 0  # falling sales never go below zero
+    assert trend([0, 0, 0, 40]) == 20  # one big week: at most double the recent average
+
+
+def test_rising_sales_order_next_weeks_forecast_not_the_flat_average(client, catalogue_ids):
+    count(client, catalogue_ids["fries"], 0, 110, TODAY - timedelta(days=40))
+    storage = client.get("/api/outlets").json()[0]["storages"][0]["id"]
+    # One sale a week, rising: 7, 14, 21, 28, 35 (the oldest is before the first full week).
+    for back, qty in enumerate([35, 28, 21, 14, 7]):
+        day = TODAY - timedelta(days=1 + 7 * back)
+        sale = {"storage_id": storage, "sale_date": day.isoformat(), "lines": [{"product_id": catalogue_ids["fries"], "quantity": qty}]}
+        assert client.post("/api/sales", json=sale).status_code == 201
+
+    got = {s["product_name"]: s for s in client.get("/api/purchase-orders/reorder-suggestions").json()}
+    fries = got["Fries tray"]
+    assert "Sales are rising: about 42 pcs expected to sell in the next 7 days." in fries["reason"]
+    # 42 forecast plus the minimum, less the 5 left.
+    assert fries["quantity"] == 42 + fries["min_stock"] - 5
