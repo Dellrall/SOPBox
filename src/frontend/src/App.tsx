@@ -147,6 +147,17 @@ const MENU: (PageId | Group)[] = [
 ];
 const OPEN_GROUPS = "sopbox-menu-open";
 
+/** The phone's bottom bar: the first four of these the person may open, then More for the full menu. */
+const TABS: { id: PageId; label: string }[] = [
+  { id: "receive", label: "Receive" },
+  { id: "approvals", label: "Approvals" },
+  { id: "records", label: "Records" },
+  { id: "dashboard", label: "Dashboard" },
+  { id: "stocktake", label: "Stock" },
+  { id: "purchasing", label: "Orders" },
+  { id: "products", label: "Products" },
+];
+
 function sectionAllowed(me: Me, section: SectionKey, edit = false): boolean {
   if (me.role !== "staff") return true;
   const access = me.section_access[section] ?? "none";
@@ -484,6 +495,8 @@ function Shell({
     [me],
   );
   const canOpen = (id: PageId) => nav.some((item) => item.id === id);
+  // Records only fills in for staff who cannot see approvals.
+  const tabs = TABS.filter((t) => canOpen(t.id) && (t.id !== "records" || !canOpen("approvals"))).slice(0, 4);
 
   useEffect(() => {
     if (!nav.some((item) => item.id === page)) setPage(nav[0]?.id ?? "settings");
@@ -664,7 +677,7 @@ function Shell({
         </div>
       </aside>
 
-      <main id="main" className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
+      <main id="main" className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col px-4 pb-44 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
         {lostShown && (
           <p role="status" className="mb-4 flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
             <span className="flex-1">
@@ -732,6 +745,40 @@ function Shell({
         </div>
       </main>
       <MascotDock fallback={IDLE[page]} go={go} page={page} />
+
+      <nav
+        aria-label="Quick"
+        className="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden"
+      >
+        {tabs.map((t) => {
+          const Icon = NAV.find((n) => n.id === t.id)!.icon;
+          const active = page === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => go(t.id)}
+              aria-current={active ? "page" : undefined}
+              className={`relative flex h-16 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold ${active ? "text-brand-700" : "text-slate-500"}`}
+            >
+              <Icon aria-hidden className={`h-5 w-5 ${active ? "text-brand-600" : ""}`} />
+              {t.label}
+              {t.id === "approvals" && pending > 0 && (
+                <span className="absolute left-1/2 top-1.5 ml-1.5 rounded-full bg-sand px-1.5 text-[10px] font-bold leading-4 text-brand-950">{pending}</span>
+              )}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setMenuOpen(true)}
+          aria-expanded={menuOpen}
+          className={`flex h-16 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold ${
+            tabs.some((t) => t.id === page) ? "text-slate-500" : "text-brand-700"
+          }`}
+        >
+          <Menu aria-hidden className="h-5 w-5" />
+          More
+        </button>
+      </nav>
     </div>
   );
 }

@@ -202,6 +202,18 @@ test.describe("phone layout", () => {
     }
   });
 
+  test("the bottom bar opens common pages in one tap, and More opens the full menu", async ({ page }) => {
+    await page.goto("/");
+    const bar = page.getByRole("navigation", { name: "Quick" });
+    await expect(bar).toBeInViewport();
+    await expect(bar.getByRole("button")).toHaveText([/Receive/, /Approvals/, /Dashboard/, /Stock/, /More/]);
+    await bar.getByRole("button", { name: "Stock" }).tap();
+    await expect(page.getByRole("heading", { level: 1, name: "Stock Count" })).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Stock" })).toHaveAttribute("aria-current", "page");
+    await bar.getByRole("button", { name: "More" }).tap();
+    await expect(page.getByRole("navigation", { name: "Main" })).toBeInViewport();
+  });
+
   test("the inbox opens over the page, not inside the header", async ({ page }) => {
     await page.goto("/");
     // The dashboard has no inbox list of its own, at most one line for the newest unread.

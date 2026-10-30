@@ -583,7 +583,7 @@ export function MascotDock({ fallback, go, page }: { fallback: Scene; go: (page:
         </div>
       </div>
     )}
-    <div className="pointer-events-none fixed bottom-2 right-2 z-20 flex items-end gap-1 print:hidden sm:bottom-4 sm:right-4">
+    <div className="pointer-events-none fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-2 z-20 flex items-end gap-1 print:hidden sm:right-4 lg:bottom-4">
       {asking && <AskPanel go={go} onClose={() => setAsking(false)} />}
       {!roam && !asking && bubble}
       {tucked && !stop && !petLine && (scene.text || error) && (
