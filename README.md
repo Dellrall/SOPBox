@@ -144,52 +144,49 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 
 ```
 .
-├── AGENTS.md                # Setup, structure, contribution and API notes for AI coding agents
-├── docs/
-│   └── DEVELOPMENT.md       # Full setup, deployment, configuration, API and test details
-├── runpod/
-│   └── README.md            # RunPod endpoint settings (official vLLM worker, no custom handler)
 ├── src/
-│   ├── backend/
-│   │   ├── app/             # FastAPI app: accounts, rules, deliveries, stock, AI client, Ask helper, Telegram
-│   │   ├── requirements.txt # Python dependencies
-│   │   └── .env.example     # Example environment variables
+│   ├── backend/app/   # FastAPI app
 │   └── frontend/
-│       ├── src/             # React pages and components
-│       └── e2e/             # Playwright phone and tablet UI tests
-├── submission/              # Required submission documents (PDFs)
-├── tests/                   # pytest suite
-├── .github/workflows/       # Backend and phone/tablet UI tests on every pull request
-├── .replit                  # Replit run and deploy configuration
-├── LICENSE
+│       ├── src/       # React pages
+│       └── e2e/       # Playwright UI tests
+├── tests/             # pytest suite
+├── runpod/            # AI endpoint settings
+├── docs/              # Setup, API, impact
+├── submission/        # Submission PDFs
+├── .github/workflows/ # Tests on each PR
+├── .replit            # Replit run and deploy
+├── AGENTS.md          # Notes for AI agents
 └── README.md
 ```
+
+| Folder | What is in it |
+|---|---|
+| `src/backend/app/` | Accounts, delivery rules, stock, purchase orders, AI client, Ask helper, Telegram |
+| `src/frontend/` | React + TypeScript + Tailwind app, built from the Orbyte template |
+| `runpod/` | RunPod endpoint settings (official vLLM worker, no custom image) |
+| `docs/` | [DEVELOPMENT.md](docs/DEVELOPMENT.md) (setup, config, API, tests) and [IMPACT.md](docs/IMPACT.md) |
 
 ### 🏗️ Architecture
 
 ```mermaid
-flowchart LR
-  subgraph Client["📱 Phone / tablet"]
-    UI["React 18 + TypeScript<br/>Tailwind v4 · Vite"]
+flowchart TB
+  phone["Phone or tablet<br/>React app"]
+  subgraph replit["Replit Autoscale"]
+    api["FastAPI<br/>API + web app"]
+    rules["Rules engine<br/>temperature, pack, PO"]
+    db[("PostgreSQL<br/>Row Level Security")]
   end
-  subgraph Replit["🟠 Replit Deployment (Autoscale)"]
-    API["FastAPI<br/>REST API + SPA"]
-    RULES["⚖️ Rules engine<br/>temperature · pack units · PO balance"]
-    DB[("🐘 PostgreSQL<br/>Row Level Security")]
+  subgraph runpod["RunPod Serverless"]
+    model["vLLM + Qwen3-VL-8B<br/>reads the photo"]
   end
-  subgraph RunPod["🟣 RunPod Serverless (scale to zero)"]
-    VLLM["vLLM worker"]
-    VLM["🧠 Qwen3-VL-8B FP8"]
-  end
-  TG["✈️ Telegram Bot API<br/>alerts · team group"]
+  tg["Telegram<br/>alerts"]
 
-  UI -->|HTTPS, gzip| API
-  API --> RULES
-  API --> DB
-  API -->|photo + prompt| VLLM
-  VLLM --> VLM
-  VLLM -->|JSON reply, untrusted| API
-  API -->|alerts, join approvals| TG
+  phone -->|HTTPS| api
+  api --> rules
+  api --> db
+  api -->|photo| model
+  model -->|"JSON, checked"| api
+  api --> tg
 ```
 
 The model's reply is treated as untrusted input: parsed, validated, and confirmed line by line by staff before anything is saved. The pass/fail verdict comes from the rules engine, never from the model.
@@ -240,7 +237,21 @@ cd src/frontend && npm install && npm run dev
 
 ### Option 3 — Set up with an AI coding agent
 
-Open the repository in Claude Code, Codex, Cursor or another coding agent and ask it to set up SOPBox locally. [AGENTS.md](AGENTS.md) gives it the setup commands, project structure, rules (AI writes words, code does the maths; workspace isolation), contribution and customization steps, and where the API is documented.
+```bash
+# 1. Clone the repository
+git clone https://github.com/Dellrall/SOPBox.git
+cd SOPBox
+
+# 2. Open it in your coding agent (pick one)
+claude          # Claude Code
+codex           # Codex CLI
+cursor .        # Cursor
+
+# 3. Ask the agent:
+#    "Read AGENTS.md and set up SOPBox locally, then start it."
+```
+
+[AGENTS.md](AGENTS.md) gives the agent the setup commands, project structure, rules (AI writes words, code does the maths; workspace isolation), contribution and customization steps, and where the API is documented.
 
 ### 🧪 Run Tests
 
