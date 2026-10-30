@@ -531,6 +531,17 @@ CREATE TABLE IF NOT EXISTS assignment_requests (
     decided_at TIMESTAMPTZ
 );
 -- One open request per person and job, so asking twice is the same request.
+-- Steps of a job's SOP that someone has done, by the step's words: steps are worked out from the
+-- order each time (assignments.py), so a changed order keeps the ticks of the steps it still has.
+CREATE TABLE IF NOT EXISTS job_ticks (
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    ref_id BIGINT NOT NULL,
+    step TEXT NOT NULL,
+    done_by TEXT NOT NULL,
+    done_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (workspace_id, kind, ref_id, step)
+);
 -- Who counted, by account, so a renamed person keeps their record (efficiency.py).
 ALTER TABLE stocktakes ADD COLUMN IF NOT EXISTS counted_by_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS assignment_requests_pending_key ON assignment_requests (kind, ref_id, user_id)
@@ -548,6 +559,7 @@ RLS_TABLES = {
     "categories": f"workspace_id = {_WS}",
     "task_lists": f"workspace_id = {_WS}",
     "count_plans": f"workspace_id = {_WS}",
+    "job_ticks": f"workspace_id = {_WS}",
     "assignments": f"workspace_id = {_WS}",
     "assignment_requests": f"workspace_id = {_WS}",
     "task_ticks": (

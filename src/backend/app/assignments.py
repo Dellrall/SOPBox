@@ -19,7 +19,7 @@ from app import insights, locations, purchasing
 from app.auditlog import audit
 from app.auth import CurrentUser
 from app.errors import ForbiddenError, InvalidRequestError, NotFoundError
-from app.models import AssignIn, AssignmentRequest, AssignOut, CountPlanIn, Job, Pic
+from app.models import AssignIn, AssignmentRequest, AssignOut, CountPlanIn, Job, JobTick, JobTickIn, Pic
 
 MAX_PICS = 2  # a big order may have this many; any other job one
 PAGE = {"po": "purchasing", "delivery": "approvals", "count": "stocktake"}
@@ -47,10 +47,47 @@ def _thresholds(conn: psycopg.Connection, ws: int) -> tuple[int, int]:
     return row["big_order_sen"], row["big_order_lines"]
 
 
+def _temp(lo: float | None, hi: float | None) -> str:
+    n = lambda v: f"{v:g}"  # noqa: E731
+    if lo is not None and hi is not None:
+        return f"{n(lo)} to {n(hi)}°C"
+    return f"at most {n(hi)}°C" if hi is not None else f"at least {n(lo)}°C"
+
+
+def _order_steps(supplier: str, product_ids: list[int], products: dict[int, dict]) -> list[str]:
+    """The receiving SOP for one order, from its products' categories and SOP cards."""
+    steps = [f"Call {supplier} to check it is on the way", "Clear space in the chiller, freezer and store"]
+    temps: dict[str, str] = {}
+    sop: list[str] = []
+    for pid in product_ids:
+        p = products.get(pid)
+        if p is None:
+            continue
+        if p["temp_min_c"] is not None or p["temp_max_c"] is not None:
+            temps.setdefault(p["category"], _temp(p["temp_min_c"], p["temp_max_c"]))
+        if p["sop"] and p["name"] not in sop:
+            sop.append(p["name"])
+    if temps:
+        steps.append("Have a clean probe thermometer ready")
+        steps += [f"{cat}: check {t}" for cat, t in sorted(temps.items())]
+    if sop:
+        steps.append(f"Read the SOP card for {', '.join(sop[:3])}{' and more' if len(sop) > 3 else ''}")
+    steps += ["Check packs and expiry dates against the order", "Receive it in SOPBox with a photo of the delivery order"]
+    return steps
+
+
 def _open_work(conn: psycopg.Connection, ws: int) -> dict[tuple[str, int], dict]:
-    """Every open job: its title, due date and whether it is big."""
+    """Every open job: its title, due date, whether it is big, and its steps."""
     big_sen, big_lines = _thresholds(conn, ws)
     prices = insights.latest_prices(conn, ws)
+    products = {
+        r["id"]: r
+        for r in conn.execute(
+            "SELECT p.id, p.name, p.sop <> '' AS sop, c.name AS category, c.temp_min_c, c.temp_max_c "
+            "FROM products p JOIN categories c ON c.id = p.category_id WHERE p.workspace_id = %s",
+            (ws,),
+        ).fetchall()
+    }
     work: dict[tuple[str, int], dict] = {}
     for o in purchasing.list_orders(conn, ws):
         if o.status != "issued" or o.receiving_status == "fully_received":
@@ -60,6 +97,7 @@ def _open_work(conn: psycopg.Connection, ws: int) -> dict[tuple[str, int], dict]
             "title": f"{o.reference} from {o.supplier}",
             "due": date.fromisoformat(o.expected_date) if o.expected_date else None,
             "big": value >= big_sen or len(o.lines) >= big_lines,
+            "steps": _order_steps(o.supplier, [line.product_id for line in o.lines], products),
         }
     for d in conn.execute(
         "SELECT d.id, d.supplier, COUNT(l.id) AS lines, COALESCE(SUM(l.unit_price_sen * l.quantity), 0) AS value "
@@ -71,6 +109,8 @@ def _open_work(conn: psycopg.Connection, ws: int) -> dict[tuple[str, int], dict]
             "title": f"Held delivery #{d['id']} from {d['supplier'] or 'an unknown supplier'}",
             "due": None,
             "big": d["value"] >= big_sen or d["lines"] >= big_lines,
+            "steps": ["Read why each line was held", "Look at the photos and readings",
+                      "Approve or reject it, with a reason", "Tell the supplier about anything sent back"],
         }
     for c in conn.execute(
         f"SELECT c.id, c.due_date, {locations.LABEL_SQL} AS label FROM count_plans c "
@@ -78,7 +118,11 @@ def _open_work(conn: psycopg.Connection, ws: int) -> dict[tuple[str, int], dict]
         "WHERE c.workspace_id = %s AND c.stocktake_id IS NULL ORDER BY c.due_date",
         (ws,),
     ).fetchall():
-        work[("count", c["id"])] = {"title": f"Count {c['label']}", "due": c["due_date"], "big": False}
+        work[("count", c["id"])] = {
+            "title": f"Count {c['label']}", "due": c["due_date"], "big": False,
+            "steps": [f"Go to {c['label']} before the shift gets busy", "Count every shelf, front to back",
+                      "Check expiry dates as you count", "Save the count in Stock count"],
+        }
     return work
 
 
@@ -108,6 +152,9 @@ def jobs(conn: psycopg.Connection, user: CurrentUser, day: date) -> list[Job]:
             (ws, user.id),
         )
     }
+    ticks: dict[tuple[str, int], list[JobTick]] = {}
+    for r in conn.execute("SELECT kind, ref_id, step, done_by FROM job_ticks WHERE workspace_id = %s ORDER BY done_at", (ws,)):
+        ticks.setdefault((r["kind"], r["ref_id"]), []).append(JobTick(step=r["step"], done_by=r["done_by"]))
     out = []
     for (kind, ref), w in _open_work(conn, ws).items():
         mine = pics.get((kind, ref), [])
@@ -116,7 +163,8 @@ def jobs(conn: psycopg.Connection, user: CurrentUser, day: date) -> list[Job]:
             kind=kind, ref_id=ref, title=w["title"], when=_due_text(kind, days),
             due=w["due"].isoformat() if w["due"] else None, days_left=days, big=w["big"], pics=mine,
             can_take=all(p.user_id != user.id for p in mine) and (_manager(user) or _can_join(mine, w["big"])),
-            asked=(kind, ref) in asked, page=PAGE[kind],
+            asked=(kind, ref) in asked, page=PAGE[kind], steps=w["steps"],
+            ticks=[t for t in ticks.get((kind, ref), []) if t.step in w["steps"]],
         ))
     is_mine = lambda j: any(p.user_id == user.id for p in j.pics)  # noqa: E731
     return sorted(out, key=lambda j: (not is_mine(j), j.days_left if j.days_left is not None else 9999, j.title))
@@ -255,3 +303,19 @@ def unplan_count(conn: psycopg.Connection, manager: CurrentUser, plan_id: int) -
             conn.execute("DELETE FROM assignments WHERE kind = 'count' AND ref_id = %s", (plan_id,))
             conn.execute("DELETE FROM assignment_requests WHERE kind = 'count' AND ref_id = %s", (plan_id,))
             audit(conn, manager.workspace_id, manager.display_name, "count.unplanned", None, f"for {row['due_date'].isoformat()}")
+
+
+def tick(conn: psycopg.Connection, user: CurrentUser, kind: str, ref_id: int, data: JobTickIn) -> None:
+    """Mark one step of a job done or not done. Ticking twice changes nothing the second time."""
+    ws = user.workspace_id
+    if data.step not in _job(conn, ws, kind, ref_id)["steps"]:
+        raise InvalidRequestError("that job has no such step")
+    if data.done:
+        conn.execute(
+            "INSERT INTO job_ticks (workspace_id, kind, ref_id, step, done_by) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+            (ws, kind, ref_id, data.step, user.display_name),
+        )
+    else:
+        conn.execute(
+            "DELETE FROM job_ticks WHERE workspace_id = %s AND kind = %s AND ref_id = %s AND step = %s", (ws, kind, ref_id, data.step)
+        )

@@ -1437,6 +1437,8 @@ class Job(BaseModel):
     can_take: bool  # this person may add themselves without asking
     asked: bool  # this person has asked to take over and waits for a manager
     page: str  # where to do it
+    steps: list[str]  # the SOP for this job, written by code from the order's products and rules
+    ticks: list["JobTick"]
 
 
 class AssignIn(_In):
@@ -1484,3 +1486,16 @@ class Efficiency(BaseModel):
     lines_failed: int  # lines that failed a rule: a training hint, not always their fault
     counts: int
     gap_sen_per_count: int | None  # the value of what their counts found missing or extra, per count
+
+
+class JobTick(BaseModel):
+    step: str
+    done_by: str
+
+
+class JobTickIn(_In):
+    step: str = Field(min_length=1, max_length=300)
+    done: bool
+
+
+Job.model_rebuild()

@@ -330,15 +330,16 @@ export const api = {
   tasks: (day: string) => get<TaskList[]>(`/tasks?day=${day}`),
   createTaskList: (body: TaskListIn) => post<TaskList>("/tasks", body),
   updateTaskList: (id: number, body: TaskListIn) => put<TaskList>(`/tasks/${id}`, body),
-  deleteTaskList: (id: number) => request<void>("DELETE", `/tasks/${id}`),
+  deleteTaskList: (id: number) => del(`/tasks/${id}`),
   tickTask: (id: number, day: string, step: number, done: boolean) => post<TaskList>(`/tasks/${id}/ticks`, { day, step, done }),
   // jobs and who is in charge of them (PIC)
   jobs: (day: string) => get<Job[]>(`/jobs?day=${day}`),
   assign: (kind: JobKind, ref_id: number, user_id?: number) =>
     post<{ status: "assigned" | "already" | "requested" }>("/assignments", { kind, ref_id, user_id }),
-  unassign: (kind: JobKind, ref_id: number, user_id: number) => request<void>("DELETE", `/assignments/${kind}/${ref_id}/${user_id}`),
+  unassign: (kind: JobKind, ref_id: number, user_id: number) => del(`/assignments/${kind}/${ref_id}/${user_id}`),
   assignmentRequests: () => get<AssignmentRequest[]>("/assignment-requests"),
   decideAssignment: (id: number, approve: boolean) => post<void>(`/assignment-requests/${id}/decision`, { approve }),
   planCount: (storage_id: number, due_date: string, user_id?: number) => post<void>("/count-plans", { storage_id, due_date, user_id }),
-  unplanCount: (id: number) => request<void>("DELETE", `/count-plans/${id}`),
+  tickJob: (kind: JobKind, ref_id: number, step: string, done: boolean) => post<void>(`/jobs/${kind}/${ref_id}/ticks`, { step, done }),
+  unplanCount: (id: number) => del(`/count-plans/${id}`),
 };

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Check, ChevronDown, FilePlus2, Search, PackageCheck, Plus, Printer, Send, Sparkles, Trash2, Truck, XCircle } from "lucide-react";
 import { api } from "./api";
+import { takeOpen } from "./openTarget";
 import SearchSelect from "./SearchSelect";
 import type { LowStockSupplier, Product, ReorderSuggestion, PurchaseOrder, PurchaseOrderIn, PurchaseOrderStatus, ReceivingStatus, Supplier, SupplierIn } from "./types";
 import {
@@ -714,6 +715,8 @@ export default function PurchaseOrders({
     Promise.all([api.purchaseOrders(filter || undefined), api.suppliers(), api.products()])
       .then(([o, s, p]) => {
         setOrders(o);
+        const wanted = o.find((x) => x.id === takeOpen("po"));
+        if (wanted) setView({ kind: "detail", order: wanted });
         setSuppliers(s);
         setProducts(p.filter((x) => !x.archived));
         setError("");

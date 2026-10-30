@@ -107,3 +107,17 @@ def test_team_stats_count_late_jobs_counts_and_who_may_see_them(client, catalogu
     assert (stats["Sam Staff"]["jobs_due"], stats["Sam Staff"]["jobs_on_time"], stats["Sam Staff"]["counts"]) == (1, 0, 1)
     assert stats["Olive Owner"]["counts"] == 0
     assert sue.get("/api/team/efficiency").status_code == 403
+
+
+def test_an_order_job_has_sop_steps_from_its_products_and_ticks_are_idempotent(client, catalogue_ids, supplier_id, make_user):  # noqa: F811
+    order = issued_order(client, catalogue_ids, supplier_id)
+    job = _jobs(client)[("po", order["id"])]
+    assert job["steps"][0].startswith("Call ") and job["steps"][-1].startswith("Receive it in SOPBox")
+    assert any("°C" in s for s in job["steps"])  # a chilled or frozen product brings its temperature check
+    step = {"step": job["steps"][0], "done": True}
+    for _ in range(2):
+        assert client.post(f"/api/jobs/po/{order['id']}/ticks", json=step).status_code == 204
+    assert [t["step"] for t in _jobs(make_user("staff", "sam"))[("po", order["id"])]["ticks"]] == [job["steps"][0]]
+    assert client.post(f"/api/jobs/po/{order['id']}/ticks", json={"step": "Dance", "done": True}).status_code == 422
+    assert client.post(f"/api/jobs/po/{order['id']}/ticks", json={**step, "done": False}).status_code == 204
+    assert _jobs(client)[("po", order["id"])]["ticks"] == []
