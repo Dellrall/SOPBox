@@ -4,6 +4,7 @@ import SopWriter from "./SopWriter";
 import type { Category, PackUnit, Product, ProductIn } from "./types";
 import { ErrorNote, TempInput, cardClass, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 import { Select } from "./Select";
+import { ScanButton } from "./BarcodeScan";
 
 const num = (text: string): number | null => (text.trim() === "" ? null : Number(text));
 
@@ -24,6 +25,7 @@ export default function ProductForm({
   const [baseUnit, setBaseUnit] = useState(product?.base_unit ?? "");
   const [minStock, setMinStock] = useState(String(product?.min_stock ?? 0));
   const [code, setCode] = useState(product?.code ?? "");
+  const [barcode, setBarcode] = useState(product?.barcode ?? "");
   const [tempMin, setTempMin] = useState(product?.temp_min_c?.toString() ?? "");
   const [tempMax, setTempMax] = useState(product?.temp_max_c?.toString() ?? "");
   const [packs, setPacks] = useState<{ unit: string; qty: string }[]>(
@@ -66,6 +68,7 @@ export default function ProductForm({
       min_stock: stockMin,
       pack_units: packUnits,
       code: code.trim() || null,
+      barcode: barcode.trim() || null,
     };
   }
 
@@ -132,6 +135,16 @@ export default function ProductForm({
           </label>
           <input id="p-code" maxLength={40} placeholder="SKU on your POS" className={inputClass} value={code} onChange={(e) => setCode(e.target.value)} />
           <p className="mt-1 text-xs text-slate-600">Uploaded sales are matched by this code.</p>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="p-barcode">
+            Barcode (optional)
+          </label>
+          <div className="flex gap-2">
+            <input id="p-barcode" maxLength={40} inputMode="numeric" placeholder="Number under the bars" className={`${inputClass} min-w-0`} value={barcode} onChange={(e) => setBarcode(e.target.value.replace(/\s/g, ""))} />
+            <ScanButton onCode={setBarcode} />
+          </div>
+          <p className="mt-1 text-xs text-slate-600">Scan it when receiving to pick this product.</p>
         </div>
       </div>
 

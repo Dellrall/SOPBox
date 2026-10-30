@@ -283,6 +283,27 @@ test.describe("phone layout", () => {
     await expect(main.getByText("Take another", { exact: true })).toBeVisible();
   });
 
+  test("a product's barcode finds it when receiving, and the scan button is there", async ({ page }) => {
+    await page.goto("/");
+    const barcode = "9556000000017"; // the same in every project: they share one database
+    const fries = (await (await page.request.get("/api/products")).json()).find((p: { name: string }) => p.name === "Frozen fries 2kg");
+    const { name, category_id, base_unit, temp_min_c, temp_max_c, min_stock, sop, pack_units, code } = fries;
+    const saved = await page.request.put(`/api/products/${fries.id}`, {
+      data: { name, category_id, base_unit, temp_min_c, temp_max_c, min_stock, sop, pack_units, code, barcode },
+    });
+    expect(saved.ok()).toBe(true);
+
+    await openPage(page, "Receiving check");
+    await page.getByRole("button", { name: "Add a line" }).tap();
+    const picker = page.locator("main").getByLabel("Product", { exact: true }).last();
+    await expect(page.locator("main").getByRole("button", { name: "Scan barcode" }).first()).toBeVisible();
+    await expectFitsScreen(page);
+    await picker.tap();
+    await page.getByRole("combobox", { name: "Search products" }).fill(barcode);
+    await page.getByRole("option", { name: "Frozen fries 2kg" }).tap();
+    await expect(picker).toHaveText("Frozen fries 2kg");
+  });
+
   test("stock count categories start minimised and open with a tap", async ({ page }) => {
     await page.goto("/");
     await openPage(page, "Stock Count");

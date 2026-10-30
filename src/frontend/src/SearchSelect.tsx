@@ -1,8 +1,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { inputClass } from "./ui";
+import { ScanButton } from "./BarcodeScan";
 
-export type SelectOption = { value: string; label: string; group?: string };
+/** `codes`: barcodes or SKUs that also find the option, typed or scanned. */
+export type SelectOption = { value: string; label: string; group?: string; codes?: string[] };
 
 /**
  * A dropdown with a search box: tap to see the whole list (grouped, e.g. by category), or type to
@@ -15,6 +17,7 @@ export default function SearchSelect({
   onChange,
   placeholder = "Choose…",
   noun = "options",
+  scan = false,
 }: {
   id: string;
   options: SelectOption[];
@@ -23,6 +26,8 @@ export default function SearchSelect({
   placeholder?: string;
   /** What the list holds, for the search box: "products", "suppliers". */
   noun?: string;
+  /** Show a camera button that picks the option whose code matches the barcode. */
+  scan?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -35,7 +40,9 @@ export default function SearchSelect({
   // Ungrouped options (like "Not in the catalogue") first, then each group together.
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const hits = q ? options.filter((o) => `${o.label} ${o.group ?? ""}`.toLowerCase().includes(q)) : options;
+    const hits = q
+      ? options.filter((o) => `${o.label} ${o.group ?? ""}`.toLowerCase().includes(q) || o.codes?.some((c) => c.toLowerCase() === q))
+      : options;
     return [...hits].sort((a, b) => (a.group ?? "").localeCompare(b.group ?? ""));
   }, [options, query]);
 
@@ -54,6 +61,15 @@ export default function SearchSelect({
   function show() {
     setQuery("");
     setActive(Math.max(0, options.findIndex((o) => o.value === value)));
+    setOpen(true);
+  }
+
+  function scanned(code: string) {
+    const hit = options.find((o) => o.codes?.some((c) => c.toLowerCase() === code.toLowerCase()));
+    if (hit) return onChange(hit.value);
+    // Unknown barcode: open the list with it searched, so "No products match" says why.
+    setQuery(code);
+    setActive(0);
     setOpen(true);
   }
 
@@ -83,6 +99,7 @@ export default function SearchSelect({
 
   return (
     <div ref={root} className="relative">
+      <div className="flex gap-2">
       <button
         id={id}
         type="button"
@@ -95,11 +112,13 @@ export default function SearchSelect({
             show();
           }
         }}
-        className={`${inputClass} flex items-center justify-between gap-2 text-left`}
+        className={`${inputClass} flex min-w-0 items-center justify-between gap-2 text-left`}
       >
         <span className={`min-w-0 truncate ${selected ? "" : "text-slate-400"}`}>{selected?.label ?? placeholder}</span>
         <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-slate-500 transition ${open ? "rotate-180" : ""}`} />
       </button>
+      {scan && <ScanButton onCode={scanned} />}
+      </div>
       {open && (
         <div className="absolute left-0 z-40 mt-1 w-full min-w-[15rem] overflow-hidden rounded-xl border border-line bg-white shadow-lg">
           <div className="relative border-b border-line p-2">

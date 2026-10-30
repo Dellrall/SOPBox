@@ -109,6 +109,19 @@ def test_product_names_are_unique_ignoring_case(client, catalogue_ids):
     assert resp.json()["detail"] == "there is already a product with that name"
 
 
+def test_product_barcode_is_saved_unique_and_searchable(client, catalogue_ids):
+    body = product_body(catalogue_ids, name="Cola can", barcode="9556001234567")
+    cola = client.post("/api/products", json=body).json()
+    assert cola["barcode"] == "9556001234567"
+    found = client.get("/api/products", params={"q": "9556001234567"}).json()
+    assert [p["id"] for p in found] == [cola["id"]]
+    dup = client.post("/api/products", json=product_body(catalogue_ids, name="Other", barcode="9556001234567"))
+    assert dup.status_code == 409
+    assert dup.json()["detail"] == "another product already has that barcode"
+    spaced = product_body(catalogue_ids, name="Bad code", barcode="955 600")
+    assert client.post("/api/products", json=spaced).status_code == 422
+
+
 def test_unknown_product_is_404(client, catalogue_ids):
     assert client.get("/api/products/9999").status_code == 404
     body = product_body(catalogue_ids)

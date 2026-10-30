@@ -130,8 +130,8 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `GET /robots.txt`, `GET /sitemap.xml` | anyone | For search engines. The page itself gets absolute canonical and link-preview URLs from the request's address |
 | `GET/POST /api/users`, `PATCH /api/users/{id}` | owner | List, create, and change accounts (role, disable, reset password) |
 | `GET/PATCH /api/workspace` | owner | Workspace name and Telegram chat ids |
-| `GET /api/products?q=` | any | Products with stock. `q` searches name, category and SOP text |
-| `POST /api/products`, `PUT/DELETE /api/products/{id}` | manager | Edit products |
+| `GET /api/products?q=` | any | Products with stock. `q` searches name, category, SOP text and code, or matches a barcode exactly |
+| `POST /api/products`, `PUT/DELETE /api/products/{id}` | manager | Edit products; optional `code` (SKU) and `barcode` are unique per workspace |
 | `PATCH /api/products/{id}` | manager | Archive or restore a product (`{"archived": true}`) |
 | `POST /api/products/read-sheet`, `POST /api/products/bulk` | manager | Suggest products from a sheet photo (saves nothing); add reviewed products together, all or none |
 | `GET /api/categories`; `POST`, `PUT/DELETE /api/categories/{id}` | any; manager | Categories and their default temperature range |

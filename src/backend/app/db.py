@@ -314,6 +314,9 @@ ALTER TABLE stocktakes ADD COLUMN IF NOT EXISTS storage_id BIGINT REFERENCES sto
 -- The code a POS or sales sheet prints for the product (SKU), matched when sales are uploaded.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS code TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS products_code_key ON products (workspace_id, lower(code)) WHERE code IS NOT NULL;
+-- The barcode printed on the pack (EAN, UPC...), scanned to pick the product.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS products_barcode_key ON products (workspace_id, barcode) WHERE barcode IS NOT NULL;
 CREATE TABLE IF NOT EXISTS stock_transfers (
     id {_ID},
     workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
