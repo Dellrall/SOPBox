@@ -140,7 +140,7 @@ export function SiteHeader({ navigate, signedIn = false }: { navigate: Navigate;
           </nav>
         </div>
       </div>
-      <div className="mx-auto flex max-w-6xl items-center gap-3 px-5 py-4 sm:px-8">
+      <div className="mx-auto flex max-w-6xl items-center gap-3 px-5 py-2.5 sm:px-8 sm:py-4">
         <a {...linkTo(navigate, "/")} className="flex items-center gap-3">
           <img src="/logo-128.webp" alt="" width={40} height={40} className="h-10 w-10 rounded-xl ring-2 ring-white/15" />
           <span className="hidden text-lg font-bold text-white min-[400px]:inline">SOPBox</span>
@@ -188,8 +188,8 @@ export function SiteFooter({ navigate }: { navigate: Navigate }) {
   const link = "block py-1 text-muted hover:text-brand-700";
   return (
     <footer className="border-t border-line bg-white">
-      <div className="mx-auto grid max-w-6xl gap-8 px-5 py-10 text-sm sm:grid-cols-2 sm:px-8 lg:grid-cols-4">
-        <div className="space-y-2">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-5 py-8 text-sm sm:gap-8 sm:px-8 sm:py-10 lg:grid-cols-4">
+        <div className="col-span-2 space-y-2 sm:col-span-1">
           <p className="flex items-center gap-2 font-semibold text-brand-950">
             <ClipboardCheck aria-hidden className="h-4 w-4 text-brand-600" /> SOPBox
           </p>

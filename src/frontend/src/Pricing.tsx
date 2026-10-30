@@ -149,12 +149,12 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
   const lifetime = pricing?.prices.pro_outlet_lifetime;
   return (
     <div className="min-h-screen bg-surface text-ink">
-      <div className="hero-pattern pb-28 text-white">
+      <div className="hero-pattern pb-24 text-white sm:pb-28">
         <SiteHeader navigate={navigate} signedIn={signedIn} />
-        <div className="mx-auto max-w-3xl px-5 pt-8 text-center sm:px-8">
+        <div className="mx-auto max-w-3xl px-5 pt-2 text-center sm:px-8 sm:pt-8">
           <p className="text-sm font-semibold uppercase tracking-wider text-leaf">Pricing</p>
-          <h1 className="mt-3 text-4xl font-extrabold leading-tight sm:text-5xl">Free for one store. Pay only as you grow.</h1>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-white/75">
+          <h1 className="mt-2 text-3xl font-extrabold leading-tight sm:mt-3 sm:text-5xl">Free for one store. Pay only as you grow.</h1>
+          <p className="mx-auto mt-3 max-w-xl text-white/75 sm:mt-4 sm:text-lg">
             Every plan has the full receiving check: AI reading, your rules, manager approvals and the activity log. Pay per extra outlet,
             for a year or once for life.
           </p>

@@ -63,30 +63,32 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
       <div className="hero-pattern text-white">
         <SiteHeader navigate={navigate} />
 
-        <main id="main" className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-6 sm:px-8 lg:grid-cols-[1.1fr_1fr] lg:pb-24 lg:pt-12">
+        <main id="main" className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-10 pt-2 sm:px-8 sm:pb-16 sm:pt-6 md:pt-14 md:grid-cols-[1.1fr_1fr] md:gap-8 lg:gap-12 lg:pb-24 lg:pt-12">
           <div>
-            <p className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-leaf ring-1 ring-white/15">
+            <p className="mb-5 hidden items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-leaf ring-1 ring-white/15 sm:inline-flex">
               <ShieldCheck aria-hidden className="h-3.5 w-3.5" /> For food &amp; beverage SMEs
             </p>
-            <h1 className="text-4xl font-extrabold leading-[1.1] sm:text-5xl lg:text-6xl">
+            <h1 className="text-3xl font-extrabold leading-[1.1] sm:text-5xl md:text-4xl lg:text-6xl">
               Catch bad deliveries <span className="text-sand">at the door,</span> not in the kitchen.
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-white/75">
-              SOPBox turns every supplier delivery into a one-minute check on a phone. Wrong temperatures,
-              short packs and missing items are stopped and sent to a manager before they reach your stock.
+            <p className="mt-3 max-w-xl text-white/75 sm:mt-5 sm:text-lg md:text-base lg:text-lg">
+              SOPBox turns every supplier delivery into a one-minute check on a phone.{" "}
+              <span className="hidden sm:inline">
+                Wrong temperatures, short packs and missing items are stopped and sent to a manager before they reach your stock.
+              </span>
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-5 flex flex-wrap gap-3 sm:mt-8">
               <a {...link("/register")} className={ctaButton}>
                 Create a workspace <ArrowRight aria-hidden className="h-4 w-4" />
               </a>
-              <a {...link("/pricing")} className="inline-flex items-center rounded-xl px-6 py-3 text-base font-semibold text-white ring-1 ring-white/30 hover:bg-white/10">
+              <a {...link("/pricing")} className="inline-flex items-center rounded-xl px-5 py-3 sm:px-6 text-base font-semibold text-white ring-1 ring-white/30 hover:bg-white/10">
                 Pricing
               </a>
-              <a href="#how" className="inline-flex items-center rounded-xl px-6 py-3 text-base font-semibold text-white ring-1 ring-white/30 hover:bg-white/10">
+              <a href="#how" className="hidden items-center sm:inline-flex rounded-xl px-6 py-3 text-base font-semibold text-white ring-1 ring-white/30 hover:bg-white/10">
                 See how it works
               </a>
             </div>
-            <p className="mt-4 text-sm text-white/60">Set up in minutes. Your team signs in with accounts you create.</p>
+            <p className="mt-4 hidden text-sm text-white/60 sm:block">Set up in minutes. Your team signs in with accounts you create.</p>
           </div>
           {/* As wide as the phone, so the crew stays perched on it at every screen width. */}
           <div className="relative mx-auto w-full max-w-sm">
@@ -99,18 +101,18 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
         </main>
       </div>
 
-      <section id="how" aria-labelledby="how-title" className="mx-auto max-w-6xl scroll-mt-6 px-5 py-20 sm:px-8">
+      <section id="how" aria-labelledby="how-title" className="mx-auto max-w-6xl scroll-mt-6 px-5 py-12 sm:px-8 sm:py-20">
         <p className="text-sm font-bold uppercase tracking-wider text-brand-600">How it works</p>
-        <h2 id="how-title" className="mt-2 max-w-2xl text-3xl font-extrabold text-brand-950 sm:text-4xl">
+        <h2 id="how-title" className="mt-2 max-w-2xl text-2xl font-extrabold text-brand-950 sm:text-4xl">
           AI reads. Rules decide. Humans approve.
         </h2>
         <p className="mt-4 max-w-2xl text-muted">
           The AI only reads the paperwork. Whether a delivery passes is decided by rules you set, and
           anything that fails is decided by a person. So it never "guesses" a delivery through.
         </p>
-        <ol className="mt-10 grid gap-5 md:grid-cols-3">
+        <ol className="mt-6 grid gap-4 sm:mt-10 sm:gap-5 md:grid-cols-3">
           {PRINCIPLES.map(({ who, action, title, text }, i) => (
-            <li key={title} className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+            <li key={title} className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
               <div className="flex items-end justify-between gap-3">
                 <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-700">Step {i + 1}</span>
                 {/* The crew acts out each step: reading, probing, signing off. */}
@@ -126,12 +128,12 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
       </section>
 
       <section id="features" aria-labelledby="features-title" className="border-y border-line bg-white">
-        <div className="mx-auto max-w-6xl scroll-mt-6 px-5 py-20 sm:px-8">
+        <div className="mx-auto max-w-6xl scroll-mt-6 px-5 py-12 sm:px-8 sm:py-20">
           <p className="text-sm font-bold uppercase tracking-wider text-brand-600">Features</p>
-          <h2 id="features-title" className="mt-2 max-w-2xl text-3xl font-extrabold text-brand-950 sm:text-4xl">
+          <h2 id="features-title" className="mt-2 max-w-2xl text-2xl font-extrabold text-brand-950 sm:text-4xl">
             Everything a receiving check needs, on the phone your staff already carry
           </h2>
-          <ul className="mt-10 grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-6 grid gap-x-8 gap-y-6 sm:mt-10 sm:gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map(({ icon: Icon, title, text }) => (
               <li key={title} className="flex gap-4">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-950 text-leaf">
@@ -147,18 +149,18 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
         </div>
       </section>
 
-      <section id="sdgs" aria-labelledby="sdgs-title" className="mx-auto max-w-6xl scroll-mt-6 px-5 pt-20 sm:px-8">
+      <section id="sdgs" aria-labelledby="sdgs-title" className="mx-auto max-w-6xl scroll-mt-6 px-5 pt-12 sm:px-8 sm:pt-20">
         <p className="text-sm font-bold uppercase tracking-wider text-brand-600">Sustainable Development Goals</p>
-        <h2 id="sdgs-title" className="mt-2 max-w-2xl text-3xl font-extrabold text-brand-950 sm:text-4xl">
+        <h2 id="sdgs-title" className="mt-2 max-w-2xl text-2xl font-extrabold text-brand-950 sm:text-4xl">
           Less food wasted, better work in small kitchens
         </h2>
-        <ul className="mt-10 space-y-5">
+        <ul className="mt-6 space-y-5 sm:mt-10">
           {SDGS.map((s) => (
-            <li key={s.goal} className="rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                <img src={s.icon} alt={`SDG ${s.goal}: ${s.title}`} width={112} height={112} loading="lazy" className="h-28 w-28 shrink-0 rounded-md" />
+            <li key={s.goal} className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-8">
+              <div className="flex items-start gap-4 sm:items-center sm:gap-5">
+                <img src={s.icon} alt={`SDG ${s.goal}: ${s.title}`} width={112} height={112} loading="lazy" className="h-16 w-16 shrink-0 rounded-md sm:h-28 sm:w-28" />
                 <div>
-                  <h3 className="text-xl font-bold text-brand-950">
+                  <h3 className="text-lg font-bold text-brand-950 sm:text-xl">
                     Goal {s.goal}: {s.title}
                   </h3>
                   <p className="mt-1 text-muted">{s.statement}</p>
@@ -167,7 +169,7 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
                   </a>
                 </div>
               </div>
-              <ul className="mt-6 grid gap-4 lg:grid-cols-2">
+              <ul className="mt-4 grid gap-3 sm:mt-6 sm:gap-4 lg:grid-cols-2">
                 {s.targets.map((t) => (
                   <li key={t.id} className="rounded-xl bg-surface p-4">
                     <p className="text-sm font-bold text-brand-950">Target {t.id}</p>
@@ -185,8 +187,8 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
         </ul>
       </section>
 
-      <section aria-labelledby="cta-title" className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
-        <div className="hero-pattern flex flex-col items-start gap-6 rounded-3xl px-8 py-12 text-white sm:px-12 lg:flex-row lg:items-center">
+      <section aria-labelledby="cta-title" className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-20">
+        <div className="hero-pattern flex flex-col items-start gap-4 rounded-3xl px-6 py-8 text-white sm:gap-6 sm:px-12 sm:py-12 lg:flex-row lg:items-center">
           <MascotFigure who="cabbage" action="wave" size={88} />
           <div className="flex-1">
             <h2 id="cta-title" className="text-2xl font-extrabold sm:text-3xl">
