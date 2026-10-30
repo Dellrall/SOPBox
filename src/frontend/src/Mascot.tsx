@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { MessageCircle, X } from "lucide-react";
+import { MessageCircle, Sparkles, X } from "lucide-react";
 import type { PageId } from "./App";
+import { AskPanel } from "./Ask";
 
 /**
  * The cabbage, carrot and fish from the logo, keeping the user company: whichever page is open
@@ -461,6 +462,7 @@ export function MascotDock({ fallback, go, page }: { fallback: Scene; go: (page:
   const [paw, setPaw] = useState(0);
   const [typing, setTyping] = useState(false);
   const [petLine, setPetLine] = useState("");
+  const [asking, setAsking] = useState(false);
   const typingTimer = useRef(0);
   const petTimer = useRef(0);
   const homeRef = useRef<HTMLButtonElement>(null);
@@ -582,7 +584,8 @@ export function MascotDock({ fallback, go, page }: { fallback: Scene; go: (page:
       </div>
     )}
     <div className="pointer-events-none fixed bottom-2 right-2 z-20 flex items-end gap-1 print:hidden sm:bottom-4 sm:right-4">
-      {!roam && bubble}
+      {asking && <AskPanel go={go} onClose={() => setAsking(false)} />}
+      {!roam && !asking && bubble}
       {tucked && !stop && !petLine && (scene.text || error) && (
         <button
           type="button"
@@ -594,6 +597,16 @@ export function MascotDock({ fallback, go, page }: { fallback: Scene; go: (page:
           <MessageCircle aria-hidden className="h-4 w-4" />
         </button>
       )}
+      <button
+        type="button"
+        onClick={() => setAsking((a) => !a)}
+        aria-expanded={asking}
+        className="pointer-events-auto mb-1 rounded-full bg-brand-600 p-2 text-white shadow ring-1 ring-brand-700 hover:bg-brand-700"
+        aria-label="Ask the helper"
+        title="Ask about your stock, orders and prices"
+      >
+        <Sparkles aria-hidden className="h-4 w-4" />
+      </button>
       <button
         type="button"
         onClick={() => target && go(target)}

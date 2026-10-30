@@ -26,6 +26,8 @@ import type {
   CountInsights,
   GapExplanation,
   ReorderSuggestion,
+  PriceChange,
+  AskAnswer,
   Me,
   Product,
   ProductIn,
@@ -290,6 +292,8 @@ export const api = {
   cancelPurchaseOrder: (id: number, reason: string) => post<PurchaseOrder>(`/purchase-orders/${id}/cancel`, { reason }),
   lowStockSuppliers: () => get<LowStockSupplier[]>("/purchase-orders/low-stock-suppliers"),
   reorderSuggestions: () => get<ReorderSuggestion[]>("/purchase-orders/reorder-suggestions"),
+  priceChanges: () => get<PriceChange[]>("/insights/price-changes"),
+  ask: (question: string) => post<AskAnswer>("/ask", { question }),
   lowStockDraft: (supplier_id: number, order_date: string) =>
     post<PurchaseOrder>("/purchase-orders/low-stock-draft", { supplier_id, order_date }),
 };

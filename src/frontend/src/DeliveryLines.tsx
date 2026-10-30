@@ -18,6 +18,7 @@ export default function DeliveryLines({ lines }: { lines: DeliveryLine[] }) {
               line.received_base_qty !== line.quantity &&
               ` (${line.received_base_qty} base units)`}
             {line.temp_c !== null && `, ${line.temp_c} °C`}
+            {line.unit_price_sen !== null && `, RM${(line.unit_price_sen / 100).toFixed(2)} per ${line.unit}`}
           </p>
           {line.issues.map((issue) => (
             <p key={issue} className="text-amber-900">

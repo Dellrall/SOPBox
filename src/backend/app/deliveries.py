@@ -153,8 +153,8 @@ def create_delivery(
         for line, check in zip(lines, checks):
             conn.execute(
                 "INSERT INTO delivery_lines (delivery_id, product_id, name, quantity, unit, temp_c, "
-                "expected_base_qty, received_base_qty, passed, issues) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                "expected_base_qty, received_base_qty, passed, issues, unit_price_sen) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (
                     delivery_id,
                     line.product_id,
@@ -166,6 +166,7 @@ def create_delivery(
                     check.received_base_qty,
                     check.passed,
                     json.dumps(check.issues),
+                    line.unit_price_sen,
                 ),
             )
         for photo in data.photos:

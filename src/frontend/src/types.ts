@@ -229,6 +229,7 @@ export type ExtractedLine = {
   name: string;
   quantity: number | null; // null: the model could not read it, staff fill it in
   unit: string | null;
+  unit_price: number | null; // RM for one unit, as printed
   warning: string | null;
   product_id: number | null;
 };
@@ -242,6 +243,7 @@ export type DeliveryLineIn = {
   unit: string;
   temp_c: number | null;
   expected_base_qty: number | null;
+  unit_price_sen: number | null; // one delivered unit, as on the invoice
 };
 
 // The server records who received it from the signed-in user.
@@ -361,6 +363,25 @@ export type CountGap = Omit<StocktakeLine, "id"> & {
   earlier: number[]; // differences at earlier counts of the storage area, newest first
   pattern: "repeat" | "one_off" | "over";
   hint: string;
+  value_sen: number | null; // the difference at the latest delivered price
+};
+export type PriceChange = {
+  product_id: number;
+  product_name: string;
+  base_unit: string;
+  supplier: string;
+  before_sen: number; // per base unit
+  now_sen: number;
+  change: number; // now / before - 1
+  delivery_id: number;
+  received_at: string;
+  previous_at: string;
+};
+export type AskAnswer = {
+  topic: "waste" | "reorder" | "prices" | "approvals" | "use" | "help";
+  text: string;
+  items: string[];
+  to: string | null; // the page with the details
 };
 export type CountInsights = { stocktake_id: number; reference: string; sales_recorded: boolean; gaps: CountGap[] };
 export type GapExplanation = { summary: string; actions: string[] };

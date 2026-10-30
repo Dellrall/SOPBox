@@ -34,6 +34,7 @@ type Draft = {
   unit: string;
   temp: string;
   expected: string; // expected quantity in base units, optional
+  price: string; // RM for one unit, optional
   note: string; // what the AI flagged on this line, for staff to check
 };
 
@@ -46,6 +47,7 @@ const blankLine = (): Draft => ({
   unit: "",
   temp: "",
   expected: "",
+  price: "",
   note: "",
 });
 
@@ -161,6 +163,7 @@ export default function Receive({
             name: l.name,
             quantity: l.quantity === null ? "" : String(l.quantity),
             unit: l.unit === null ? "" : product ? matchUnit(product, l.unit) : l.unit,
+            price: l.unit_price === null ? "" : l.unit_price.toFixed(2),
             // The model's own note says why; the generic reasons only fill in when it gave none.
             note:
               l.warning ??
@@ -207,6 +210,7 @@ export default function Receive({
       const quantity = Number(l.quantity);
       const temp = optionalNumber(l.temp);
       const expected = optionalNumber(l.expected);
+      const price = optionalNumber(l.price.replace(/^\s*RM\s*/i, "").replace(/,/g, ""));
       if (!name) return setError(`Line ${i + 1}: choose a product or type its name.`);
       if (!Number.isInteger(quantity) || quantity <= 0)
         return setError(`Line ${i + 1}: quantity must be a whole number above 0.`);
@@ -214,6 +218,8 @@ export default function Receive({
       if (temp !== null && Number.isNaN(temp)) return setError(`Line ${i + 1}: temperature must be a number.`);
       if (expected !== null && (!Number.isInteger(expected) || expected <= 0))
         return setError(`Line ${i + 1}: expected quantity must be a whole number above 0.`);
+      if (price !== null && (Number.isNaN(price) || price < 0))
+        return setError(`Line ${i + 1}: price must be an amount in RM, like 12.50.`);
       payload.push({
         product_id: l.productId,
         name,
@@ -221,6 +227,7 @@ export default function Receive({
         unit: l.unit.trim(),
         temp_c: temp,
         expected_base_qty: expected,
+        unit_price_sen: price === null ? null : Math.round(price * 100),
       });
     }
 
@@ -474,6 +481,20 @@ export default function Receive({
                   </label>
                   <input id={`expected-${line.key}`} className={inputClass} inputMode="numeric" value={line.expected} onChange={(e) => update(line.key, { expected: e.target.value })} />
                   {product && <p className="mt-1 text-xs text-slate-600">Counted in {product.base_unit}</p>}
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor={`price-${line.key}`}>
+                    Price per {line.unit.trim() || "unit"} (RM)
+                  </label>
+                  <input
+                    id={`price-${line.key}`}
+                    className={inputClass}
+                    inputMode="decimal"
+                    placeholder="Optional"
+                    value={line.price}
+                    onChange={(e) => update(line.key, { price: e.target.value })}
+                  />
+                  <p className="mt-1 text-xs text-slate-600">As on the invoice. Spots price rises.</p>
                 </div>
               </div>
               {lines.length > 1 && (

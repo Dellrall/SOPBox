@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes
+from app import apikeys, ask, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -34,6 +34,9 @@ from app.errors import (
 )
 from app.extraction import explain_gaps, extract_lines, extract_products, write_sop
 from app.models import (
+    AskAnswer,
+    AskIn,
+    PriceChange,
     CountInsights,
     GapExplanation,
     ReorderSuggestion,
@@ -1106,6 +1109,18 @@ def create_stocktake(body: StocktakeCreateIn, user: StocktakeEditor, conn: Conn)
 @app.get("/api/stocktakes/{stocktake_id}", response_model=StocktakeDetail)
 def get_stocktake(stocktake_id: int, user: StocktakeReader, conn: Conn):
     return stocktakes.get_stocktake(conn, user.workspace_id, stocktake_id)
+
+
+@app.get("/api/insights/price-changes", response_model=list[PriceChange])
+def price_changes(user: PurchasingReader, conn: Conn):
+    """Delivered prices that moved by 10% or more in the last 30 days."""
+    return insights.price_changes(conn, user.workspace_id)
+
+
+@app.post("/api/ask", response_model=AskAnswer)
+def ask_helper(body: AskIn, user: User, conn: Conn):
+    """A question to the helper, answered from the records the asker can see."""
+    return ask.answer(conn, user, body.question)
 
 
 @app.get("/api/stocktakes/{stocktake_id}/insights", response_model=CountInsights)

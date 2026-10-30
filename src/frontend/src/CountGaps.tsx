@@ -43,10 +43,14 @@ export function CountGaps({ stocktakeId }: { stocktakeId: number }) {
 
   if (!found) return <ErrorNote message={error} />;
   if (found.gaps.length === 0) return null;
+  const lost = -found.gaps.reduce((sum, g) => sum + Math.min(0, g.value_sen ?? 0), 0);
   return (
     <section aria-label="What stands out" className="space-y-3 rounded-xl bg-surface p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="text-sm font-bold text-brand-950">What stands out</h4>
+        <div>
+          <h4 className="text-sm font-bold text-brand-950">What stands out</h4>
+          {lost > 0 && <p className="text-xs text-muted">Missing stock with a price: about RM{(lost / 100).toFixed(2)} at the latest delivered prices.</p>}
+        </div>
         <button type="button" className={secondaryButton} disabled={busy} onClick={() => void explain()}>
           {busy ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Sparkles aria-hidden className="h-4 w-4" />}
           {busy ? "Reading… (up to 3 min if the AI was asleep)" : reading ? "Explain again" : "Explain with AI"}
@@ -77,6 +81,9 @@ export function CountGaps({ stocktakeId }: { stocktakeId: number }) {
                 {signed(g.difference)} {g.base_unit}
               </span>
               {g.share !== null && <span className="text-muted">({Math.abs(Math.round(g.share * 100))}% of expected)</span>}
+              {g.value_sen !== null && g.value_sen !== 0 && (
+                <span className="text-muted">≈ RM{(Math.abs(g.value_sen) / 100).toFixed(2)}</span>
+              )}
               <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${PATTERN[g.pattern].tone}`}>{PATTERN[g.pattern].label}</span>
             </div>
             {g.earlier.length > 0 && (
