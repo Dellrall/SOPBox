@@ -112,6 +112,22 @@ def check_username_lookup_allowed(client: str) -> None:
         _username_checks[client] = [*hits, now]
 
 
+# Google's load balancer in front of Replit appends "<client>, <load balancer>" to whatever
+# X-Forwarded-For the client sent, so the client's own address is second from the right. The
+# leftmost entry (what uvicorn's --forwarded-allow-ips='*' picks) is typed by the client.
+TRUSTED_PROXY_HOPS = 2
+
+
+def client_address(request: Request) -> str:
+    """The address per-address limits count against; one a client cannot choose."""
+    forwarded = [part.strip() for part in request.headers.get("x-forwarded-for", "").split(",") if part.strip()]
+    if len(forwarded) >= TRUSTED_PROXY_HOPS:
+        return forwarded[-TRUSTED_PROXY_HOPS]
+    if forwarded:
+        return forwarded[0]
+    return request.client.host if request.client else "unknown"
+
+
 # Any other request count per address or key, in a sliding window.
 _hits: dict[str, list[float]] = {}
 

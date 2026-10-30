@@ -474,3 +474,14 @@ def test_a_username_can_be_checked_as_it_is_typed(client):
     for _ in range(30):
         stranger.get("/api/auth/username-available", params={"username": "zed"})
     assert stranger.get("/api/auth/username-available", params={"username": "zed"}).status_code == 429
+
+
+def test_a_made_up_forwarded_address_does_not_dodge_the_limit(anon):
+    # Behind Google's load balancer the header reads "<typed>, <client>, <load balancer>".
+    check = lambda typed: anon.get(
+        "/api/auth/username-available", params={"username": "zed"},
+        headers={"X-Forwarded-For": f"{typed}, 198.51.100.7, 34.117.33.233"},
+    ).status_code
+    for n in range(30):
+        assert check(f"203.0.113.{n}") == 200
+    assert check("203.0.113.99") == 429
