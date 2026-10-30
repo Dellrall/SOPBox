@@ -110,17 +110,17 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
           The AI only reads the paperwork. Whether a delivery passes is decided by rules you set, and
           anything that fails is decided by a person. So it never "guesses" a delivery through.
         </p>
-        <ol className="mt-6 grid gap-4 sm:mt-10 sm:gap-5 md:grid-cols-3">
+        <ol className="-mx-5 mt-6 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-1 sm:scroll-px-8 [scrollbar-width:none] sm:-mx-8 sm:mt-10 sm:px-8 md:mx-0 md:grid md:grid-cols-3 md:gap-5 md:overflow-visible md:px-0">
           {PRINCIPLES.map(({ who, action, title, text }, i) => (
-            <li key={title} className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
+            <li key={title} className="w-[78%] shrink-0 snap-start rounded-2xl border border-line bg-white p-4 shadow-sm sm:w-[45%] sm:p-6 md:w-auto">
               <div className="flex items-end justify-between gap-3">
                 <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-700">Step {i + 1}</span>
                 {/* The crew acts out each step: reading, probing, signing off. */}
-                <span className="flex h-20 w-20 items-end justify-center rounded-2xl bg-gradient-to-b from-brand-50 to-white">
+                <span className="flex h-16 w-16 items-end justify-center rounded-2xl bg-gradient-to-b from-brand-50 to-white sm:h-20 sm:w-20">
                   <MascotFigure who={who} action={action} size={64} />
                 </span>
               </div>
-              <h3 className="mt-4 text-lg font-bold text-brand-950">{title}</h3>
+              <h3 className="mt-2 text-lg font-bold text-brand-950 sm:mt-4">{title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{text}</p>
             </li>
           ))}
@@ -163,15 +163,15 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
                   <h3 className="text-lg font-bold text-brand-950 sm:text-xl">
                     Goal {s.goal}: {s.title}
                   </h3>
-                  <p className="mt-1 text-muted">{s.statement}</p>
+                  <p className="mt-1 text-sm text-muted sm:text-base">{s.statement}</p>
                   <a href={s.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-semibold text-brand-700 hover:underline">
                     About Goal {s.goal} at un.org
                   </a>
                 </div>
               </div>
-              <ul className="mt-4 grid gap-3 sm:mt-6 sm:gap-4 lg:grid-cols-2">
+              <ul className="-mx-5 mt-4 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 sm:scroll-px-8 [scrollbar-width:none] sm:-mx-8 sm:mt-6 sm:px-8 lg:mx-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:overflow-visible lg:px-0">
                 {s.targets.map((t) => (
-                  <li key={t.id} className="rounded-xl bg-surface p-4">
+                  <li key={t.id} className="w-[85%] shrink-0 snap-start rounded-xl bg-surface p-4 sm:w-[60%] lg:w-auto">
                     <p className="text-sm font-bold text-brand-950">Target {t.id}</p>
                     <blockquote cite={s.url} className="mt-1 text-sm italic leading-relaxed text-muted">
                       {t.text}
@@ -189,7 +189,9 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
 
       <section aria-labelledby="cta-title" className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-20">
         <div className="hero-pattern flex flex-col items-start gap-4 rounded-3xl px-6 py-8 text-white sm:gap-6 sm:px-12 sm:py-12 lg:flex-row lg:items-center">
-          <MascotFigure who="cabbage" action="wave" size={88} />
+          <span className="hidden sm:block">
+            <MascotFigure who="cabbage" action="wave" size={88} />
+          </span>
           <div className="flex-1">
             <h2 id="cta-title" className="text-2xl font-extrabold sm:text-3xl">
               Run your next delivery through SOPBox
@@ -203,7 +205,7 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
             <a {...link("/register")} className={ctaButton}>
               Create a workspace
             </a>
-            <a {...link("/signin")} className="inline-flex items-center rounded-xl px-6 py-3 text-base font-semibold text-white ring-1 ring-white/30 hover:bg-white/10">
+            <a {...link("/signin")} className="inline-flex items-center rounded-xl px-4 py-3 sm:px-6 text-base font-semibold text-white ring-1 ring-white/30 hover:bg-white/10">
               Sign in
             </a>
           </div>
