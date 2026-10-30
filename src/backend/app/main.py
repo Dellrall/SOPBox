@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, closing, export, hq, inquiries, locations, mfa, notifications, ops, plans, sales, seo, stocktakes
+from app import apikeys, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -32,8 +32,11 @@ from app.errors import (
     NotFoundError,
     RateLimitError,
 )
-from app.extraction import extract_lines, extract_products, write_sop
+from app.extraction import explain_gaps, extract_lines, extract_products, write_sop
 from app.models import (
+    CountInsights,
+    GapExplanation,
+    ReorderSuggestion,
     CloseIn,
     ClosingOut,
     OpsWorkspaceOut,
@@ -912,6 +915,12 @@ def low_stock_suppliers(user: PurchasingEditor, conn: Conn):
     return purchasing.low_stock_suppliers(conn, user.workspace_id)
 
 
+@app.get("/api/purchase-orders/reorder-suggestions", response_model=list[ReorderSuggestion])
+def reorder_suggestions(user: PurchasingEditor, conn: Conn):
+    """What Draft from low stock would order and why: the minimum plus a week of recent use."""
+    return purchasing.reorder_suggestions(conn, user.workspace_id)[0]
+
+
 @app.get("/api/purchase-orders/{order_id}", response_model=PurchaseOrder)
 def get_purchase_order(order_id: int, user: PurchasingReader, conn: Conn):
     order = purchasing.get_order(conn, user.workspace_id, order_id)
@@ -1097,6 +1106,27 @@ def create_stocktake(body: StocktakeCreateIn, user: StocktakeEditor, conn: Conn)
 @app.get("/api/stocktakes/{stocktake_id}", response_model=StocktakeDetail)
 def get_stocktake(stocktake_id: int, user: StocktakeReader, conn: Conn):
     return stocktakes.get_stocktake(conn, user.workspace_id, stocktake_id)
+
+
+@app.get("/api/stocktakes/{stocktake_id}/insights", response_model=CountInsights)
+def stocktake_insights(stocktake_id: int, user: StocktakeReader, conn: Conn):
+    """The count's gaps, with how each product counted before and what to check."""
+    return insights.count_insights(conn, user.workspace_id, stocktake_id)
+
+
+@app.post("/api/stocktakes/{stocktake_id}/explain", response_model=GapExplanation)
+def explain_stocktake(stocktake_id: int, user: StocktakeReader, conn: Conn):
+    """The model's reading of the gaps, from the numbers above. Nothing is saved."""
+    found = insights.count_insights(conn, user.workspace_id, stocktake_id)
+    if not found.gaps:
+        raise InvalidRequestError("nothing to explain: every product matched")
+    return explain_gaps({
+        "sales_recorded": found.sales_recorded,
+        "products": [
+            g.model_dump(include={"product_name", "base_unit", "expected_stock", "counted_stock", "difference", "earlier", "pattern"})
+            for g in found.gaps[:15]
+        ],
+    })
 
 
 # ---- outlets, storage areas, transfers and sales -------------------------------------------------

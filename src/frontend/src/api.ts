@@ -23,6 +23,9 @@ import type {
   DeliveryStatus,
   ExtractedLine,
   LowStockSupplier,
+  CountInsights,
+  GapExplanation,
+  ReorderSuggestion,
   Me,
   Product,
   ProductIn,
@@ -224,6 +227,8 @@ export const api = {
   stocktakeProducts: (storageId?: number) =>
     get<StocktakeProduct[]>(`/stocktakes/products${storageId ? `?storage_id=${storageId}` : ""}`),
   stocktake: (id: number) => get<StocktakeDetail>(`/stocktakes/${id}`),
+  stocktakeInsights: (id: number) => get<CountInsights>(`/stocktakes/${id}/insights`),
+  explainStocktake: (id: number) => post<GapExplanation>(`/stocktakes/${id}/explain`),
   createStocktake: (body: StocktakeCreateIn) => post<StocktakeDetail>("/stocktakes", body),
   previewStocktake: (file: File, storageId?: number) =>
     upload<StocktakePreview>(`/stocktakes/preview${storageId ? `?storage_id=${storageId}` : ""}`, file),
@@ -284,6 +289,7 @@ export const api = {
   issuePurchaseOrder: (id: number) => post<PurchaseOrder>(`/purchase-orders/${id}/issue`),
   cancelPurchaseOrder: (id: number, reason: string) => post<PurchaseOrder>(`/purchase-orders/${id}/cancel`, { reason }),
   lowStockSuppliers: () => get<LowStockSupplier[]>("/purchase-orders/low-stock-suppliers"),
+  reorderSuggestions: () => get<ReorderSuggestion[]>("/purchase-orders/reorder-suggestions"),
   lowStockDraft: (supplier_id: number, order_date: string) =>
     post<PurchaseOrder>("/purchase-orders/low-stock-draft", { supplier_id, order_date }),
 };

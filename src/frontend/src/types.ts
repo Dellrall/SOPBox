@@ -291,6 +291,18 @@ export type DeliveryTag = { user_id: number; username: string; display_name: str
 // accept_passed: stock the lines that passed, send the failed ones back.
 /** A supplier that Draft from low stock would order from, and the low-stock products it would get. */
 export type LowStockSupplier = { supplier_id: number; name: string; products: string[]; has_product_list: boolean };
+export type ReorderSuggestion = {
+  product_id: number;
+  product_name: string;
+  base_unit: string;
+  stock: number;
+  min_stock: number;
+  daily_use: number;
+  days_left: number | null;
+  on_order: number;
+  quantity: number; // still to order after open orders
+  reason: string;
+};
 
 export type Decision = "accept" | "accept_passed" | "reject" | "return";
 
@@ -344,6 +356,14 @@ export type Stocktake = {
 };
 
 export type StocktakeDetail = Stocktake & { lines: StocktakeLine[] };
+export type CountGap = Omit<StocktakeLine, "id"> & {
+  share: number | null; // difference / expected; null when 0 was expected
+  earlier: number[]; // differences at earlier counts of the storage area, newest first
+  pattern: "repeat" | "one_off" | "over";
+  hint: string;
+};
+export type CountInsights = { stocktake_id: number; reference: string; sales_recorded: boolean; gaps: CountGap[] };
+export type GapExplanation = { summary: string; actions: string[] };
 export type StocktakePreviewLine = Omit<StocktakeLine, "id" | "product_id"> & { product_id: number };
 export type StocktakePreview = { lines: StocktakePreviewLine[] };
 export type StocktakeProduct = {

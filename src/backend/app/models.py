@@ -435,6 +435,35 @@ class StocktakeDetail(StocktakeOut):
     lines: list[StocktakeLineOut]
 
 
+class CountGap(BaseModel):
+    """One product a count did not match, with how the same product counted before."""
+
+    product_id: int | None
+    product_name: str
+    base_unit: str
+    expected_stock: int
+    counted_stock: int
+    difference: int
+    share: float | None  # difference as a share of what was expected; None when 0 was expected
+    earlier: list[int]  # differences at the earlier counts of this storage area, newest first
+    pattern: Literal["repeat", "one_off", "over"]
+    hint: str
+
+
+class CountInsights(BaseModel):
+    stocktake_id: int
+    reference: str
+    sales_recorded: bool  # sales were taken off this storage area in the weeks before the count
+    gaps: list[CountGap]
+
+
+class GapExplanation(BaseModel):
+    """The model's reading of a count's gaps. A suggestion only: the manager decides."""
+
+    summary: str
+    actions: list[str]
+
+
 class StocktakePreviewLine(BaseModel):
     product_id: int
     product_name: str
@@ -833,6 +862,21 @@ class LowStockSupplier(BaseModel):
     name: str
     products: list[str]  # the low-stock products it would order
     has_product_list: bool  # False: no list set, so it is offered everything that is low
+
+
+class ReorderSuggestion(BaseModel):
+    """What to order of one product: enough for COVER_DAYS of recent use plus its minimum."""
+
+    product_id: int
+    product_name: str
+    base_unit: str
+    stock: int
+    min_stock: int
+    daily_use: float  # base units a day over the recent window; 0 when no use is recorded
+    days_left: float | None  # how long the stock lasts at that rate; None with no recorded use
+    on_order: int
+    quantity: int  # still to order, after what is on open orders
+    reason: str
 
 
 class LowStockDraftIn(_In):

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Download, FileUp, X } from "lucide-react";
 import { api } from "./api";
 import StocktakeHistory from "./StocktakeHistory";
+import { CountGaps } from "./CountGaps";
 import { StorageSelect, firstStorageId, useStorages } from "./StorageSelect";
 import { useMascot } from "./Mascot";
 import type { StocktakeDetail, StocktakeLine, StocktakePreviewLine, StocktakeProduct } from "./types";
@@ -535,10 +536,13 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
         onRefresh={() => void load()}
       >
         {selected && (
-          <ChangeRows
-            lines={selected.lines.map((line) => ({ ...line, key: line.id }))}
-            products={byId}
-          />
+          <>
+            <CountGaps stocktakeId={selected.id} />
+            <ChangeRows
+              lines={selected.lines.map((line) => ({ ...line, key: line.id }))}
+              products={byId}
+            />
+          </>
         )}
       </StocktakeHistory>
     </div>
