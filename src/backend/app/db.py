@@ -104,6 +104,8 @@ CREATE TABLE IF NOT EXISTS delivery_lines (
 );
 -- A line sent back while the rest of its delivery was accepted ("accept the good lines").
 ALTER TABLE delivery_lines ADD COLUMN IF NOT EXISTS returned BOOLEAN NOT NULL DEFAULT FALSE;
+-- What one delivered unit (the line's unit) cost, in sen, as on the invoice. NULL: not given.
+ALTER TABLE delivery_lines ADD COLUMN IF NOT EXISTS unit_price_sen BIGINT CHECK (unit_price_sen >= 0);
 -- Photos of the stock taken while receiving, for the manager who approves it. JPEG, shrunk on the phone.
 CREATE TABLE IF NOT EXISTS delivery_photos (
     id {_ID},

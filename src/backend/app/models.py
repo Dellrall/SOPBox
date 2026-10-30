@@ -162,12 +162,24 @@ class ExtractedLine(_Clean):
     name: str = Field(min_length=1, max_length=120)
     quantity: int | None = Field(default=None, gt=0)
     unit: str | None = Field(default=None, min_length=1, max_length=20)
+    unit_price: float | None = Field(default=None, ge=0, le=1_000_000)  # RM per unit, as printed
     warning: str | None = Field(default=None, max_length=200)
 
     @field_validator("unit", "warning", mode="before")
     @classmethod
     def _blank_is_none(cls, value: object) -> object:
         return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator("unit_price", mode="before")
+    @classmethod
+    def _price(cls, value: object) -> object:
+        """A printed "RM 1,250.50" reads as 1250.5. A price that cannot be read is dropped, not the line."""
+        if isinstance(value, str):
+            found = re.search(r"\d[\d,]*(?:\.\d+)?", value)
+            value = float(found.group().replace(",", "")) if found else None
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 1_000_000:
+            return None
+        return value
 
 
 _PACK_SIZE = re.compile(
@@ -242,6 +254,7 @@ class DeliveryLineIn(_In):
     unit: str = Field(min_length=1, max_length=20)
     temp_c: float | None = Field(default=None, ge=-60, le=100)  # probe reading
     expected_base_qty: int | None = Field(default=None, gt=0)
+    unit_price_sen: int | None = Field(default=None, ge=0, le=100_000_000)  # one delivered unit, in sen
 
 
 class DeliveryIn(_In):
@@ -323,6 +336,7 @@ class DeliveryLine(BaseModel):
     passed: bool
     issues: list[str]
     returned: bool = False  # sent back while the rest of the delivery was accepted
+    unit_price_sen: int | None = None
 
 
 class Delivery(BaseModel):
@@ -448,6 +462,35 @@ class CountGap(BaseModel):
     earlier: list[int]  # differences at the earlier counts of this storage area, newest first
     pattern: Literal["repeat", "one_off", "over"]
     hint: str
+    value_sen: int | None = None  # the difference at the latest delivered price; None with no price
+
+
+class PriceChange(BaseModel):
+    """A product's latest delivered price against the delivery before it, per base unit."""
+
+    product_id: int
+    product_name: str
+    base_unit: str
+    supplier: str
+    before_sen: float  # per base unit
+    now_sen: float
+    change: float  # now / before - 1
+    delivery_id: int
+    received_at: str
+    previous_at: str
+
+
+class AskIn(_In):
+    question: str = Field(min_length=1, max_length=300)
+
+
+class AskAnswer(BaseModel):
+    """An answer worked out from the records. `to` is the page with the details."""
+
+    topic: Literal["waste", "reorder", "prices", "approvals", "use", "help"]
+    text: str
+    items: list[str] = []
+    to: str | None = None
 
 
 class CountInsights(BaseModel):

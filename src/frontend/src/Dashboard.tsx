@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, ArrowRight, CheckCircle2, Circle, Clock, PackageX, ScanLine, ThumbsUp, Truck, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ArrowRight, TrendingUp, CheckCircle2, Circle, Clock, PackageX, ScanLine, ThumbsUp, Truck, type LucideIcon } from "lucide-react";
 import { api } from "./api";
 import { DeliveriesChart, LowStockBars } from "./DashboardCharts";
 import { useMascot } from "./Mascot";
 import { LatestNotification } from "./Inbox";
 import { SetupChecklist } from "./Guide";
 import type { PageId } from "./App";
-import type { DashboardSummary, Me, Notification, PurchaseOrder } from "./types";
+import type { DashboardSummary, Me, Notification, PriceChange, PurchaseOrder } from "./types";
 import { Empty, ErrorNote, PageTitle, SectionTitle, StatusBadge, cardClass, panelClass, primaryButton, secondaryButton, when } from "./ui";
 
 /** A number with what it counts and when ("today", "right now"); opens its page when it has one. */
@@ -120,6 +120,7 @@ export default function Dashboard({
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState("");
   const [coming, setComing] = useState<PurchaseOrder[] | null>(null);
+  const [prices, setPrices] = useState<PriceChange[]>([]);
 
   useEffect(() => {
     api
@@ -138,6 +139,7 @@ export default function Dashboard({
           ),
         )
         .catch(() => setComing(null));
+    if (canViewPurchasing) api.priceChanges().then(setPrices).catch(() => setPrices([]));
   }, [canViewPurchasing]);
 
   const waiting = data?.pending_count ?? 0;
@@ -342,6 +344,29 @@ export default function Dashboard({
                 <ComingIn orders={coming} onOpen={() => go("purchasing")} />
               )}
             </>
+          )}
+          {prices.length > 0 && (
+            <section aria-labelledby="price-changes" className="space-y-2 pt-3">
+              <h2 id="price-changes" className="inline-flex items-center gap-2 text-base font-bold text-brand-950">
+                <TrendingUp aria-hidden className="h-4 w-4 text-brand-700" /> Price changes
+              </h2>
+              <ul className={`${panelClass} divide-y divide-line`}>
+                {prices.map((c) => (
+                  <li key={c.product_id} className="px-5 py-3 text-sm">
+                    <span className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-semibold text-ink">{c.product_name}</span>
+                      <span className={`font-semibold tabular-nums ${c.change > 0 ? "text-red-700" : "text-emerald-800"}`}>
+                        {c.change > 0 ? "▲" : "▼"} {Math.abs(Math.round(c.change * 100))}%
+                      </span>
+                    </span>
+                    <span className="block text-xs text-muted">
+                      RM{(c.before_sen / 100).toFixed(2)} to RM{(c.now_sen / 100).toFixed(2)} per {c.base_unit}
+                      {c.supplier && ` · ${c.supplier}`} · {when(c.received_at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
         </section>
       </div>

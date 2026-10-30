@@ -461,6 +461,30 @@ test.describe("stock insights", () => {
   });
 });
 
+test.describe("ask the helper", () => {
+  test("a manager asks what to order and opens the details", async ({ browser, baseURL }, testInfo) => {
+    const context = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const tag = `${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    expect((await context.request.post("/api/auth/register", {
+      data: { workspace_name: `Ask ${tag}`, display_name: "Ari Owner", email: `a${tag}@example.com`, username: `a${tag}`, password: PASSWORD },
+    })).ok()).toBe(true);
+    const category = await (await context.request.post("/api/categories", { data: { name: "Dry" } })).json();
+    await context.request.post("/api/products", { data: { name: "Cooking oil", category_id: category.id, base_unit: "L", min_stock: 4 } });
+
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.getByRole("button", { name: "Ask the helper" }).tap();
+    const chat = page.getByRole("dialog", { name: "Ask the helper" });
+    await chat.getByRole("button", { name: "What should we order?" }).tap();
+    await expect(chat).toContainText("Cooking oil: 4 L. Below its minimum of 4 L.");
+    await expectFitsScreen(page);
+    await chat.getByRole("button", { name: "See the details" }).tap();
+    await expect(chat).toBeHidden();
+    await expect(page.getByRole("heading", { name: "Purchase orders", level: 1 })).toBeVisible();
+    await context.close();
+  });
+});
+
 test.describe("closing the business", () => {
   test("the owner downloads a copy, closes it, sees it read-only, and reopens it", async ({ browser, baseURL }, testInfo) => {
     // Its own workspace: closing one the other tests share would stop them.

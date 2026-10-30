@@ -1,4 +1,5 @@
-"""What the stock records say: where counts keep coming up short, and what to reorder.
+"""What the stock records say: where counts keep coming up short, what to reorder, and which
+delivered prices moved.
 
 Everything here is plain arithmetic on saved records, so it works with the model switched off.
 The model only puts a count's gaps into words (extraction.explain_gaps), from the numbers worked
@@ -12,13 +13,26 @@ import psycopg
 
 from app import stocktakes
 from app.errors import NotFoundError
-from app.models import CountGap, CountInsights, Product, ReorderSuggestion
+from app.models import CountGap, CountInsights, PriceChange, Product, ReorderSuggestion
 
 EARLIER_COUNTS = 4  # earlier counts of the same storage area compared with this one
 REPEAT_SHORT = 2  # this many of them short as well makes a gap a repeat
 USAGE_DAYS = 28  # recent use is measured over this window
 MIN_USAGE_DAYS = 7  # a younger record is still spread over a week, so one busy day is not a trend
 COVER_DAYS = 7  # a suggested order lasts this long at recent use, on top of the minimum
+PRICE_DAYS = 30  # price changes delivered in this window are shown
+PRICE_STEP = 0.10  # a change of at least this share is worth a manager's look
+
+# Delivered lines with a price, oldest first, and that price per base unit. A line not matched to
+# a product, or with nothing received in base units, has no price per base unit to compare.
+_PRICED_LINES = """
+SELECT l.product_id, p.name AS product_name, p.base_unit, d.id AS delivery_id, d.supplier, d.created_at,
+       l.unit_price_sen::float8 * l.quantity / l.received_base_qty AS per_base
+FROM delivery_lines l JOIN deliveries d ON d.id = l.delivery_id JOIN products p ON p.id = l.product_id
+WHERE d.workspace_id = %s AND d.status IN ('accepted', 'pending_approval') AND NOT l.returned
+  AND l.unit_price_sen IS NOT NULL AND l.received_base_qty > 0
+ORDER BY d.created_at, d.id, l.id
+"""
 
 
 def _hint(pattern: str, earlier: list[int], sales_recorded: bool) -> str:
@@ -65,6 +79,7 @@ def count_insights(conn: psycopg.Connection, ws: int, stocktake_id: int) -> Coun
         (ws, head["storage_id"], head["count_date"] - timedelta(days=USAGE_DAYS), head["count_date"]),
     ).fetchone()["any"]
 
+    price = latest_prices(conn, ws)
     gaps = []
     for l in lines:
         before = earlier.get(l.product_id, []) if l.product_id else []
@@ -80,6 +95,7 @@ def count_insights(conn: psycopg.Connection, ws: int, stocktake_id: int) -> Coun
             earlier=before,
             pattern=pattern,
             hint=_hint(pattern, before, sales_recorded),
+            value_sen=round(l.difference * price[l.product_id]) if l.product_id in price else None,
         ))
     rank = {"repeat": 0, "one_off": 1, "over": 2}
     gaps.sort(key=lambda g: (rank[g.pattern], -abs(g.share or 0), g.product_name.lower()))
@@ -149,3 +165,31 @@ def reorder(products: list[Product], use: dict[int, float], on_order: dict[int, 
             on_order=ordered, quantity=max(0, need - ordered), reason=reason,
         ))
     return sorted(out, key=lambda s: (s.days_left if s.days_left is not None else -1, s.product_name.lower()))
+
+
+def latest_prices(conn: psycopg.Connection, ws: int) -> dict[int, float]:
+    """Each product's latest delivered price per base unit, in sen."""
+    return {row["product_id"]: row["per_base"] for row in conn.execute(_PRICED_LINES, (ws,)).fetchall()}
+
+
+def price_changes(conn: psycopg.Connection, ws: int, today: date | None = None) -> list[PriceChange]:
+    """Products whose latest delivered price, within PRICE_DAYS, moved by PRICE_STEP or more from
+    the delivery before it. Biggest rise first."""
+    since = (today or date.today()) - timedelta(days=PRICE_DAYS)
+    last: dict[int, dict] = {}
+    changes: dict[int, PriceChange] = {}
+    for row in conn.execute(_PRICED_LINES, (ws,)).fetchall():
+        before = last.get(row["product_id"])
+        last[row["product_id"]] = row
+        if before is None or before["delivery_id"] == row["delivery_id"] or not before["per_base"]:
+            continue
+        change = row["per_base"] / before["per_base"] - 1
+        changes.pop(row["product_id"], None)  # only the latest delivery counts
+        if abs(change) >= PRICE_STEP and date.fromisoformat(row["created_at"][:10]) > since:
+            changes[row["product_id"]] = PriceChange(
+                product_id=row["product_id"], product_name=row["product_name"], base_unit=row["base_unit"],
+                supplier=row["supplier"], before_sen=round(before["per_base"], 2), now_sen=round(row["per_base"], 2),
+                change=round(change, 3), delivery_id=row["delivery_id"], received_at=row["created_at"],
+                previous_at=before["created_at"],
+            )
+    return sorted(changes.values(), key=lambda c: -c.change)
