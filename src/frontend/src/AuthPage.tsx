@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { BellRing, Camera, ClipboardCheck, ScrollText, ShieldCheck, Thermometer } from "lucide-react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { AtSign, BellRing, Camera, ClipboardCheck, Eye, EyeOff, Lock, Mail, ScrollText, ShieldCheck, Store, Thermometer, UserRound, type LucideIcon } from "lucide-react";
 import { api } from "./api";
 import type { PublicPath } from "./App";
 import type { KitchenScreen, Me } from "./types";
@@ -18,6 +18,24 @@ const STEPS = [
   { icon: ClipboardCheck, title: "Managers approve failures", text: "Accept, reject or return, with a reason. Nothing slips through." },
   { icon: BellRing, title: "Everyone is told, everything is logged", text: "Telegram alerts and a full audit trail of who did what, when." },
 ];
+
+/** A labelled input with an icon inside it on the left. */
+function Field({ id, label, icon: Icon, children }: { id: string; label: string; icon: LucideIcon; children: ReactNode }) {
+  return (
+    <div>
+      <label className={labelClass} htmlFor={id}>
+        {label}
+      </label>
+      <div className="relative">
+        <Icon aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const groupClass = "space-y-3 rounded-2xl border border-line bg-white p-4 shadow-sm";
+const groupTitle = "text-xs font-bold uppercase tracking-wider text-brand-700";
 
 /** Sign in, or create a new workspace. The person who creates a workspace becomes its owner. */
 export default function AuthPage({
@@ -42,6 +60,10 @@ export default function AuthPage({
   const usernameCheck = useUsernameCheck(username, mode !== "register");
   const [password, setPassword] = useState("");
   const [dropped, setDropped] = useState(false); // a typed character was not allowed in a username
+  // The username follows the email's first part until the person types one of their own.
+  const [usernameTyped, setUsernameTyped] = useState(false);
+  const [usernameFocus, setUsernameFocus] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   // On a kitchen tablet, people tap their name and type a PIN instead.
@@ -93,7 +115,7 @@ export default function AuthPage({
   );
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[1.05fr_1fr]">
+    <div className="flex min-h-dvh flex-col lg:grid lg:grid-cols-[1.05fr_1fr]">
       <section className="hero-pattern relative flex flex-col justify-between overflow-hidden px-5 py-4 text-white sm:px-10 sm:py-8 lg:min-h-screen lg:px-14 lg:py-12">
         <a
           href="/"
@@ -141,16 +163,17 @@ export default function AuthPage({
         </p>
       </section>
 
-      <main className="flex items-start justify-center bg-surface px-4 py-5 sm:px-6 sm:py-10 lg:items-center">
-        <div className="w-full max-w-md">
-          <h2 className="text-xl font-bold text-brand-950 sm:text-2xl">{mode === "signin" ? "Welcome back" : "Create your workspace"}</h2>
+      <main className="flex flex-1 flex-col items-center bg-surface px-4 py-5 sm:px-6 sm:py-10 lg:justify-center">
+        {/* Fills the screen on phones, so the footer sits at the bottom of the screen, not mid-page. */}
+        <div className="flex w-full max-w-md flex-1 flex-col lg:flex-none">
+          <h2 className="hidden text-2xl font-bold text-brand-950 sm:block">{mode === "signin" ? "Welcome back" : "Create your workspace"}</h2>
           <p className="mt-1 hidden text-sm text-muted sm:block">
             {mode === "signin"
               ? "Sign in to record and check today's deliveries."
               : "You'll be the owner. You can add your managers and staff next."}
           </p>
 
-          <div role="tablist" aria-label="Sign in or create a workspace" className="mt-4 flex sm:mt-6 gap-1 rounded-xl bg-slate-200/60 p-1">
+          <div role="tablist" aria-label="Sign in or create a workspace" className="flex gap-1 rounded-xl sm:mt-6 bg-slate-200/60 p-1">
             {tab("signin", "Sign in")}
             {tab("register", "Create a workspace")}
           </div>
@@ -159,80 +182,106 @@ export default function AuthPage({
 
           <form hidden={onTablet} onSubmit={(e) => void submit(e)} className="mt-4 space-y-3 sm:mt-6 sm:space-y-4">
             {mode === "register" && (
-              <>
-                <div>
-                  <label className={labelClass} htmlFor="workspace">
-                    Business name
-                  </label>
-                  <input id="workspace" required maxLength={80} autoComplete="organization" placeholder="e.g. Kopi Corner Sdn Bhd" className={inputClass} value={workspace} onChange={(e) => setWorkspace(e.target.value)} />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className={labelClass} htmlFor="display-name">
-                      Your name
-                    </label>
-                    <input id="display-name" required maxLength={80} autoComplete="name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className={labelClass} htmlFor="email">
-                      Email
-                    </label>
-                    <input id="email" type="email" required maxLength={254} autoComplete="email" inputMode="email" autoCapitalize="none" placeholder="you@business.com" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} />
-                  </div>
-                </div>
-              </>
+              <section aria-label="Your business" className={groupClass}>
+                <p className={groupTitle}>Your business</p>
+                <Field id="workspace" label="Business name" icon={Store}>
+                  <input id="workspace" required maxLength={80} autoComplete="organization" placeholder="e.g. Kopi Corner Sdn Bhd" className={`${inputClass} pl-9`} value={workspace} onChange={(e) => setWorkspace(e.target.value)} />
+                </Field>
+                <Field id="display-name" label="Your name" icon={UserRound}>
+                  <input id="display-name" required maxLength={80} autoComplete="name" placeholder="e.g. Aina Rahman" className={`${inputClass} pl-9`} value={name} onChange={(e) => setName(e.target.value)} />
+                </Field>
+              </section>
             )}
-            <div>
-              <label className={labelClass} htmlFor="username">
-                {mode === "signin" ? "Username or email" : "Username"}
-              </label>
-              <input
-                id="username"
-                required
-                autoComplete="username"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                {...(mode === "register" ? { minLength: 3, maxLength: 32, pattern: USERNAME_PATTERN, title: USERNAME_HINT } : { maxLength: 254 })}
-                aria-describedby={mode === "register" ? "username-hint" : undefined}
-                className={inputClass}
-                value={username}
-                onChange={(e) => {
-                  if (mode !== "register") return setUsername(e.target.value);
-                  const cleaned = cleanUsername(e.target.value);
-                  setUsername(cleaned.value);
-                  setDropped(cleaned.removed);
-                }}
-              />
-              {mode === "register" && <UsernameStatus check={usernameCheck} />}
+            <section aria-label={mode === "register" ? "Your sign-in" : undefined} className={mode === "register" ? groupClass : "space-y-3 sm:space-y-4"}>
+              {mode === "register" && <p className={groupTitle}>Your sign-in</p>}
               {mode === "register" && (
-                <p id="username-hint" className={`mt-1 text-xs ${dropped ? "font-semibold text-amber-800" : "text-muted"}`} aria-live="polite">
-                  {dropped ? "Spaces and symbols can't be used in a username, so they were left out. " : ""}
-                  {USERNAME_HINT}
-                </p>
+                <Field id="email" label="Email" icon={Mail}>
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    maxLength={254}
+                    autoComplete="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    placeholder="you@business.com"
+                    className={`${inputClass} pl-9`}
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (!usernameTyped) setUsername(cleanUsername(e.target.value.split("@")[0]).value);
+                    }}
+                  />
+                </Field>
               )}
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="password">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={mode === "register" ? 8 : 1}
-                autoComplete={mode === "register" ? "new-password" : "current-password"}
-                className={inputClass}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              {mode === "register" && <p className="mt-1 text-xs text-muted">At least 8 characters.</p>}
-            </div>
+              <div>
+                <Field id="username" label={mode === "signin" ? "Username or email" : "Username"} icon={AtSign}>
+                  <input
+                    id="username"
+                    required
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    {...(mode === "register" ? { minLength: 3, maxLength: 32, pattern: USERNAME_PATTERN, title: USERNAME_HINT } : { maxLength: 254 })}
+                    aria-describedby={mode === "register" ? "username-hint" : undefined}
+                    className={`${inputClass} pl-9`}
+                    value={username}
+                    onFocus={() => setUsernameFocus(true)}
+                    onBlur={() => setUsernameFocus(false)}
+                    onChange={(e) => {
+                      if (mode !== "register") return setUsername(e.target.value);
+                      const cleaned = cleanUsername(e.target.value);
+                      setUsername(cleaned.value);
+                      setDropped(cleaned.removed);
+                      setUsernameTyped(true);
+                    }}
+                  />
+                </Field>
+                {mode === "register" && <UsernameStatus check={usernameCheck} />}
+                {mode === "register" && (
+                  // The rules show while typing a username, or when a character was left out.
+                  <p
+                    id="username-hint"
+                    className={dropped || usernameFocus ? `mt-1 text-xs ${dropped ? "font-semibold text-amber-800" : "text-muted"}` : "sr-only"}
+                    aria-live="polite"
+                  >
+                    {dropped ? "Spaces and symbols can't be used in a username, so they were left out. " : ""}
+                    {USERNAME_HINT}
+                  </p>
+                )}
+              </div>
+              <Field id="password" label="Password" icon={Lock}>
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={mode === "register" ? 8 : 1}
+                  autoComplete={mode === "register" ? "new-password" : "current-password"}
+                  placeholder={mode === "register" ? "At least 8 characters" : undefined}
+                  className={`${inputClass} pl-9 pr-11`}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                >
+                  {showPassword ? <EyeOff aria-hidden className="h-4 w-4" /> : <Eye aria-hidden className="h-4 w-4" />}
+                </button>
+              </Field>
+            </section>
             <ErrorNote message={error} />
             <button type="submit" disabled={busy} className={`${primaryButton} relative w-full py-3 text-base`}>
               {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create workspace"}
               {mode === "signin" && <LastUsed method="password" on={lastSignIn()} />}
             </button>
+            {mode === "register" && (
+              <p className="text-center text-xs text-muted">Free for one store, no card needed. You'll be the owner and can add your team next.</p>
+            )}
           </form>
           {mode === "signin" && !onTablet && <OtherSignIns onSignedIn={onSignedIn} />}
           {mode === "signin" && !onTablet && (
@@ -245,8 +294,10 @@ export default function AuthPage({
               <p className="mt-2">Passkeys, Google and Telegram work once you've set them up in Settings.</p>
             </details>
           )}
-          <SdgFooter className="mt-10" />
-          <PolicyLinks className="mt-4" />
+          <div className="mt-auto pt-10">
+            <SdgFooter />
+            <PolicyLinks className="mt-4" />
+          </div>
         </div>
       </main>
     </div>
