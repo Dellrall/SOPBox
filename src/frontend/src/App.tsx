@@ -148,6 +148,8 @@ const MENU: (PageId | Group)[] = [
 const OPEN_GROUPS = "sopbox-menu-open";
 
 /** The phone's bottom bar: the first four of these the person may open, then More for the full menu. */
+// Left to right on the bar: Receive sits in the middle, under the thumb.
+const TAB_ORDER: PageId[] = ["dashboard", "approvals", "records", "receive", "stocktake", "purchasing", "products"];
 const TABS: { id: PageId; label: string }[] = [
   { id: "receive", label: "Receive" },
   { id: "approvals", label: "Approvals" },
@@ -497,7 +499,9 @@ function Shell({
   );
   const canOpen = (id: PageId) => nav.some((item) => item.id === id);
   // Records only fills in for staff who cannot see approvals.
-  const tabs = TABS.filter((t) => canOpen(t.id) && (t.id !== "records" || !canOpen("approvals"))).slice(0, 4);
+  const tabs = TABS.filter((t) => canOpen(t.id) && (t.id !== "records" || !canOpen("approvals")))
+    .slice(0, 4)
+    .sort((a, b) => TAB_ORDER.indexOf(a.id) - TAB_ORDER.indexOf(b.id));
 
   useEffect(() => {
     if (!nav.some((item) => item.id === page)) setPage(nav[0]?.id ?? "settings");
@@ -554,14 +558,6 @@ function Shell({
         Skip to content
       </a>
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-white/85 px-4 py-2 backdrop-blur lg:hidden print:hidden">
-        <button
-          aria-label="Open the menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen(true)}
-          className="rounded-xl border border-slate-300 p-2 text-slate-700 hover:bg-slate-50"
-        >
-          <Menu aria-hidden className="h-5 w-5" />
-        </button>
         <img src="/logo-128.webp" alt="" className="h-8 w-8 rounded-lg object-cover" />
         <span className="font-bold text-brand-950">SOPBox</span>
         <div className="ml-auto flex items-center gap-2">
@@ -746,6 +742,21 @@ function Shell({
         {tabs.map((t) => {
           const Icon = NAV.find((n) => n.id === t.id)!.icon;
           const active = page === t.id;
+          if (t.id === "receive")
+            // The main job: a raised round button in the middle of the bar.
+            return (
+              <button
+                key={t.id}
+                onClick={() => go(t.id)}
+                aria-current={active ? "page" : undefined}
+                className="flex h-16 flex-1 flex-col items-center justify-end gap-0.5 pb-1.5 text-[11px] font-semibold text-brand-700"
+              >
+                <span className={`-mt-6 flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg ring-4 ring-white ${active ? "bg-brand-700" : "bg-brand-600"}`}>
+                  <Icon aria-hidden className="h-6 w-6" />
+                </span>
+                {t.label}
+              </button>
+            );
           return (
             <button
               key={t.id}

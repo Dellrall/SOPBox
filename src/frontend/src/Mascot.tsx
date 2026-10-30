@@ -607,20 +607,25 @@ export function MascotDock({ fallback, go, page }: { fallback: Scene; go: (page:
         type="button"
         onClick={() => setAsking((a) => !a)}
         aria-expanded={asking}
+        className="pointer-events-auto mb-1 rounded-full bg-brand-600 p-2 text-white shadow ring-1 ring-brand-700 hover:bg-brand-700"
+        aria-label="Ask the helper"
+        title="Ask about your stock, orders and prices"
+      >
+        <Sparkles aria-hidden className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => target && go(target)}
         onContextMenu={(e) => {
           e.preventDefault();
           pet();
         }}
         ref={homeRef}
-        className={`pointer-events-auto relative cursor-pointer rounded-full ${roam ? "invisible" : ""} focus-visible:outline-2 focus-visible:outline-brand-600`}
-        aria-label="Ask the helper"
-        title="Ask about your stock, orders and prices · right-click to pet me"
+        className={`pointer-events-auto rounded-full ${target ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"} ${roam ? "invisible" : ""} focus-visible:outline-2 focus-visible:outline-brand-600`}
+        aria-label={target ? "Open what the helper is pointing at" : "The helper (right-click to pet)"}
+        title={target ? "Click to go there · right-click to pet me" : "Right-click to pet me!"}
       >
         <MascotFigure who={scene.who} action={action} paw={paw} size={tucked || smallScreen() ? 48 : 64} />
-        {/* Marks the helper as the place to ask. */}
-        <span aria-hidden className="absolute -left-1 top-0 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white shadow ring-2 ring-white">
-          <Sparkles className="h-3 w-3" />
-        </span>
       </button>
     </div>
     </>
