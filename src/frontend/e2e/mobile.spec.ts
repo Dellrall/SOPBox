@@ -456,6 +456,7 @@ test.describe("outlets", () => {
     await page.getByRole("button", { name: "Close the menu" }).click();
 
     await openPage(page, "Team");
+    await page.getByRole("button", { name: "Add a person" }).tap();
     const add = async (who: string, username: string) => {
       await page.getByLabel("Name", { exact: true }).fill(who);
       await page.getByLabel("Username", { exact: true }).fill(username);
@@ -653,6 +654,7 @@ test.describe("dropdowns", () => {
   test("the site's own dropdown works by touch and by keyboard", async ({ page }, testInfo) => {
     await page.goto("/");
     await openPage(page, "Team");
+    await page.getByRole("button", { name: "Add a person" }).tap();
     const role = page.getByRole("combobox", { name: "Role", exact: true });
     await expect(role).toHaveText("Staff");
     await role.tap();

@@ -17,6 +17,7 @@ import {
   Users,
   type LucideIcon,
   ListChecks,
+  ChevronDown,
 } from "lucide-react";
 import type { PageId } from "./App";
 import { SETUP_STEPS, showSetupAgain, showStep } from "./Guide";
@@ -130,6 +131,7 @@ export const GUIDES: Guide[] = [
     icon: Users,
     what: "The accounts of the people who work with you, and what each one may do.",
     how: [
+      "Tap Add a person to create an account.",
       "Owner: creates every account, makes managers and sets the outlet each person works at.",
       "Manager: looks after the staff at their outlet, adds staff and assistant managers, and can disable accounts.",
       "Assistant manager: adds and looks after staff at their outlet, but cannot disable anyone.",
@@ -275,46 +277,43 @@ export default function Help({ me, go, canOpen }: { me: Me; go: (page: PageId) =
           </button>
         </section>
       )}
-      <nav aria-label="Guides" className="flex flex-wrap gap-2">
-        {guides.map((g) => (
-          <a key={g.page} href={`#guide-${g.page}`} className="rounded-full bg-white px-3 py-1.5 text-sm font-medium text-brand-800 ring-1 ring-line hover:bg-brand-50">
-            {g.title}
-          </a>
-        ))}
-        <a href="#guide-outlets" className="rounded-full bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700">
-          Outlets and plans
-        </a>
-      </nav>
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* One row per page, opened with a tap: all of them open would fill a dozen phone screens. */}
+      <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
         {guides.map((g) => {
           const step = me.role === "owner" ? SETUP_STEPS.find((s) => s.page === g.page) : undefined;
           return (
-            <section key={g.page} id={`guide-${g.page}`} aria-labelledby={`guide-${g.page}-title`} className={`${cardClass} scroll-mt-4 space-y-3`}>
-              <div className="flex items-center gap-3">
+            <details
+              key={g.page}
+              id={`guide-${g.page}`}
+              open={window.location.hash === `#guide-${g.page}`}
+              className={`${cardClass} group scroll-mt-4`}
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
                   <g.icon aria-hidden className="h-5 w-5" />
                 </span>
-                <h2 id={`guide-${g.page}-title`} className="text-base font-bold text-brand-950">
-                  {g.title}
-                </h2>
-              </div>
-              <p className="text-sm text-muted">{g.what}</p>
-              <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
-                {g.how.map((h) => (
-                  <li key={h}>{h}</li>
-                ))}
-              </ol>
-              <div className="flex flex-wrap gap-2">
-                {step && (
-                  <button type="button" className={primaryButton} onClick={() => showStep(step, go)}>
-                    Show me
+                <h2 className="min-w-0 flex-1 text-base font-bold text-brand-950">{g.title}</h2>
+                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-muted transition group-open:rotate-180" />
+              </summary>
+              <div className="mt-3 space-y-3">
+                <p className="text-sm text-muted">{g.what}</p>
+                <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
+                  {g.how.map((h) => (
+                    <li key={h}>{h}</li>
+                  ))}
+                </ol>
+                <div className="flex flex-wrap gap-2">
+                  {step && (
+                    <button type="button" className={primaryButton} onClick={() => showStep(step, go)}>
+                      Show me
+                    </button>
+                  )}
+                  <button type="button" className={secondaryButton} onClick={() => go(g.page)}>
+                    Open {g.title} <ArrowRight aria-hidden className="h-4 w-4" />
                   </button>
-                )}
-                <button type="button" className={secondaryButton} onClick={() => go(g.page)}>
-                  Open {g.title} <ArrowRight aria-hidden className="h-4 w-4" />
-                </button>
+                </div>
               </div>
-            </section>
+            </details>
           );
         })}
       </div>

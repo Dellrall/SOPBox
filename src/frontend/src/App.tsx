@@ -737,7 +737,10 @@ function Shell({
         </Loaded>
         {/* Pushed to the bottom on short pages. */}
         <div className="mt-auto pt-12">
-          <SdgFooter className="border-t border-line pt-5" />
+          {/* Phones skip it: on every page it would be one more screen to scroll past. */}
+          <div className="hidden sm:block">
+            <SdgFooter className="border-t border-line pt-5" />
+          </div>
           <PolicyLinks className="mt-3" />
         </div>
       </main>

@@ -126,7 +126,7 @@ export default function Categories({
         Categories
       </h2>
       <p className="text-sm text-slate-600">
-        A product arrives at its category&apos;s temperature unless you set its own range.
+        Products use their category&apos;s temperature unless they have their own.
       </p>
       <ErrorNote message={error} />
       {categories.length === 0 && (
