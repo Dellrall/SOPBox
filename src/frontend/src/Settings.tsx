@@ -225,8 +225,8 @@ function Workspace() {
     setError("");
     setDone(false);
     try {
-      const { name, telegram_manager_chat_id, telegram_staff_chat_id } = ws;
-      setWs(await api.updateWorkspace({ name, telegram_manager_chat_id, telegram_staff_chat_id }));
+      const { name, telegram_manager_chat_id, telegram_staff_chat_id, big_order_sen, big_order_lines } = ws;
+      setWs(await api.updateWorkspace({ name, telegram_manager_chat_id, telegram_staff_chat_id, big_order_sen, big_order_lines }));
       setDone(true);
     } catch (err) {
       setError((err as Error).message);
@@ -281,6 +281,33 @@ function Workspace() {
         </div>
       </div>
       <p className="text-xs text-slate-600">Add the SopBox bot to each chat, then paste the chat id. Leave empty to turn alerts off.</p>
+      <fieldset className="grid grid-cols-2 gap-3">
+        <legend className="col-span-2 mb-1 text-sm font-semibold text-slate-700">Big order: 2 people can be in charge</legend>
+        <div>
+          <label className={labelClass} htmlFor="ws-big-rm">
+            From (RM)
+          </label>
+          <input
+            id="ws-big-rm"
+            inputMode="decimal"
+            className={inputClass}
+            value={ws.big_order_sen / 100}
+            onChange={(e) => set({ big_order_sen: Math.max(0, Math.round(Number(e.target.value) * 100) || 0) })}
+          />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="ws-big-lines">
+            Or lines
+          </label>
+          <input
+            id="ws-big-lines"
+            inputMode="numeric"
+            className={inputClass}
+            value={ws.big_order_lines}
+            onChange={(e) => set({ big_order_lines: Math.max(1, Number(e.target.value.replace(/\D/g, "")) || 1) })}
+          />
+        </div>
+      </fieldset>
       <ErrorNote message={error} />
       {done && <SuccessNote>Saved.</SuccessNote>}
       <button type="submit" className={primaryButton}>

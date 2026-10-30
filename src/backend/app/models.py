@@ -830,6 +830,8 @@ class WorkspaceSettings(BaseModel):
     telegram_team_title: str = ""
     telegram_team_invite_link: str = ""
     mfa_policy: MfaPolicy = "off"
+    big_order_sen: int = 100000  # an order worth this much, or with big_order_lines lines, is big
+    big_order_lines: int = 10
 
 
 class WorkspaceUpdateIn(_In):
@@ -837,6 +839,8 @@ class WorkspaceUpdateIn(_In):
     telegram_manager_chat_id: str | None = Field(default=None, max_length=40)
     telegram_staff_chat_id: str | None = Field(default=None, max_length=40)
     mfa_policy: MfaPolicy | None = None
+    big_order_sen: int | None = Field(default=None, ge=0, le=MAX_SAFE_COUNT)
+    big_order_lines: int | None = Field(default=None, ge=1, le=1000)
 
     @model_validator(mode="after")
     def _chat_ids(self) -> "WorkspaceUpdateIn":
@@ -1408,3 +1412,59 @@ class TickIn(_In):
     day: date
     step: int = Field(ge=0)
     done: bool
+
+
+JobKind = Literal["po", "delivery", "count"]
+
+
+class Pic(BaseModel):
+    user_id: int
+    name: str
+
+
+class Job(BaseModel):
+    """Open work that needs a person in charge: an issued order still to arrive, a held delivery,
+    or a planned stock count. Worked out from the records each time; nothing is stored but the PICs."""
+
+    kind: JobKind
+    ref_id: int
+    title: str
+    when: str  # what to do now, from the due date: "Due tomorrow: check it is on the way"
+    due: str | None  # ISO date
+    days_left: int | None  # negative when late
+    big: bool
+    pics: list[Pic]
+    can_take: bool  # this person may add themselves without asking
+    asked: bool  # this person has asked to take over and waits for a manager
+    page: str  # where to do it
+
+
+class AssignIn(_In):
+    kind: JobKind
+    ref_id: int = Field(gt=0)
+    user_id: int | None = Field(default=None, gt=0)  # empty: yourself
+
+
+class AssignOut(BaseModel):
+    status: Literal["assigned", "already", "requested"]
+
+
+class AssignmentRequest(BaseModel):
+    id: int
+    kind: JobKind
+    ref_id: int
+    title: str
+    user_id: int
+    name: str
+    replaces: list[str]  # the current PICs, who the request would replace
+    created_at: str
+
+
+class RequestDecisionIn(_In):
+    approve: bool
+
+
+class CountPlanIn(_In):
+    storage_id: int = Field(gt=0)
+    due_date: date
+    user_id: int | None = Field(default=None, gt=0)  # the PIC; empty: none yet

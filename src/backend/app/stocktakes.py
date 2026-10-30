@@ -373,6 +373,11 @@ def create_stocktake(
                 storage_id,
             ),
         ).fetchone()["id"]
+        # A count of this storage area does every count planned for it.
+        conn.execute(
+            "UPDATE count_plans SET stocktake_id = %s WHERE workspace_id = %s AND storage_id = %s AND stocktake_id IS NULL",
+            (stocktake_id, workspace_id, storage_id),
+        )
 
         changed_count = 0
         for line in data.lines:

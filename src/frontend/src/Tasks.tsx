@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Check, ChevronDown, Plus } from "lucide-react";
 import { api } from "./api";
+import type { PageId } from "./App";
+import Jobs from "./Jobs";
 import type { TaskKind, TaskList, TaskListIn, TaskRole } from "./types";
 import { Select } from "./Select";
 import {
@@ -50,7 +52,7 @@ const STARTERS: TaskListIn[] = [
   },
 ];
 
-export default function Tasks({ canEdit }: { canEdit: boolean }) {
+export default function Tasks({ canEdit, meId, go }: { canEdit: boolean; meId: number; go: (page: PageId) => void }) {
   const [lists, setLists] = useState<TaskList[] | null>(null);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<TaskList | "new" | null>(null);
@@ -101,7 +103,7 @@ export default function Tasks({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="space-y-5">
-      <PageTitle title="Tasks" subtitle="Daily checklists and steps for busy times or a new starter.">
+      <PageTitle title="Tasks" subtitle="Jobs with who is in charge, daily checklists, and steps for busy times.">
         {canEdit && !editing && (
           <button type="button" className={primaryButton} onClick={() => setEditing("new")}>
             <Plus aria-hidden className="h-4 w-4" /> Add a list
@@ -119,6 +121,7 @@ export default function Tasks({ canEdit }: { canEdit: boolean }) {
           }}
         />
       )}
+      <Jobs day={day} meId={meId} manager={canEdit} go={go} />
       {lists === null ? null : lists.length === 0 && !canEdit ? (
         <Empty>No task lists yet. Your manager adds them.</Empty>
       ) : (

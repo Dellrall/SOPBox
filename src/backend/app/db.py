@@ -496,6 +496,43 @@ CREATE TABLE IF NOT EXISTS task_ticks (
     done_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (task_list_id, day, step)
 );
+-- Above either of these an order is big, so a second person may join its PIC (person in charge).
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS big_order_sen BIGINT NOT NULL DEFAULT 100000;
+ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS big_order_lines INT NOT NULL DEFAULT 10;
+-- A stock count a manager plans for a day; done once a count of that storage area is saved.
+CREATE TABLE IF NOT EXISTS count_plans (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    storage_id BIGINT NOT NULL REFERENCES storages(id),
+    due_date DATE NOT NULL,
+    created_by TEXT NOT NULL,
+    stocktake_id BIGINT REFERENCES stocktakes(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Who is in charge of a purchase order, a held delivery or a planned count (assignments.py).
+CREATE TABLE IF NOT EXISTS assignments (
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('po', 'delivery', 'count')),
+    ref_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    assigned_by TEXT NOT NULL,
+    at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (kind, ref_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS assignment_requests (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('po', 'delivery', 'count')),
+    ref_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'declined')),
+    decided_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    decided_at TIMESTAMPTZ
+);
+-- One open request per person and job, so asking twice is the same request.
+CREATE UNIQUE INDEX IF NOT EXISTS assignment_requests_pending_key ON assignment_requests (kind, ref_id, user_id)
+    WHERE status = 'pending';
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible
@@ -508,6 +545,9 @@ _WS = "NULLIF(current_setting('app.workspace_id', true), '')::bigint"
 RLS_TABLES = {
     "categories": f"workspace_id = {_WS}",
     "task_lists": f"workspace_id = {_WS}",
+    "count_plans": f"workspace_id = {_WS}",
+    "assignments": f"workspace_id = {_WS}",
+    "assignment_requests": f"workspace_id = {_WS}",
     "task_ticks": (
         f"EXISTS (SELECT 1 FROM task_lists t WHERE t.id = task_ticks.task_list_id "
         f"AND t.workspace_id = {_WS})"
