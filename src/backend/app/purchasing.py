@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 
 import psycopg
 
-from app import catalogue, rules
+from app import catalogue, insights, rules
 from app.auditlog import audit
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.models import (
@@ -20,6 +20,7 @@ from app.models import (
     PurchaseOrderIn,
     PurchaseOrderLine,
     PurchaseOrderLineIn,
+    ReorderSuggestion,
     Supplier,
     SupplierIn,
 )
@@ -322,13 +323,15 @@ def cancel_order(conn: psycopg.Connection, ws: int, actor: str, order_id: int, r
     return get_order(conn, ws, order_id)
 
 
-def _shortfalls(
+def reorder_suggestions(
     conn: psycopg.Connection, ws: int
-) -> tuple[list[Product], dict[int, int], dict[int, list[str]]]:
-    """Low-stock products, how much of each is still to order, and the open orders covering each.
+) -> tuple[list[ReorderSuggestion], dict[int, list[str]]]:
+    """Products running low, with how much of each is still to order and why, and the open
+    orders covering each.
 
-    Quantities already on open orders (drafts, and issued orders still outstanding) are taken
-    off, so pressing the button twice does not order the same shortfall twice.
+    Running low is below the minimum, or with less than insights.COVER_DAYS of recent use left on
+    top of it. Quantities already on open orders (drafts, and issued orders still outstanding) are
+    taken off, so pressing the button twice does not order the same shortfall twice.
     """
     on_order: dict[int, int] = {}
     covering: dict[int, list[str]] = {}  # product -> the open orders that already cover it
@@ -340,9 +343,18 @@ def _shortfalls(
             on_order[line.product_id] = on_order.get(line.product_id, 0) + still
             if still > 0:
                 covering.setdefault(line.product_id, []).append(f"{order.reference} ({order.status})")
-    low = [p for p in catalogue.list_products(conn, ws, active_only=True) if p.low_stock]
-    short = {p.id: p.min_stock - p.stock - on_order.get(p.id, 0) for p in low}
-    return low, {k: v for k, v in short.items() if v > 0}, covering
+    products = catalogue.list_products(conn, ws, active_only=True)
+    return insights.reorder(products, insights.daily_use(conn, ws), on_order), covering
+
+
+def _shortfalls(
+    conn: psycopg.Connection, ws: int
+) -> tuple[list[Product], dict[int, int], dict[int, list[str]]]:
+    """Products running low, how much of each is still to order, and the open orders covering each."""
+    suggestions, covering = reorder_suggestions(conn, ws)
+    low_ids = {s.product_id for s in suggestions}
+    low = [p for p in catalogue.list_products(conn, ws, active_only=True) if p.id in low_ids]
+    return low, {s.product_id: s.quantity for s in suggestions if s.quantity > 0}, covering
 
 
 def low_stock_suppliers(conn: psycopg.Connection, ws: int) -> list[LowStockSupplier]:
@@ -360,7 +372,7 @@ def low_stock_suppliers(conn: psycopg.Connection, ws: int) -> list[LowStockSuppl
 
 
 def low_stock_draft(conn: psycopg.Connection, ws: int, actor: str, data: LowStockDraftIn) -> PurchaseOrder:
-    """A draft order for every low-stock product, for what brings it back to its minimum."""
+    """A draft order for every product running low, for its minimum plus a week of recent use."""
     supplier = _check_supplier(conn, ws, data.supplier_id)
     low, short, covering = _shortfalls(conn, ws)
     # A supplier with a product list only gets an order for what they sell.
@@ -369,7 +381,7 @@ def low_stock_draft(conn: psycopg.Connection, ws: int, actor: str, data: LowStoc
     lines = [(p.id, short[p.id], p.base_unit, short[p.id]) for p in mine if p.id in short]
     if not lines:
         if not low:
-            raise InvalidRequestError("nothing needs reordering: no product is below its minimum")
+            raise InvalidRequestError("nothing needs reordering: no product is below its minimum or running out")
         if not mine:
             raise InvalidRequestError(
                 f"nothing needs reordering from {supplier.name}: none of the low-stock products "
@@ -385,7 +397,7 @@ def low_stock_draft(conn: psycopg.Connection, ws: int, actor: str, data: LowStoc
         )
     order_id = _insert_order(
         conn, ws, actor, data.supplier_id, data.order_date or date.today(), None,
-        "Drafted from low stock.", lines,
+        "Drafted from low stock and recent use.", lines,
     )
     return get_order(conn, ws, order_id)
 

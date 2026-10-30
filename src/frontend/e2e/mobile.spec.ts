@@ -426,6 +426,41 @@ test.describe("setup guide", () => {
   });
 });
 
+test.describe("stock insights", () => {
+  test("a saved count shows what stands out, and purchase orders say why each amount", async ({ browser, baseURL }, testInfo) => {
+    const context = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const tag = `${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    const api = context.request;
+    expect((await api.post("/api/auth/register", {
+      data: { workspace_name: `Gaps ${tag}`, display_name: "Gia Owner", email: `g${tag}@example.com`, username: `g${tag}`, password: PASSWORD },
+    })).ok()).toBe(true);
+    const category = await (await api.post("/api/categories", { data: { name: "Dry" } })).json();
+    const rice = await (await api.post("/api/products", { data: { name: "Rice", category_id: category.id, base_unit: "kg", min_stock: 5 } })).json();
+    const today = new Date().toISOString().slice(0, 10);
+    const count = (expected: number, counted: number) =>
+      api.post("/api/stocktakes", { data: { count_date: today, lines: [{ product_id: rice.id, expected_stock: expected, counted_stock: counted }] } });
+    expect((await count(0, 10)).ok()).toBe(true);
+    expect((await count(10, 2)).ok()).toBe(true);
+    await api.post("/api/suppliers", { data: { name: "Beras Co" } });
+
+    const page = await context.newPage();
+    await page.goto("/");
+    await openPage(page, "Stock Count");
+    await page.getByRole("button", { name: /ST-000002/ }).tap();
+    const gaps = page.getByRole("region", { name: "What stands out" });
+    await expect(gaps).toContainText("-8 kg");
+    await expect(gaps).toContainText("One-off gap");
+    await expect(gaps.getByRole("button", { name: "Explain with AI" })).toBeVisible();
+    await expectFitsScreen(page);
+
+    await openPage(page, "Purchase orders");
+    await expect(page.getByText(/Rice: \d+ kg/)).toBeVisible();
+    await expect(page.getByText(/Uses about [\d.]+ kg a day/)).toBeVisible();
+    await expectFitsScreen(page);
+    await context.close();
+  });
+});
+
 test.describe("closing the business", () => {
   test("the owner downloads a copy, closes it, sees it read-only, and reopens it", async ({ browser, baseURL }, testInfo) => {
     // Its own workspace: closing one the other tests share would stop them.

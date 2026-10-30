@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Check, ChevronDown, FilePlus2, Search, PackageCheck, Plus, Printer, Send, Sparkles, Trash2, Truck, XCircle } from "lucide-react";
 import { api } from "./api";
 import SearchSelect from "./SearchSelect";
-import type { LowStockSupplier, Product, PurchaseOrder, PurchaseOrderIn, PurchaseOrderStatus, ReceivingStatus, Supplier, SupplierIn } from "./types";
+import type { LowStockSupplier, Product, ReorderSuggestion, PurchaseOrder, PurchaseOrderIn, PurchaseOrderStatus, ReceivingStatus, Supplier, SupplierIn } from "./types";
 import {
   Empty,
   ErrorNote,
@@ -701,6 +701,7 @@ export default function PurchaseOrders({
   const [draftSupplier, setDraftSupplier] = useState("");
   // Only the suppliers a low-stock draft would order something from.
   const [lowSuppliers, setLowSuppliers] = useState<LowStockSupplier[] | null>(null);
+  const [suggestions, setSuggestions] = useState<ReorderSuggestion[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -713,7 +714,10 @@ export default function PurchaseOrders({
         setError("");
       })
       .catch((e: Error) => setError(e.message));
-    if (canEdit) api.lowStockSuppliers().then(setLowSuppliers).catch(() => setLowSuppliers(null));
+    if (canEdit) {
+      api.lowStockSuppliers().then(setLowSuppliers).catch(() => setLowSuppliers(null));
+      api.reorderSuggestions().then(setSuggestions).catch(() => setSuggestions([]));
+    }
   }, [filter, canEdit]);
   useEffect(load, [load]);
 
@@ -798,7 +802,7 @@ export default function PurchaseOrders({
       {canEdit && lowSuppliers && lowSuppliers.length === 0 && activeSuppliers.length > 0 && (
         <p className="flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm text-muted">
           <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-brand-600" />
-          Nothing to draft from low stock: no product is below its minimum, or every shortfall is already on an open order.
+          Nothing to draft from low stock: no product is below its minimum or running out, or every shortfall is already on an open order.
         </p>
       )}
       {canEdit && lowSuppliers && chosenLow && (
@@ -806,7 +810,7 @@ export default function PurchaseOrders({
           <Sparkles aria-hidden className="mb-2.5 h-5 w-5 text-amber-700" />
           <div className="min-w-56 flex-1">
             <label className={labelClass} htmlFor="low-stock-supplier">
-              Draft an order for what is below its minimum
+              Draft an order for what is running low
             </label>
             <SearchSelect
               id="low-stock-supplier"
@@ -819,7 +823,19 @@ export default function PurchaseOrders({
               value={String(chosenLow.supplier_id)}
               onChange={setDraftSupplier}
             />
-            <p className="mt-1.5 text-sm text-amber-900">Will order: {chosenLow.products.join(", ")}</p>
+            <ul className="mt-2 space-y-1.5 text-sm text-amber-950">
+              {suggestions
+                .filter((s) => s.quantity > 0 && chosenLow.products.includes(s.product_name))
+                .map((s) => (
+                  <li key={s.product_id}>
+                    <strong>
+                      {s.product_name}: {s.quantity} {s.base_unit}
+                    </strong>{" "}
+                    <span className="text-amber-900">{s.reason}</span>
+                  </li>
+                ))}
+            </ul>
+            <p className="mt-1.5 text-xs text-amber-900">Amounts cover a week of recent use (sales and counts) plus each minimum.</p>
           </div>
           <button className={secondaryButton} onClick={() => void draftFromLowStock()}>
             Draft from low stock
