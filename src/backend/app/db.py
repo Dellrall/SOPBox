@@ -233,6 +233,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_key ON users (google_sub) WHERE google_sub IS NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_id BIGINT;
 CREATE UNIQUE INDEX IF NOT EXISTS users_telegram_id_key ON users (telegram_id) WHERE telegram_id IS NOT NULL;
+-- Their @name on Telegram, learnt from their own messages to the bot, so an @mention finds them.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_username TEXT;
 -- A short number for the kitchen tablet, hashed like a password.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_hash TEXT;
 CREATE TABLE IF NOT EXISTS passkeys (

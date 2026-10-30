@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 
 import psycopg
 
+from app import notifications
 from app.models import Accountability, Inbox, Notification, NotificationKind, TeamMember
 
 
@@ -63,6 +64,9 @@ def notify(
             "VALUES (%s, %s, %s, %s, %s, %s, %s)",
             (ws, user_id, kind, delivery_id, actor, body[:500], _now()),
         )
+    # And on their phone, for those who connected Telegram.
+    where = f" (delivery #{delivery_id})" if delivery_id else ""
+    notifications.tell(conn, set(user_ids) - {skip}, f"SOPBox: {actor}: {body[:500]}{where}")
 
 
 def inbox(conn: psycopg.Connection, ws: int, user_id: int, limit: int = 30) -> Inbox:

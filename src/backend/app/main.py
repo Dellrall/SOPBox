@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, ask, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
+from app import apikeys, ask, telegram_bot, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -600,10 +600,15 @@ def telegram_login(body: TelegramAuthIn, request: Request, response: Response, c
 
 
 @app.post("/api/auth/telegram/link", dependencies=[dangerous("linked Telegram sign-in")], status_code=204)
-def telegram_link(body: TelegramAuthIn, background: BackgroundTasks, user: User, conn: Conn) -> None:
-    sso.telegram_link(conn, user, body.model_dump())
+def telegram_link(body: TelegramAuthIn, request: Request, background: BackgroundTasks, user: User, conn: Conn) -> None:
+    data = body.model_dump()
+    sso.telegram_link(conn, user, data)
+    if isinstance(data.get("username"), str):  # so an @mention in the team group finds them
+        conn.execute("UPDATE users SET telegram_username = %s WHERE id = %s", (data["username"][:64], user.id))
     _security_event(conn, user, "Connected Telegram sign-in")
     _send_invites(background, [team_group.invite(conn, user.id)])
+    background.add_task(team_group.ensure_webhook, _origin(request))
+    background.add_task(send_telegram, str(body.id), f"Connected to SOPBox as {user.display_name}. Send /help to see what I can do.")
 
 
 def _send_invites(background: BackgroundTasks, invites: list[tuple[str, str] | None]) -> None:
@@ -724,17 +729,27 @@ def let_back_into_team_group(user_id: int, background: BackgroundTasks, owner: O
 
 
 @app.post("/api/telegram/webhook", include_in_schema=False)
-def telegram_webhook(request_body: dict, request: Request, conn: Conn) -> dict:
+def telegram_webhook(request_body: dict, request: Request, background: BackgroundTasks, conn: Conn) -> dict:
     """Updates from Telegram (join requests to team groups). Only Telegram knows the secret."""
     sent = request.headers.get("x-telegram-bot-api-secret-token", "")
     if not get_settings().telegram_bot_token or not hmac.compare_digest(sent, team_group.webhook_secret()):
         raise AuthError("not from Telegram")
     team_group.handle_update(conn, request_body)
+    if isinstance(request_body.get("message"), dict):
+        # Answered after Telegram has its reply: reading a sentence can take the model a while, and
+        # a slow webhook makes Telegram send the message again.
+        background.add_task(_bot_message, request_body["message"])
     return {}
 
 
+def _bot_message(message: dict) -> None:
+    with contextmanager(get_db)() as conn:
+        telegram_bot.handle_message(conn, message)
+
+
 @app.get("/api/workspace", response_model=WorkspaceSettings)
-def get_workspace(owner: OwnerOnly, conn: Conn):
+def get_workspace(owner: OwnerOnly, request: Request, background: BackgroundTasks, conn: Conn):
+    background.add_task(team_group.ensure_webhook, _origin(request))  # an existing bot learns about direct messages
     return accounts.get_workspace(conn, owner.workspace_id)
 
 

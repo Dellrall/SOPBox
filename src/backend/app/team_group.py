@@ -70,6 +70,27 @@ def webhook_secret() -> str:
     return hmac.new(token, b"sopbox-telegram-webhook", hashlib.sha256).hexdigest()
 
 
+UPDATES = ["chat_join_request", "message"]  # joining the team group, and people talking to the bot
+_webhook_at: str | None = None
+
+
+def set_webhook(origin: str) -> None:
+    global _webhook_at
+    _call("setWebhook", url=f"{origin}/api/telegram/webhook", secret_token=webhook_secret(), allowed_updates=UPDATES)
+    _webhook_at = origin
+
+
+def ensure_webhook(origin: str) -> None:
+    """Point the bot at this server once per process, so direct messages reach it even before a
+    team group is connected. Never fails the request it comes from."""
+    if _webhook_at == origin or not get_settings().telegram_bot_token:
+        return
+    try:
+        set_webhook(origin)
+    except TelegramError as err:
+        logger.warning("telegram setWebhook failed: %s", err)
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -96,12 +117,7 @@ def connect(conn: psycopg.Connection, owner: CurrentUser, chat_id: str, origin: 
         if me.get("status") != "administrator" or not (me.get("can_invite_users") and me.get("can_restrict_members")):
             raise InvalidRequestError(_RIGHTS_HINT)
         link = _call("createChatInviteLink", chat_id=chat["id"], name="SOPBox team", creates_join_request=True)
-        _call(
-            "setWebhook",
-            url=f"{origin}/api/telegram/webhook",
-            secret_token=webhook_secret(),
-            allowed_updates=["chat_join_request"],
-        )
+        set_webhook(origin)
     except TelegramError as err:
         raise InvalidRequestError(f"Telegram: {err}") from None
 
