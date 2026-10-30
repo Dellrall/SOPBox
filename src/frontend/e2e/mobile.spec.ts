@@ -125,11 +125,23 @@ test.describe("signed out", () => {
   test("signing in with a password works by tapping", async ({ page }) => {
     await page.goto("/signin");
     await page.getByLabel("Username or email").fill(PEOPLE.staff.username);
-    await page.getByLabel("Password").fill(PASSWORD);
+    await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in", exact: true }).tap();
     await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
     // The sign-in before this one is shown, so a sign-in the person didn't make stands out.
     await expect(page.getByRole("status").filter({ hasText: /last sign-in:/i })).toBeVisible();
+    await expectFitsScreen(page);
+  });
+
+  test("creating a workspace suggests a username from the email until one is typed", async ({ page }) => {
+    await page.goto("/register");
+    await page.getByLabel("Email").fill("Aina.R@kopi.my");
+    await expect(page.getByLabel("Username")).toHaveValue("aina.r");
+    await page.getByLabel("Username").fill("kopiaina");
+    await page.getByLabel("Email").fill("other@kopi.my");
+    await expect(page.getByLabel("Username")).toHaveValue("kopiaina");
+    await page.getByRole("button", { name: "Show password" }).tap();
+    await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("type", "text");
     await expectFitsScreen(page);
   });
 
