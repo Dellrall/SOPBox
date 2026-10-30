@@ -155,6 +155,7 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `GET /api/audit?actor_id=` | manager | Audit log, newest first; `actor_id` shows one person's actions by account |
 | `GET /api/team` | any signed in | Active teammates, for tagging |
 | `GET /api/team/accountability` | owner | Per-person counts from the audit log |
+| `POST /api/telegram/webhook` | Telegram (secret header) | Join requests to the team group, and messages to the bot (`/jobs`, `/take`, `/drop`, `/pic @name`, `/unpic @name`, or a sentence read by the model) |
 | `GET /api/team/efficiency?days=30` | manager | Per person: jobs done on time, deliveries checked, checks failed, stock count gap per count |
 | `GET /api/inbox`, `POST /api/inbox/read` | any signed in | My notifications (tagged, approval needed, decision, comment); mark some (`ids`) or all read |
 | `GET /api/auth/username-available?username=` | anyone | Is a username free (the sign-up form checks as you type) |

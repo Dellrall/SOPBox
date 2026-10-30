@@ -2,6 +2,7 @@
 
 - **Receiving check** — take or choose a photo of the delivery order; the AI fills in the lines (with the unit price) for staff to confirm, with probe temperatures, stock photos and teammate tagging. Scan a pack's barcode to pick the product.
 - **Rules and approvals** — failed lines hold the delivery for a manager, who is notified in the app inbox and on Telegram.
+- **Telegram bot** — message the bot or tag it in the team group: `/jobs`, `/take PO-0003`, `/drop`, `/pic PO-0003 @sam`, `/unpic`, or a plain sentence that the model reads into one of those (code checks the job and people, and the app's PIC rules apply). Tags, PIC changes and take-over requests reach people on Telegram too.
 - **Products & SOP cards** — temperature ranges, pack sizes and step-by-step SOPs per product. An **AI SOP writer** drafts steps from a manager's notes, and a second pass checks them.
 - **Import from a supplier sheet** — photograph a product or SOP sheet; the AI suggests products and SOPs for a manager to correct and add.
 - **Jobs and PICs** — open purchase orders, held deliveries and planned stock counts each have a person in charge. Staff take a free job (or join a big order) themselves, or ask a manager to take one over; managers assign anyone. The Tasks page says what each job needs today (the order is due tomorrow, today, or late).  Each job has SOP steps written by code from the order (supplier call, temperature check per category, packs and expiry), a week strip of jobs per day, and a message with Undo after every change. Every change is in the activity log.

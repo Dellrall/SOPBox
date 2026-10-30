@@ -116,6 +116,6 @@ Replit Autoscale, configured in `.replit`. Before Publish: pull `main` and run `
 
 ## Known gaps
 
-- Telegram alerts and Telegram sign-in still have open fixes.
+- The Telegram bot points itself at the server when the owner opens Settings or someone connects Telegram; after moving to a new address, do one of those once.
 - The app sends no email yet; a lost owner password needs a database change.
 - Payments are not taken in the app; plans are turned on by codes (`python -m app.plan_codes`).

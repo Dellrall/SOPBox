@@ -15,7 +15,7 @@ from datetime import date
 
 import psycopg
 
-from app import insights, locations, purchasing
+from app import inbox, insights, locations, notifications, purchasing
 from app.auditlog import audit
 from app.auth import CurrentUser
 from app.errors import ForbiddenError, InvalidRequestError, NotFoundError
@@ -205,6 +205,8 @@ def assign(conn: psycopg.Connection, user: CurrentUser, data: AssignIn) -> Assig
             )
             how = "took it on" if target == user.id else f"assigned by {user.display_name}"
             audit(conn, ws, user.display_name, "assignment.added", None, f"{job['title']}: {name} ({how})")
+            if target != user.id:
+                notifications.tell(conn, [target], f"SOPBox: {user.display_name} made you PIC of {job['title']}.")
             return AssignOut(status="assigned")
         made = conn.execute(
             "INSERT INTO assignment_requests (workspace_id, kind, ref_id, user_id) VALUES (%s, %s, %s, %s) "
@@ -214,6 +216,8 @@ def assign(conn: psycopg.Connection, user: CurrentUser, data: AssignIn) -> Assig
         if made:
             audit(conn, ws, user.display_name, "assignment.requested", None,
                   f"{job['title']}: asks to take over from {', '.join(p.name for p in current)}")
+            notifications.tell(conn, inbox.approver_ids(conn, ws),
+                               f"SOPBox: {name} asks to take over {job['title']}. Approve or decline it in Tasks.")
     return AssignOut(status="requested")
 
 
@@ -269,6 +273,7 @@ def decide(conn: psycopg.Connection, manager: CurrentUser, request_id: int, appr
         )
         if not approve:
             audit(conn, ws, manager.display_name, "assignment.declined", None, f"{r['display_name']} stays off it")
+            notifications.tell(conn, [r["user_id"]], f"SOPBox: {manager.display_name} declined your request to take over that job.")
             return
         before = [p.name for p in _pics(conn, ws).get((r["kind"], r["ref_id"]), [])]
         conn.execute("DELETE FROM assignments WHERE workspace_id = %s AND kind = %s AND ref_id = %s", (ws, r["kind"], r["ref_id"]))
@@ -278,6 +283,7 @@ def decide(conn: psycopg.Connection, manager: CurrentUser, request_id: int, appr
         )
         was = f", replacing {', '.join(before)}" if before else ""
         audit(conn, ws, manager.display_name, "assignment.approved", None, f"{job['title']}: {r['display_name']}{was}")
+        notifications.tell(conn, [r["user_id"]], f"SOPBox: {manager.display_name} approved. You are now PIC of {job['title']}.")
 
 
 def plan_count(conn: psycopg.Connection, manager: CurrentUser, data: CountPlanIn) -> None:

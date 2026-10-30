@@ -3,7 +3,7 @@ import type { PublicPath } from "./App";
 import { MascotFigure } from "./Mascot";
 import { SiteFooter, SiteHeader, linkTo, usePageMeta } from "./Site";
 
-const UPDATED = "30 October 2026";
+const UPDATED = "31 October 2026";
 
 type Section = { id: string; title: string; body: ReactNode };
 
@@ -96,7 +96,9 @@ export default function Privacy({ navigate, signedIn }: { navigate: (to: PublicP
             endpoint with an open model; they are not used for training.
           </li>
           <li>
-            <strong>Telegram</strong> carries alerts, only if your business connects a Telegram chat.
+            <strong>Telegram</strong> carries alerts and your messages to the SOPBox bot, only if you connect Telegram. The bot keeps
+            your Telegram @name so teammates can tag you. A sentence you send the bot (not a /command) goes to our RunPod model to be
+            read; it is not stored there or used for training.
           </li>
           <li>
             <strong>Google</strong> confirms who you are, only if you choose to sign in with Google.

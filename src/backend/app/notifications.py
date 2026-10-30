@@ -1,6 +1,7 @@
 """Telegram alerts. A failed alert must never fail the delivery, so nothing here raises."""
 
 import logging
+import threading
 
 import httpx
 
@@ -52,3 +53,17 @@ def decision_message(d: Delivery) -> str:
     if d.decision_reason:
         text += f"\nReason: {d.decision_reason}"
     return text
+
+
+def tell(conn, user_ids, text: str) -> None:
+    """Send `text` to each of these people who connected Telegram, as a direct message from the bot.
+    Sent on a thread, so a slow Telegram never holds up the request that caused it."""
+    ids = sorted(set(user_ids))
+    if not get_settings().telegram_bot_token or not ids:
+        return
+    chats = [
+        str(r["telegram_id"])
+        for r in conn.execute("SELECT telegram_id FROM users WHERE id = ANY(%s) AND active AND telegram_id IS NOT NULL", (ids,))
+    ]
+    for chat in chats:
+        threading.Thread(target=send_telegram, args=(chat, text), daemon=True).start()
