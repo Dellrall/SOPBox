@@ -16,6 +16,7 @@ import {
   Truck,
   Users,
   type LucideIcon,
+  ListChecks,
 } from "lucide-react";
 import type { PageId } from "./App";
 import { SETUP_STEPS, showSetupAgain, showStep } from "./Guide";
@@ -133,6 +134,17 @@ export const GUIDES: Guide[] = [
       "Manager: looks after the staff at their outlet, adds staff and assistant managers, and can disable accounts.",
       "Assistant manager: adds and looks after staff at their outlet, but cannot disable anyone.",
       "Staff: receive deliveries and use the sections you give them under Section access.",
+    ],
+  },
+  {
+    page: "tasks",
+    title: "Tasks",
+    icon: ListChecks,
+    what: "Checklists for every day, and for busy times or a new starter.",
+    how: [
+      "Open Tasks and tick each step as you do it. Your name shows next to it, and the list starts fresh each day.",
+      "Every day lists open by themselves; lists under When it happens open with a tap.",
+      "Managers: tap Add a list, or start from a ready-made one (Opening, Closing, Peak hour, New starter), and choose who it is for.",
     ],
   },
   {

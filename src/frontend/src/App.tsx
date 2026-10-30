@@ -9,6 +9,7 @@ import {
   History,
   Layers,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   Menu,
   PackageSearch,
@@ -57,12 +58,14 @@ const LOADERS = {
   Team: () => import("./Team"),
   Help: () => import("./Help"),
   Categories: () => import("./Categories"),
+  Tasks: () => import("./Tasks"),
 };
 const Pricing = lazy(LOADERS.Pricing);
 const Privacy = lazy(LOADERS.Privacy);
 const Docs = lazy(LOADERS.Docs);
 const Contact = lazy(LOADERS.Contact);
 const Activity = lazy(LOADERS.Activity);
+const Tasks = lazy(LOADERS.Tasks);
 const Approvals = lazy(LOADERS.Approvals);
 const Dashboard = lazy(LOADERS.Dashboard);
 const Products = lazy(LOADERS.Products);
@@ -108,6 +111,7 @@ export type PageId =
   | "categories"
   | "purchasing"
   | "approvals"
+  | "tasks"
   | "activity"
   | "stocktake"
   | "stock"
@@ -123,6 +127,7 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
   { id: "categories", label: "Categories & storage", icon: Layers, roles: ["owner", "manager", "staff"], access: "products" },
   { id: "purchasing", label: "Purchase orders", icon: ShoppingCart, roles: ["owner", "manager", "staff"], access: "purchasing" },
   { id: "approvals", label: "Approvals", icon: ClipboardCheck, roles: ["owner", "manager", "staff"], access: "approvals" },
+  { id: "tasks", label: "Tasks", icon: ListChecks, roles: ["owner", "manager", "staff"] },
   { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager", "staff"], access: "activity" },
   { id: "stocktake", label: "Stock Count", icon: ClipboardList, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "stock", label: "Stock & sales", icon: ArrowLeftRight, roles: ["owner", "manager", "staff"], access: "stocktake" },
@@ -137,6 +142,7 @@ const MENU: (PageId | Group)[] = [
   "dashboard",
   "receive",
   "approvals",
+  "tasks",
   { label: "Deliveries", icon: Truck, items: ["records", "purchasing"] },
   { label: "Stock", icon: Boxes, items: ["stocktake", "stock"] },
   { label: "Catalogue", icon: PackageSearch, items: ["products", "categories"] },
@@ -353,6 +359,7 @@ const IDLE: Record<PageId, Scene> = {
   purchasing: { who: "carrot", action: "write" },
   approvals: { who: "carrot", action: "read" },
   activity: { who: "fish", action: "read" },
+  tasks: { who: "carrot", action: "write" },
   stocktake: { who: "cabbage", action: "count" },
   stock: { who: "carrot", action: "count" },
   team: { who: "crew", action: "wave" },
@@ -721,6 +728,7 @@ function Shell({
         )}
         {page === "approvals" && <Approvals key={visit} canDecide={canDecide} onChanged={refreshPending} />}
         {page === "activity" && <Activity key={visit} />}
+        {page === "tasks" && <Tasks key={visit} canEdit={me.role !== "staff"} />}
         {page === "stocktake" && <Stocktake key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "stock" && <StockMoves key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "team" && <Team key={visit} me={me} />}

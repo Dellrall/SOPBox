@@ -57,6 +57,8 @@ import type {
   StockLevel,
   Transfer,
   TransferIn,
+  TaskList,
+  TaskListIn,
 } from "./types";
 
 export class ApiError extends Error {
@@ -319,4 +321,10 @@ export const api = {
   ask: (question: string) => post<AskAnswer>("/ask", { question }),
   lowStockDraft: (supplier_id: number, order_date: string) =>
     post<PurchaseOrder>("/purchase-orders/low-stock-draft", { supplier_id, order_date }),
+  // task lists; `day` is the phone's own date
+  tasks: (day: string) => get<TaskList[]>(`/tasks?day=${day}`),
+  createTaskList: (body: TaskListIn) => post<TaskList>("/tasks", body),
+  updateTaskList: (id: number, body: TaskListIn) => put<TaskList>(`/tasks/${id}`, body),
+  deleteTaskList: (id: number) => request<void>("DELETE", `/tasks/${id}`),
+  tickTask: (id: number, day: string, step: number, done: boolean) => post<TaskList>(`/tasks/${id}/ticks`, { day, step, done }),
 };
