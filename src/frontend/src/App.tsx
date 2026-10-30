@@ -317,10 +317,11 @@ function LastSignIn({ me, onReview }: { me: Me; onReview: () => void }) {
     setHidden(true);
   };
   return (
-    <div role="status" className="mb-5 flex items-start gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm shadow-sm print:hidden">
-      <ShieldCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+    <div role="status" className="mb-3 flex items-start gap-2 rounded-2xl border border-line bg-white px-3 py-2 text-xs shadow-sm sm:mb-5 sm:gap-3 sm:px-4 sm:py-3 sm:text-sm print:hidden">
+      <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-brand-600 sm:h-5 sm:w-5" />
       <p className="flex-1 text-slate-700">
-        Welcome back, {me.display_name.split(/\s+/)[0]}. Your last sign-in was <strong className="text-ink">{describeSignIn(last)}</strong>.{" "}
+        <span className="hidden sm:inline">Welcome back, {me.display_name.split(/\s+/)[0]}. Your last</span>
+        <span className="sm:hidden">Last</span> sign-in: <strong className="text-ink">{describeSignIn(last)}</strong>.{" "}
         Not you?{" "}
         <button
           type="button"
@@ -552,7 +553,7 @@ function Shell({
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:shadow">
         Skip to content
       </a>
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-white/85 px-4 py-3 backdrop-blur lg:hidden print:hidden">
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-white/85 px-4 py-2 backdrop-blur lg:hidden print:hidden">
         <button
           aria-label="Open the menu"
           aria-expanded={menuOpen}
@@ -564,14 +565,6 @@ function Shell({
         <img src="/logo-128.webp" alt="" className="h-8 w-8 rounded-lg object-cover" />
         <span className="font-bold text-brand-950">SOPBox</span>
         <div className="ml-auto flex items-center gap-2">
-          {pending > 0 && (
-            <button
-              onClick={() => go("approvals")}
-              className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 ring-1 ring-amber-600/20"
-            >
-              {pending} waiting
-            </button>
-          )}
           <InboxBell />
         </div>
       </header>
@@ -677,7 +670,7 @@ function Shell({
         </div>
       </aside>
 
-      <main id="main" className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col px-4 pb-44 pt-6 sm:px-6 lg:px-10 lg:py-10 lg:pb-28">
+      <main id="main" className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col px-4 pb-44 pt-4 sm:px-6 sm:pt-6 lg:px-10 lg:py-10 lg:pb-28">
         {lostShown && (
           <p role="status" className="mb-4 flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
             <span className="flex-1">

@@ -341,7 +341,7 @@ export default function Receive({
     <div>
       {title}
       <form
-        className="space-y-4"
+        className="space-y-3 sm:space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -366,30 +366,36 @@ export default function Receive({
             )}
           </div>
         )}
-        <div>
-          <label className={labelClass} htmlFor="supplier">
-            Supplier (optional)
-          </label>
-          <input id="supplier" className={inputClass} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+        {/* Side by side, so the photo step stays near the top on a phone. */}
+        <div className={`grid gap-3 ${storages.length > 1 ? "grid-cols-2" : ""}`}>
+          <div className="min-w-0">
+            <label className={labelClass} htmlFor="supplier">
+              Supplier <span className="font-normal text-muted">(optional)</span>
+            </label>
+            <input id="supplier" className={inputClass} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+          </div>
+          {storages.length > 1 && (
+            <div className="min-w-0">
+              <StorageSelect
+                id="receive-storage"
+                label="Put away in"
+                storages={storages}
+                value={storageId ?? firstStorageId(storages)}
+                onChange={setStorageId}
+              />
+            </div>
+          )}
         </div>
-        {storages.length > 1 && (
-          <StorageSelect
-            id="receive-storage"
-            label="Put away in"
-            storages={storages}
-            value={storageId ?? firstStorageId(storages)}
-            onChange={setStorageId}
-          />
-        )}
 
-        <div className="rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/60 p-5 text-center">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm">
+        <div className="rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/60 p-3 text-center sm:p-5">
+          <span className="mx-auto hidden h-12 w-12 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm sm:flex">
             <Camera aria-hidden className="h-6 w-6" />
           </span>
-          <p className="mx-auto mt-3 max-w-sm text-sm text-slate-700">
-            Take a photo of the delivery order and the lines fill in for you to confirm. You can also type them below.
+          <p className="mx-auto max-w-sm text-sm text-slate-700 sm:mt-3">
+            <span className="sm:hidden">Photograph the delivery order to fill the lines, or type them below.</span>
+            <span className="hidden sm:inline">Take a photo of the delivery order and the lines fill in for you to confirm. You can also type them below.</span>
           </p>
-          <div className="mt-4">
+          <div className="mt-2 sm:mt-4">
             <PhotoPicker
               id="order-photo"
               takeClass={primaryButton}

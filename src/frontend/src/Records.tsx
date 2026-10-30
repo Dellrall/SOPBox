@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Camera, ChevronDown, ClipboardCopy, Download, Search, Truck, X } from "lucide-react";
+import { Camera, ChevronDown, ClipboardCopy, Download, Search, SlidersHorizontal, Truck, X } from "lucide-react";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
 import DeliveryPhotos from "./DeliveryPhotos";
@@ -95,6 +95,8 @@ export default function Records() {
   const [problemsOnly, setProblemsOnly] = useState(false);
   const [day, setDay] = useState<string | null>(null);
   const [shown, setShown] = useState(PAGE);
+  // Phones fold the filters other than search away until asked for.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
   const [copied, setCopied] = useState<number | null>(null);
   const replace = (d: Delivery) => setAll((rows) => rows && rows.map((r) => (r.id === d.id ? d : r)));
@@ -173,26 +175,27 @@ export default function Records() {
     setProblemsOnly(false);
     setDay(null);
   };
+  const activeFilters = [supplier, receiver, range !== "all", problemsOnly].filter(Boolean).length;
   // Any filter change starts the list from the top again.
   useEffect(() => setShown(PAGE), [status, query, supplier, receiver, range, problemsOnly, day]);
 
   return (
     <div className="space-y-5">
       <PageTitle title="Delivery records" subtitle="Every delivery received, its readings and the outcome.">
-        <button type="button" className={secondaryButton} disabled={!matching.length} onClick={() => downloadCsv(matching)}>
-          <Download aria-hidden className="h-4 w-4" /> Download CSV
+        <button type="button" className={secondaryButton} aria-label="Download CSV" disabled={!matching.length} onClick={() => downloadCsv(matching)}>
+          <Download aria-hidden className="h-4 w-4" /> <span className="hidden sm:inline">Download</span> CSV
         </button>
       </PageTitle>
       <ErrorNote message={error} />
 
-      <div role="group" aria-label="Status" className="flex flex-wrap gap-2">
+      <div role="group" aria-label="Status" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {STATUSES.map((s) => (
           <button
             key={s.id}
             type="button"
             aria-pressed={status === s.id}
             onClick={() => setStatus(s.id)}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
               status === s.id ? "bg-brand-600 text-white" : "bg-white text-slate-700 ring-1 ring-line hover:bg-slate-50"
             }`}
           >
@@ -205,20 +208,32 @@ export default function Records() {
       </div>
 
       <div className={`${panelClass} grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4`}>
-        <div className="relative sm:col-span-2">
-          <label className={labelClass} htmlFor="records-search">
-            Search
-          </label>
-          <Search aria-hidden className="pointer-events-none absolute bottom-3 left-3 h-4 w-4 text-muted" />
-          <input
-            id="records-search"
-            type="search"
-            placeholder="Supplier, PO, #number, product, person…"
-            className={`${inputClass} pl-9`}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+        <div className="flex items-end gap-2 sm:col-span-2">
+          <div className="relative flex-1">
+            <label className={`${labelClass} sr-only sm:not-sr-only sm:block`} htmlFor="records-search">
+              Search
+            </label>
+            <Search aria-hidden className="pointer-events-none absolute bottom-3 left-3 h-4 w-4 text-muted" />
+            <input
+              id="records-search"
+              type="search"
+              placeholder="Supplier, PO, #number, product, person…"
+              className={`${inputClass} pl-9`}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((o) => !o)}
+            className={`${secondaryButton} shrink-0 sm:hidden`}
+          >
+            <SlidersHorizontal aria-hidden className="h-4 w-4" /> Filters
+            {activeFilters > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-xs text-white">{activeFilters}</span>}
+          </button>
         </div>
+        <div className={`${filtersOpen ? "contents" : "hidden"} sm:contents`}>
         <div>
           <label className={labelClass} htmlFor="records-supplier">
             Supplier
@@ -263,6 +278,7 @@ export default function Records() {
             <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={problemsOnly} onChange={(e) => setProblemsOnly(e.target.checked)} />
             Only deliveries with problems
           </label>
+        </div>
         </div>
       </div>
 

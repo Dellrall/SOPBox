@@ -330,8 +330,12 @@ function Suppliers({ suppliers, products, onChanged }: { suppliers: Supplier[]; 
           })}
         </ul>
       )}
-      <div className="space-y-3 border-t border-line pt-4">
-        <h3 className="text-sm font-semibold text-brand-950">Add a supplier</h3>
+      {/* Folded once there are suppliers, so the form does not push the list off a phone screen. */}
+      <details open={suppliers.length === 0} className="group space-y-3 border-t border-line pt-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-brand-950">
+          <h3>Add a supplier</h3>
+          <ChevronDown aria-hidden className="h-4 w-4 transition group-open:rotate-180" />
+        </summary>
         <SupplierForm
           id="supplier-new"
           initial={BLANK_SUPPLIER}
@@ -342,7 +346,7 @@ function Suppliers({ suppliers, products, onChanged }: { suppliers: Supplier[]; 
             onChanged();
           }}
         />
-      </div>
+      </details>
     </section>
   );
 }
@@ -793,8 +797,8 @@ export default function PurchaseOrders({
     <div className="space-y-5">
       <PageTitle title="Purchase orders" subtitle="What you ordered from each supplier, and how much of it has arrived. Quantities only.">
         {canEdit && (
-          <button className={primaryButton} onClick={() => setView({ kind: "new" })}>
-            <FilePlus2 aria-hidden className="h-4 w-4" /> New purchase order
+          <button className={primaryButton} aria-label="New purchase order" onClick={() => setView({ kind: "new" })}>
+            <FilePlus2 aria-hidden className="h-4 w-4" /> New<span className="hidden sm:inline"> purchase order</span>
           </button>
         )}
       </PageTitle>
@@ -806,8 +810,8 @@ export default function PurchaseOrders({
         </p>
       )}
       {canEdit && lowSuppliers && chosenLow && (
-        <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-          <Sparkles aria-hidden className="mb-2.5 h-5 w-5 text-amber-700" />
+        <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 sm:p-4">
+          <Sparkles aria-hidden className="mb-2.5 hidden h-5 w-5 text-amber-700 sm:block" />
           <div className="min-w-56 flex-1">
             <label className={labelClass} htmlFor="low-stock-supplier">
               Draft an order for what is running low
@@ -828,14 +832,18 @@ export default function PurchaseOrders({
                 .filter((s) => s.quantity > 0 && chosenLow.products.includes(s.product_name))
                 .map((s) => (
                   <li key={s.product_id}>
-                    <strong>
-                      {s.product_name}: {s.quantity} {s.base_unit}
-                    </strong>{" "}
-                    <span className="text-amber-900">{s.reason}</span>
+                    {/* The reason folds away; tap the line to see why that amount. */}
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-semibold">
+                        {s.product_name}: {s.quantity} {s.base_unit}
+                        <ChevronDown aria-hidden className="h-4 w-4 shrink-0 transition group-open:rotate-180" />
+                      </summary>
+                      <p className="mt-0.5 text-xs text-amber-900">{s.reason}</p>
+                    </details>
                   </li>
                 ))}
             </ul>
-            <p className="mt-1.5 text-xs text-amber-900">Amounts cover a week of recent use (sales and counts) plus each minimum.</p>
+            <p className="mt-1.5 hidden text-xs text-amber-900 sm:block">Amounts cover a week of recent use (sales and counts) plus each minimum.</p>
           </div>
           <button className={secondaryButton} onClick={() => void draftFromLowStock()}>
             Draft from low stock

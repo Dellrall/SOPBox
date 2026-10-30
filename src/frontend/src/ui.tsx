@@ -33,16 +33,16 @@ export function TempInput({
 
 // Shared Tailwind class strings, so every screen looks the same.
 export const inputClass =
-  "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-ink shadow-xs transition placeholder:text-slate-400 hover:border-slate-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15";
+  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-ink sm:px-3.5 sm:py-2.5 shadow-xs transition placeholder:text-slate-400 hover:border-slate-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15";
 export const labelClass = "mb-1 block text-sm font-semibold text-slate-700";
 const button =
-  "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition sm:px-4 sm:py-2.5 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 export const primaryButton = `${button} bg-brand-600 text-white shadow-sm shadow-brand-900/20 hover:bg-brand-700`;
 export const secondaryButton = `${button} border border-slate-300 bg-white text-slate-800 shadow-xs hover:border-slate-400 hover:bg-slate-50`;
 export const dangerButton = `${button} border border-red-200 bg-white text-red-700 hover:border-red-300 hover:bg-red-50`;
 /** A white panel without padding, for lists whose rows set their own. */
 export const panelClass = "rounded-2xl border border-line bg-white shadow-sm shadow-brand-950/[0.03]";
-export const cardClass = `${panelClass} p-5`;
+export const cardClass = `${panelClass} p-4 sm:p-5`;
 
 export const STATUS_LABEL = (s: DeliveryStatus) => STATUS[s].label;
 const STATUS: Record<DeliveryStatus, { label: string; style: string; dot: string }> = {
@@ -83,10 +83,11 @@ export function SuccessNote({ children }: { children: ReactNode }) {
 
 export function PageTitle({ title, subtitle, children }: { title: string; subtitle?: string; children?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-6 sm:items-end">
       <div>
         <h1 className="text-2xl font-bold text-brand-950 sm:text-[1.7rem]">{title}</h1>
-        {subtitle && <p className="mt-1 max-w-2xl text-sm text-muted">{subtitle}</p>}
+        {/* Phones skip the subtitle: the page name and the bottom bar already say where you are. */}
+        {subtitle && <p className="mt-1 hidden max-w-2xl text-sm text-muted sm:block">{subtitle}</p>}
       </div>
       {children}
     </div>
