@@ -304,6 +304,26 @@ test.describe("phone layout", () => {
     await expect(picker).toHaveText("Frozen fries 2kg");
   });
 
+  test("a manager adds a ready-made task list and ticks a step", async ({ page }, testInfo) => {
+    await page.goto("/");
+    await openPage(page, "Tasks");
+    const main = page.locator("main");
+    const starter = main.getByRole("button", { name: "Peak hour", exact: true });
+    // The projects share one database: the first one adds the list, the rest find it.
+    if (await starter.isVisible()) await starter.tap();
+    const list = main.getByRole("button", { name: /^Peak hour.*(done|All done)/ });
+    await expect(list).toBeVisible();
+    if ((await list.getAttribute("aria-expanded")) === "false") await list.tap();
+    // Each project ticks its own step, so they don't undo each other.
+    const text = testInfo.project.name === "iphone-se" ? "Put a runner on the counter" : "Restock sauces and packaging";
+    const step = main.getByRole("checkbox", { name: text });
+    await main.getByText(text, { exact: true }).tap();
+    await expect(step).toBeChecked();
+    await expectFitsScreen(page);
+    await main.getByText(text, { exact: true }).tap();
+    await expect(step).not.toBeChecked();
+  });
+
   test("stock count categories start minimised and open with a tap", async ({ page }) => {
     await page.goto("/");
     await openPage(page, "Stock Count");

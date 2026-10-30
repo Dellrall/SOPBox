@@ -477,6 +477,25 @@ CREATE TABLE IF NOT EXISTS plan_code_uses (
     used_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (token_hash, workspace_id)
 );
+-- Task lists: daily ones (opening, closing) and ones for an event (peak hour, a new starter).
+CREATE TABLE IF NOT EXISTS task_lists (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('daily', 'event')),
+    for_role TEXT NOT NULL CHECK (for_role IN ('everyone', 'staff', 'manager')),
+    steps JSONB NOT NULL DEFAULT '[]'
+);
+CREATE UNIQUE INDEX IF NOT EXISTS task_lists_name_key ON task_lists (workspace_id, lower(name));
+-- A step ticked on a day. The day is the phone's own date, so lists start fresh at local midnight.
+CREATE TABLE IF NOT EXISTS task_ticks (
+    task_list_id BIGINT NOT NULL REFERENCES task_lists(id) ON DELETE CASCADE,
+    day DATE NOT NULL,
+    step INT NOT NULL CHECK (step >= 0),
+    done_by TEXT NOT NULL,
+    done_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (task_list_id, day, step)
+);
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible
@@ -488,6 +507,11 @@ _WS = "NULLIF(current_setting('app.workspace_id', true), '')::bigint"
 
 RLS_TABLES = {
     "categories": f"workspace_id = {_WS}",
+    "task_lists": f"workspace_id = {_WS}",
+    "task_ticks": (
+        f"EXISTS (SELECT 1 FROM task_lists t WHERE t.id = task_ticks.task_list_id "
+        f"AND t.workspace_id = {_WS})"
+    ),
     "products": f"workspace_id = {_WS}",
     "deliveries": f"workspace_id = {_WS}",
     "audit_log": f"workspace_id = {_WS}",

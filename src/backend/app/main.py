@@ -3,7 +3,7 @@ import hmac
 from contextlib import contextmanager
 from dataclasses import replace
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, ask, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes
+from app import apikeys, ask, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -34,6 +34,9 @@ from app.errors import (
 )
 from app.extraction import explain_gaps, extract_lines, extract_products, write_sop
 from app.models import (
+    TaskList,
+    TaskListIn,
+    TickIn,
     AskAnswer,
     AskIn,
     PriceChange,
@@ -325,6 +328,7 @@ _CONFLICTS = {
     "suppliers_name_key": "there is already a supplier with that name",
     "products_code_key": "another product already has that code",
     "products_barcode_key": "another product already has that barcode",
+    "task_lists_name_key": "there is already a task list with that name",
     "outlets_name_key": "there is already an outlet with that name",
     "storages_name_key": "this outlet already has a storage area with that name",
     **dict.fromkeys(
@@ -1146,6 +1150,32 @@ def explain_stocktake(stocktake_id: int, user: StocktakeReader, conn: Conn):
 
 
 # ---- outlets, storage areas, transfers and sales -------------------------------------------------
+
+
+@app.get("/api/tasks", response_model=list[TaskList])
+def list_tasks(user: User, conn: Conn, day: date = Query()):
+    """The task lists this person's role sees, with the steps ticked on `day` (the phone's date)."""
+    return tasks.list_tasks(conn, user, day)
+
+
+@app.post("/api/tasks", response_model=TaskList, status_code=201)
+def create_task_list(body: TaskListIn, user: ManagerUp, conn: Conn):
+    return tasks.create_list(conn, user, body)
+
+
+@app.put("/api/tasks/{list_id}", response_model=TaskList)
+def update_task_list(list_id: int, body: TaskListIn, user: ManagerUp, conn: Conn):
+    return tasks.update_list(conn, user, list_id, body)
+
+
+@app.delete("/api/tasks/{list_id}", status_code=204)
+def delete_task_list(list_id: int, user: ManagerUp, conn: Conn) -> None:
+    tasks.delete_list(conn, user, list_id)
+
+
+@app.post("/api/tasks/{list_id}/ticks", response_model=TaskList)
+def tick_task(list_id: int, body: TickIn, user: User, conn: Conn):
+    return tasks.tick(conn, user, list_id, body)
 
 
 @app.get("/api/outlets", response_model=list[OutletOut])

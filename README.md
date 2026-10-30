@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/RunPod-serverless%20GPU-673AB7" alt="RunPod serverless GPU">
   <img src="https://img.shields.io/badge/vLLM-Qwen3--VL--8B%20FP8-FF6F00" alt="vLLM serving Qwen3-VL-8B FP8">
   <img src="https://img.shields.io/badge/Telegram-Bot%20API-26A5E4?logo=telegram&logoColor=white" alt="Telegram Bot API">
-  <img src="https://img.shields.io/badge/tests-378%20pytest%20%C2%B7%2088%20Playwright-success" alt="378 pytest and 88 Playwright tests">
+  <img src="https://img.shields.io/badge/tests-383%20pytest%20%C2%B7%2090%20Playwright-success" alt="383 pytest and 90 Playwright tests">
   <img src="https://img.shields.io/badge/SDG-12.3%20%C2%B7%208-E5243B" alt="SDG 12.3 and 8">
 </p>
 
@@ -106,7 +106,7 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 
 ### Technical Execution
 
-- **378 backend tests and 88 phone and tablet UI test runs**, both run in GitHub Actions on every change (badges above).
+- **383 backend tests and 90 phone and tablet UI test runs**, both run in GitHub Actions on every change (badges above).
 - **AI writes words, code does the maths:** reorder amounts, usage rates, gap values and price changes are computed in Python; the model only reads documents and explains results. Every AI feature still works when the GPU is off.
 - **Multi-tenant isolation twice over:** every query is scoped to the signed-in workspace, and PostgreSQL Row Level Security enforces it inside the database.
 - **AI output is untrusted input:** parsed, validated and confirmed line by line by staff; the verdict comes from rules, never the model. An hourly cap bounds GPU spend.
@@ -256,10 +256,10 @@ cursor .        # Cursor
 ### 🧪 Run Tests
 
 ```bash
-python -m pytest                       # 378 backend tests, from the repository root (runs in CI)
+python -m pytest                       # 383 backend tests, from the repository root (runs in CI)
 
 cd src/frontend && npm ci && npx playwright install chromium
-npm run test:ui                        # 88 UI test runs on small phones and tablets
+npm run test:ui                        # 90 UI test runs on small phones and tablets
 ```
 
 ---
@@ -310,8 +310,8 @@ We build these one phase at a time; each phase is its own pull request.
 | Phase | Improvement | Status |
 |---|---|---|
 | 1 | Barcode scanning to pick products when receiving and ordering | ✅ Done |
-| 2 | Daily task lists per role and event-based SOPs (peak hour, new starter) | Next |
-| 3 | Demand forecasting from sales history, feeding purchase order suggestions | Planned |
+| 2 | Daily task lists per role and event-based SOPs (peak hour, new starter) | ✅ Done |
+| 3 | Demand forecasting from sales history, feeding purchase order suggestions | Next |
 | 4 | Payments inside the app (upgrades are requests today) | Needs a payment provider |
 | 5 | Light LoRA fine-tune on synthetic delivery orders, behind the same endpoint name | Needs GPU budget |
 | — | Telegram fixes (alerts and sign-in) | In progress |

@@ -585,3 +585,11 @@ export interface ApiKey {
   created_at: string;
   last_used_at: string | null;
 }
+
+export type TaskKind = "daily" | "event";
+export type TaskRole = "everyone" | "staff" | "manager";
+export type TaskListIn = { name: string; kind: TaskKind; for_role: TaskRole; steps: string[] };
+export type TaskList = TaskListIn & {
+  id: number;
+  ticks: { step: number; done_by: string; done_at: string }[]; // steps done on the day asked for
+};

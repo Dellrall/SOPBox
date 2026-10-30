@@ -4,7 +4,7 @@ import unicodedata
 from datetime import date
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 DeliveryStatus = Literal["accepted", "pending_approval", "rejected", "returned"]
 
@@ -1376,3 +1376,34 @@ class SupportIn(_In):
 class InquiryOut(BaseModel):
     id: int
     priority: bool
+
+
+class TaskListIn(_In):
+    name: str = Field(min_length=1, max_length=80)
+    # daily: every day (opening, closing). event: when it happens (peak hour, a new starter).
+    kind: Literal["daily", "event"]
+    for_role: Literal["everyone", "staff", "manager"] = "everyone"
+    steps: list[Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]] = Field(
+        min_length=1, max_length=40
+    )
+
+
+class TaskTick(BaseModel):
+    step: int
+    done_by: str
+    done_at: str
+
+
+class TaskList(BaseModel):
+    id: int
+    name: str
+    kind: str
+    for_role: str
+    steps: list[str]
+    ticks: list[TaskTick]  # the steps done on the day asked for
+
+
+class TickIn(_In):
+    day: date
+    step: int = Field(ge=0)
+    done: bool
