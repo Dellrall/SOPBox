@@ -465,7 +465,8 @@ function OrderForm({
                   id={`po-product-${l.key}`}
                   noun="products"
                   placeholder="Choose a product"
-                  options={products.map((p) => ({ value: String(p.id), label: p.name, group: p.category }))}
+                  scan
+                  options={products.map((p) => ({ value: String(p.id), label: p.name, group: p.category, codes: [p.barcode, p.code].filter((c): c is string => !!c) }))}
                   value={l.productId}
                   onChange={(productId) => setLine(l.key, { productId, unit: unitsOf(productId).slice(-1)[0] ?? "" })}
                 />

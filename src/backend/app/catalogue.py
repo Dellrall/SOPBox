@@ -113,6 +113,7 @@ def _load(conn: psycopg.Connection, ws: int, where: str = "", params: tuple = ()
                 low_stock=not r["archived"] and r["stock"] < r["min_stock"],
                 archived=r["archived"],
                 code=r["code"],
+                barcode=r["barcode"],
             )
         )
     return products
@@ -128,9 +129,9 @@ def list_products(
         like = f"%{_escape_like(q.strip())}%"
         where = (
             "AND (p.name ILIKE %s ESCAPE '\\' OR p.sop ILIKE %s ESCAPE '\\' "
-            "OR c.name ILIKE %s ESCAPE '\\' OR p.code ILIKE %s ESCAPE '\\')"
+            "OR c.name ILIKE %s ESCAPE '\\' OR p.code ILIKE %s ESCAPE '\\' OR p.barcode = %s)"
         )
-        return _load(conn, ws, where, (like, like, like, like))
+        return _load(conn, ws, where, (like, like, like, like, q.strip()))
     return _load(conn, ws)
 
 
@@ -164,8 +165,8 @@ def create_product(conn: psycopg.Connection, ws: int, data: ProductIn) -> Produc
     with conn.transaction():
         row = conn.execute(
             "INSERT INTO products "
-            "(workspace_id, name, category_id, base_unit, temp_min_c, temp_max_c, min_stock, sop, code) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            "(workspace_id, name, category_id, base_unit, temp_min_c, temp_max_c, min_stock, sop, code, barcode) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (
                 ws,
                 data.name,
@@ -176,6 +177,7 @@ def create_product(conn: psycopg.Connection, ws: int, data: ProductIn) -> Produc
                 data.min_stock,
                 data.sop,
                 data.code,
+                data.barcode,
             ),
         ).fetchone()
         _replace_packs(conn, row["id"], data.pack_units)
@@ -193,7 +195,7 @@ def update_product(conn: psycopg.Connection, ws: int, product_id: int, data: Pro
     with conn.transaction():
         cur = conn.execute(
             "UPDATE products SET name = %s, category_id = %s, base_unit = %s, temp_min_c = %s, "
-            "temp_max_c = %s, min_stock = %s, sop = %s, code = %s WHERE id = %s AND workspace_id = %s",
+            "temp_max_c = %s, min_stock = %s, sop = %s, code = %s, barcode = %s WHERE id = %s AND workspace_id = %s",
             (
                 data.name,
                 data.category_id,
@@ -203,6 +205,7 @@ def update_product(conn: psycopg.Connection, ws: int, product_id: int, data: Pro
                 data.min_stock,
                 data.sop,
                 data.code,
+                data.barcode,
                 product_id,
                 ws,
             ),

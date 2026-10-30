@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/RunPod-serverless%20GPU-673AB7" alt="RunPod serverless GPU">
   <img src="https://img.shields.io/badge/vLLM-Qwen3--VL--8B%20FP8-FF6F00" alt="vLLM serving Qwen3-VL-8B FP8">
   <img src="https://img.shields.io/badge/Telegram-Bot%20API-26A5E4?logo=telegram&logoColor=white" alt="Telegram Bot API">
-  <img src="https://img.shields.io/badge/tests-377%20pytest%20%C2%B7%2086%20Playwright-success" alt="377 pytest and 86 Playwright tests">
+  <img src="https://img.shields.io/badge/tests-378%20pytest%20%C2%B7%2088%20Playwright-success" alt="378 pytest and 88 Playwright tests">
   <img src="https://img.shields.io/badge/SDG-12.3%20%C2%B7%208-E5243B" alt="SDG 12.3 and 8">
 </p>
 
@@ -65,7 +65,7 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 
 ### ✨ Key Features
 
-- **Receiving check** — take or choose a photo of the delivery order; the AI fills in the lines (with the unit price) for staff to confirm, with probe temperatures, stock photos and teammate tagging.
+- **Receiving check** — take or choose a photo of the delivery order; the AI fills in the lines (with the unit price) for staff to confirm, with probe temperatures, stock photos and teammate tagging. Scan a pack's barcode to pick the product.
 - **Rules and approvals** — failed lines hold the delivery for a manager, who is notified in the app inbox and on Telegram.
 - **Products & SOP cards** — temperature ranges, pack sizes and step-by-step SOPs per product. An **AI SOP writer** drafts steps from a manager's notes, and a second pass checks them.
 - **Import from a supplier sheet** — photograph a product or SOP sheet; the AI suggests products and SOPs for a manager to correct and add.
@@ -106,7 +106,7 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 
 ### Technical Execution
 
-- **377 backend tests and 86 phone and tablet UI test runs**, both run in GitHub Actions on every change (badges above).
+- **378 backend tests and 88 phone and tablet UI test runs**, both run in GitHub Actions on every change (badges above).
 - **AI writes words, code does the maths:** reorder amounts, usage rates, gap values and price changes are computed in Python; the model only reads documents and explains results. Every AI feature still works when the GPU is off.
 - **Multi-tenant isolation twice over:** every query is scoped to the signed-in workspace, and PostgreSQL Row Level Security enforces it inside the database.
 - **AI output is untrusted input:** parsed, validated and confirmed line by line by staff; the verdict comes from rules, never the model. An hourly cap bounds GPU spend.
@@ -256,10 +256,10 @@ cursor .        # Cursor
 ### 🧪 Run Tests
 
 ```bash
-python -m pytest                       # 377 backend tests, from the repository root (runs in CI)
+python -m pytest                       # 378 backend tests, from the repository root (runs in CI)
 
 cd src/frontend && npm ci && npx playwright install chromium
-npm run test:ui                        # 86 UI test runs on small phones and tablets
+npm run test:ui                        # 88 UI test runs on small phones and tablets
 ```
 
 ---
@@ -305,12 +305,16 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 
 ## 🔭 Future Improvements
 
-- [ ] Telegram fixes in progress (alerts and sign-in)
-- [ ] Light LoRA fine-tune on synthetic delivery orders, swapped in behind the same endpoint name
-- [ ] Barcode scanning to pick products
-- [ ] Daily task lists per role and event-based SOPs (peak hour, new starter)
-- [ ] Demand forecasting from sales history
-- [ ] Payments inside the app (upgrades are requests today)
+We build these one phase at a time; each phase is its own pull request.
+
+| Phase | Improvement | Status |
+|---|---|---|
+| 1 | Barcode scanning to pick products when receiving and ordering | ✅ Done |
+| 2 | Daily task lists per role and event-based SOPs (peak hour, new starter) | Next |
+| 3 | Demand forecasting from sales history, feeding purchase order suggestions | Planned |
+| 4 | Payments inside the app (upgrades are requests today) | Needs a payment provider |
+| 5 | Light LoRA fine-tune on synthetic delivery orders, behind the same endpoint name | Needs GPU budget |
+| — | Telegram fixes (alerts and sign-in) | In progress |
 
 ## 🤝 Team
 

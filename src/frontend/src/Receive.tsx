@@ -434,9 +434,10 @@ export default function Receive({
                 <SearchSelect
                   id={`product-${line.key}`}
                   noun="products"
+                  scan
                   options={[
                     { value: "", label: "Not in the catalogue" },
-                    ...products.map((p) => ({ value: String(p.id), label: p.name, group: p.category })),
+                    ...products.map((p) => ({ value: String(p.id), label: p.name, group: p.category, codes: [p.barcode, p.code].filter((c): c is string => !!c) })),
                   ]}
                   value={line.productId === null ? "" : String(line.productId)}
                   onChange={(v) => chooseProduct(line, v)}

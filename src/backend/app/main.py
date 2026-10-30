@@ -324,6 +324,7 @@ _CONFLICTS = {
     "purchase_order_lines_product_id_fkey": "this product is on purchase orders, so it cannot be deleted: archive it instead",
     "suppliers_name_key": "there is already a supplier with that name",
     "products_code_key": "another product already has that code",
+    "products_barcode_key": "another product already has that barcode",
     "outlets_name_key": "there is already an outlet with that name",
     "storages_name_key": "this outlet already has a storage area with that name",
     **dict.fromkeys(

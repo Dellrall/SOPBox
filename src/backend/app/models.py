@@ -88,11 +88,14 @@ class ProductIn(_In):
     pack_units: list[PackUnit] = Field(default_factory=list, max_length=10)
     # The product's code on the POS or sales sheet (SKU). Empty: none.
     code: str | None = Field(default=None, max_length=40)
+    # The barcode printed on the pack, as a scanner reads it. Empty: none.
+    barcode: str | None = Field(default=None, max_length=40, pattern=r"^[0-9A-Za-z\-.]*$")
 
     @model_validator(mode="after")
     def _check(self) -> "ProductIn":
         _check_range(self.temp_min_c, self.temp_max_c)
         self.code = self.code or None
+        self.barcode = self.barcode or None
         units = [self.base_unit.lower(), *(p.unit.lower() for p in self.pack_units)]
         if len(set(units)) != len(units):
             raise ValueError("pack units must be unique and different from the base unit")
@@ -147,6 +150,7 @@ class Product(BaseModel):
     low_stock: bool
     archived: bool = False
     code: str | None = None
+    barcode: str | None = None
 
 
 class ArchiveIn(_In):

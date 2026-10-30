@@ -46,6 +46,7 @@ export const GUIDES: Guide[] = [
     what: "Check a delivery as it arrives, against each product's rules.",
     how: [
       "Photograph the supplier's delivery order: the lines are read for you. Or type them in.",
+      "To pick a product fast, tap the barcode button next to it and point the camera at the pack.",
       "Pick the storage area the stock goes to.",
       "Enter the temperature and quantity of each line, and add photos of anything wrong.",
       "Add the price per unit from the invoice if you have it: SOPBox flags a price rise of 10% or more.",
@@ -108,6 +109,7 @@ export const GUIDES: Guide[] = [
     how: [
       "Tap Add product: pick its category, set the pack size, the safe temperature and the minimum stock.",
       "Write the SOP: the steps your team follows when it arrives. The SOP writer can draft one for you.",
+      "Add the barcode (type it or scan the pack) so staff can scan it when receiving.",
       "Import from a sheet adds many products at once from a supplier list.",
     ],
   },

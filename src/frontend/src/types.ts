@@ -190,6 +190,7 @@ export type Product = {
   low_stock: boolean;
   archived: boolean; // left out of receiving; history kept
   code: string | null; // the POS / sales sheet code (SKU)
+  barcode: string | null; // printed on the pack, scanned to pick the product
 };
 
 export type ProductIn = {
@@ -202,6 +203,7 @@ export type ProductIn = {
   sop: string;
   pack_units: PackUnit[];
   code?: string | null;
+  barcode?: string | null;
 };
 
 export type SopDraft = {
