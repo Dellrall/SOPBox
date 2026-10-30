@@ -152,6 +152,26 @@ test.describe("signed out", () => {
     await expect(passkey).toBeInViewport();
     expect((await passkey.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   });
+
+  test("the sign-in options wait for each other, so passkey never shows alone while Google loads", async ({ page }) => {
+    let release = () => {};
+    const held = new Promise<void>((r) => (release = r));
+    await page.route("**/api/auth/methods", async (route) => {
+      await held;
+      await route.fulfill({ json: { google: true, telegram_bot_id: null } });
+    });
+    await page.goto("/signin");
+    await expect(page.getByLabel("Loading sign-in options")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in with a passkey" })).toBeHidden();
+    release();
+    await expect(page.getByRole("button", { name: "Sign in with a passkey" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Continue with Google" })).toBeVisible();
+    // Kept on the device, so the next visit shows every option at once.
+    await page.unroute("**/api/auth/methods");
+    await page.route("**/api/auth/methods", () => new Promise(() => {}));
+    await page.reload();
+    await expect(page.getByRole("link", { name: "Continue with Google" })).toBeVisible();
+  });
 });
 
 for (const who of ["owner", "manager", "staff"] as const) {
