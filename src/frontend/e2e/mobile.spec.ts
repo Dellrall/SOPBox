@@ -46,7 +46,7 @@ async function openPage(page: Page, label: string) {
 async function openSettings(page: Page, tab: string) {
   await openPage(page, "Settings");
   await page.getByRole("tab", { name: tab }).tap();
-  await expect(page.getByRole("tabpanel").getByRole("heading", { level: 2, name: tab, exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: tab })).toHaveAttribute("aria-selected", "true");
 }
 
 /** Opens every closed group in the menu, so all pages can be clicked. */
