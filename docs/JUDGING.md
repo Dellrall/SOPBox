@@ -13,7 +13,7 @@
 
 ### Technical Execution
 
-- **390 backend tests and 90 phone and tablet UI test runs**, both run in GitHub Actions on every change (badges in the README).
+- **391 backend tests and 90 phone and tablet UI test runs**, both run in GitHub Actions on every change (badges in the README).
 - **AI writes words, code does the maths:** reorder amounts, usage rates, gap values and price changes are computed in Python; the model only reads documents and explains results. Every AI feature still works when the GPU is off.
 - **Multi-tenant isolation twice over:** every query is scoped to the signed-in workspace, and PostgreSQL Row Level Security enforces it inside the database.
 - **AI output is untrusted input:** parsed, validated and confirmed line by line by staff; the verdict comes from rules, never the model. An hourly cap bounds GPU spend.

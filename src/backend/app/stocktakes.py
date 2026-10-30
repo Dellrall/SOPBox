@@ -321,6 +321,7 @@ def create_stocktake(
     workspace_id: int,
     counted_by: str,
     data: StocktakeCreateIn,
+    counted_by_id: int | None = None,
 ) -> StocktakeDetail:
     product_ids = [line.product_id for line in data.lines]
     storage_id = locations.resolve(conn, workspace_id, data.storage_id)
@@ -360,8 +361,8 @@ def create_stocktake(
         created_at = _now()
         stocktake_id = conn.execute(
             "INSERT INTO stocktakes "
-            "(workspace_id, number, reference, count_date, counted_by, created_at, notes, storage_id) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            "(workspace_id, number, reference, count_date, counted_by, created_at, notes, storage_id, counted_by_id) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (
                 workspace_id,
                 number,
@@ -371,6 +372,7 @@ def create_stocktake(
                 created_at,
                 data.notes.strip(),
                 storage_id,
+                counted_by_id,
             ),
         ).fetchone()["id"]
         # A count of this storage area does every count planned for it.

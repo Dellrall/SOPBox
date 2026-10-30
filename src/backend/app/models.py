@@ -1468,3 +1468,19 @@ class CountPlanIn(_In):
     storage_id: int = Field(gt=0)
     due_date: date
     user_id: int | None = Field(default=None, gt=0)  # the PIC; empty: none yet
+
+
+class Efficiency(BaseModel):
+    """One person's record over the last `days`, all counted from saved records."""
+
+    user_id: int
+    name: str
+    role: str
+    jobs_due: int  # jobs they were PIC of that fell due (orders expected, counts planned)
+    jobs_on_time: int  # of those, received or counted by the due date
+    deliveries: int  # deliveries they checked
+    avg_days_late: float | None  # against the order's expected date; negative is early
+    lines_checked: int
+    lines_failed: int  # lines that failed a rule: a training hint, not always their fault
+    counts: int
+    gap_sen_per_count: int | None  # the value of what their counts found missing or extra, per count

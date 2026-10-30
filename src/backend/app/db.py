@@ -531,6 +531,8 @@ CREATE TABLE IF NOT EXISTS assignment_requests (
     decided_at TIMESTAMPTZ
 );
 -- One open request per person and job, so asking twice is the same request.
+-- Who counted, by account, so a renamed person keeps their record (efficiency.py).
+ALTER TABLE stocktakes ADD COLUMN IF NOT EXISTS counted_by_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS assignment_requests_pending_key ON assignment_requests (kind, ref_id, user_id)
     WHERE status = 'pending';
 """
