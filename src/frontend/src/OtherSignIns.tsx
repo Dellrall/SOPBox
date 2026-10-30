@@ -5,7 +5,8 @@ import type { KitchenScreen, Me, SignInMethods } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
 import { consumeTelegram, lastSignIn, passkeyError, passkeysSupported, signInWithPasskey, takeAuthReturn, telegramLoginUrl, type ShownMethod } from "./signin";
 
-const optionButton = `${secondaryButton} relative w-full justify-center py-3 text-base`;
+// Side by side on phones (icon over a short word) so they take one row; full width from sm up.
+const optionButton = `${secondaryButton} relative min-w-0 flex-1 flex-col justify-center gap-1 px-1 py-2.5 text-xs sm:w-full sm:flex-row sm:gap-2 sm:py-3 sm:text-base`;
 
 /** The small "Last used" tag on the matching sign-in button (the button needs `relative`). */
 export function LastUsed({ method, on }: { method: ShownMethod; on: ShownMethod | null }) {
@@ -17,6 +18,14 @@ export function LastUsed({ method, on }: { method: ShownMethod; on: ShownMethod 
   );
 }
 
+
+/** One word on a phone, the whole label from sm up. The button's aria-label carries the full name. */
+const Short = ({ word, full }: { word: string; full: string }) => (
+  <>
+    <span className="sm:hidden">{word}</span>
+    <span className="hidden sm:inline">{full}</span>
+  </>
+);
 
 /** Google's "G", drawn as Google's brand guidelines ask for its sign-in button. */
 function GoogleMark() {
@@ -64,30 +73,31 @@ export function OtherSignIns({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
   }
 
   return (
-    <div className="mt-6 space-y-3">
+    <div className="mt-4 space-y-3 sm:mt-6">
       <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-muted">
         <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
       </div>
+      <div className="flex gap-2 sm:flex-col sm:gap-3">
       {passkeysSupported() && (
-        <button type="button" className={optionButton} disabled={busy} onClick={() => void passkey()}>
-          <Fingerprint aria-hidden className="h-5 w-5" /> Sign in with a passkey
+        <button type="button" className={optionButton} aria-label="Sign in with a passkey" disabled={busy} onClick={() => void passkey()}>
+          <Fingerprint aria-hidden className="h-5 w-5" /> <Short word="Passkey" full="Sign in with a passkey" />
           <LastUsed method="passkey" on={last} />
         </button>
       )}
       {methods?.google && (
-        <a href="/api/auth/google/start?mode=login" className={optionButton}>
-          <GoogleMark /> Continue with Google
+        <a href="/api/auth/google/start?mode=login" className={optionButton} aria-label="Continue with Google">
+          <GoogleMark /> <Short word="Google" full="Continue with Google" />
           <LastUsed method="google" on={last} />
         </a>
       )}
       {methods?.telegram_bot_id && (
-        <a href={telegramLoginUrl(methods.telegram_bot_id, "/signin")} className={optionButton}>
-          <Send aria-hidden className="h-5 w-5 text-[#229ED9]" /> Continue with Telegram
+        <a href={telegramLoginUrl(methods.telegram_bot_id, "/signin")} className={optionButton} aria-label="Continue with Telegram">
+          <Send aria-hidden className="h-5 w-5 text-[#229ED9]" /> <Short word="Telegram" full="Continue with Telegram" />
           <LastUsed method="telegram" on={last} />
         </a>
       )}
+      </div>
       <ErrorNote message={error} />
-      <p className="text-xs text-muted">Passkeys, Google and Telegram work once you've set them up in Settings.</p>
     </div>
   );
 }

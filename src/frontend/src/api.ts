@@ -93,6 +93,7 @@ export const setSignedOutHandler = (fn: () => void) => {
 let branchId: number | null = null;
 export const setBranch = (id: number | null) => {
   branchId = id;
+  recent.clear();
 };
 const branchHeader = (): Record<string, string> => (branchId === null ? {} : { "X-SOPBox-Workspace": String(branchId) });
 
@@ -119,6 +120,7 @@ async function request<T>(method: string, path: string, body?: unknown, retry = 
 }
 
 async function upload<T>(path: string, file: File): Promise<T> {
+  recent.clear();
   const form = new FormData();
   form.append("file", file);
   const res = await fetch(`/api${path}`, { method: "POST", body: form, headers: branchHeader() });
@@ -139,11 +141,32 @@ async function download(path: string, retry = true): Promise<Blob> {
   return res.blob();
 }
 
-const get = <T>(path: string) => request<T>("GET", path);
-const post = <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {});
-const put = <T>(path: string, body: unknown) => request<T>("PUT", path, body);
-const patch = <T>(path: string, body: unknown) => request<T>("PATCH", path, body);
-const del = (path: string) => request<void>("DELETE", path);
+// Recent GET replies, so going back to a page shows its data at once instead of "Loading…", and
+// two parts of a page asking for the same thing share one request. Any change (POST, PUT, PATCH,
+// DELETE, upload), a workspace switch and a Refresh button forget them all; the inbox, which is
+// polled for news, and account routes are never kept.
+const RECENT_MS = 20_000;
+const recent = new Map<string, { at: number; reply: Promise<unknown> }>();
+export const forgetRecent = () => recent.clear();
+
+function get<T>(path: string): Promise<T> {
+  if (path.startsWith("/inbox") || path.startsWith("/auth/")) return request<T>("GET", path);
+  const key = `${branchId ?? ""} ${path}`;
+  const hit = recent.get(key);
+  if (hit && Date.now() - hit.at < RECENT_MS) return hit.reply as Promise<T>;
+  const reply = request<T>("GET", path);
+  recent.set(key, { at: Date.now(), reply });
+  reply.catch(() => recent.get(key)?.reply === reply && recent.delete(key));
+  return reply;
+}
+const change = <T>(method: string, path: string, body?: unknown) => {
+  forgetRecent();
+  return request<T>(method, path, body).finally(forgetRecent);
+};
+const post = <T>(path: string, body?: unknown) => change<T>("POST", path, body ?? {});
+const put = <T>(path: string, body: unknown) => change<T>("PUT", path, body);
+const patch = <T>(path: string, body: unknown) => change<T>("PATCH", path, body);
+const del = (path: string) => change<void>("DELETE", path);
 
 export const api = {
   // accounts

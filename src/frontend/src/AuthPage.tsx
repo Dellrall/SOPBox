@@ -94,7 +94,7 @@ export default function AuthPage({
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[1.05fr_1fr]">
-      <section className="hero-pattern relative flex flex-col justify-between overflow-hidden px-6 py-8 text-white sm:px-10 lg:min-h-screen lg:px-14 lg:py-12">
+      <section className="hero-pattern relative flex flex-col justify-between overflow-hidden px-5 py-4 text-white sm:px-10 sm:py-8 lg:min-h-screen lg:px-14 lg:py-12">
         <a
           href="/"
           onClick={(e) => {
@@ -103,20 +103,21 @@ export default function AuthPage({
           }}
           className="flex w-fit items-center gap-3 rounded-xl"
         >
-          <img src="/logo-128.webp" alt="" width={44} height={44} className="h-11 w-11 rounded-xl object-cover ring-2 ring-white/15" />
+          <img src="/logo-128.webp" alt="" width={44} height={44} className="h-9 w-9 rounded-xl object-cover ring-2 ring-white/15 sm:h-11 sm:w-11" />
           <span className="text-xl font-bold">SOPBox</span>
           <span className="sr-only">: back to the welcome page</span>
         </a>
 
-        {/* A kitchen tablet goes straight to the names below; phones and upright tablets skip the feature list. */}
-        <div className={`my-10 max-w-xl lg:my-0 ${onTablet ? "hidden lg:block" : ""}`}>
-          <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-leaf ring-1 ring-white/15">
+        {/* A kitchen tablet goes straight to the names below; phones keep only the headline, so the
+            form is in reach without scrolling, and upright tablets skip the feature list. */}
+        <div className={`mt-3 max-w-xl sm:my-10 lg:my-0 ${onTablet ? "hidden lg:block" : ""}`}>
+          <p className="mb-4 hidden sm:inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-leaf ring-1 ring-white/15">
             <ShieldCheck aria-hidden className="h-3.5 w-3.5" /> For food &amp; beverage SMEs
           </p>
-          <h1 className="text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
+          <h1 className="text-xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
             Receiving checks that <span className="text-sand">catch problems at the door.</span>
           </h1>
-          <p className="mt-4 max-w-lg text-base text-white/75 sm:text-lg">
+          <p className="mt-4 hidden max-w-lg text-base text-white/75 sm:block sm:text-lg">
             SOPBox turns every delivery into a quick, guided check on a phone, so wrong temperatures, short
             packs and missing items are stopped before they reach your kitchen.
           </p>
@@ -140,23 +141,23 @@ export default function AuthPage({
         </p>
       </section>
 
-      <main className="flex items-start justify-center bg-surface px-4 py-10 sm:px-6 lg:items-center">
+      <main className="flex items-start justify-center bg-surface px-4 py-5 sm:px-6 sm:py-10 lg:items-center">
         <div className="w-full max-w-md">
-          <h2 className="text-2xl font-bold text-brand-950">{mode === "signin" ? "Welcome back" : "Create your workspace"}</h2>
-          <p className="mt-1 text-sm text-muted">
+          <h2 className="text-xl font-bold text-brand-950 sm:text-2xl">{mode === "signin" ? "Welcome back" : "Create your workspace"}</h2>
+          <p className="mt-1 hidden text-sm text-muted sm:block">
             {mode === "signin"
               ? "Sign in to record and check today's deliveries."
               : "You'll be the owner. You can add your managers and staff next."}
           </p>
 
-          <div role="tablist" aria-label="Sign in or create a workspace" className="mt-6 flex gap-1 rounded-xl bg-slate-200/60 p-1">
+          <div role="tablist" aria-label="Sign in or create a workspace" className="mt-4 flex sm:mt-6 gap-1 rounded-xl bg-slate-200/60 p-1">
             {tab("signin", "Sign in")}
             {tab("register", "Create a workspace")}
           </div>
 
           {onTablet && <KitchenSignIn screen={kitchen} onSignedIn={onSignedIn} onUsePassword={() => setUsePassword(true)} onForgotten={() => setKitchen(null)} />}
 
-          <form hidden={onTablet} onSubmit={(e) => void submit(e)} className="mt-6 space-y-4">
+          <form hidden={onTablet} onSubmit={(e) => void submit(e)} className="mt-4 space-y-3 sm:mt-6 sm:space-y-4">
             {mode === "register" && (
               <>
                 <div>
@@ -235,10 +236,14 @@ export default function AuthPage({
           </form>
           {mode === "signin" && !onTablet && <OtherSignIns onSignedIn={onSignedIn} />}
           {mode === "signin" && !onTablet && (
-            <p className="mt-6 rounded-xl border border-line bg-white px-4 py-3 text-sm text-muted">
-              <strong className="text-ink">Staff or manager?</strong> Your owner creates your account. Ask
-              them for your username and password.
-            </p>
+            <details className="mt-4 rounded-xl border border-line bg-white px-4 py-3 text-sm text-muted">
+              <summary className="cursor-pointer font-semibold text-ink">Trouble signing in?</summary>
+              <p className="mt-2">
+                <strong className="text-ink">Staff or manager?</strong> Your owner creates your account. Ask them for your
+                username and password.
+              </p>
+              <p className="mt-2">Passkeys, Google and Telegram work once you've set them up in Settings.</p>
+            </details>
           )}
           <SdgFooter className="mt-10" />
           <PolicyLinks className="mt-4" />
