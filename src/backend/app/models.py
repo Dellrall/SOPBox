@@ -1131,6 +1131,7 @@ class StockLevelOut(BaseModel):
     product_id: int
     name: str
     code: str | None
+    barcode: str | None = None
     category: str
     base_unit: str
     quantity: int  # in this storage area

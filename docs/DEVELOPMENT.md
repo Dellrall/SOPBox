@@ -157,7 +157,7 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `GET /api/dashboard` | dashboard access | Today's numbers, waiting approvals and low stock |
 | `GET /api/deliveries/{id}/photos/{photo_id}`, `POST .../comments` | delivery access | Delivery photos and comments on them |
 | `POST /api/products/sop-draft` | product editors | AI draft of an SOP card (words only; saves nothing) |
-| `GET /api/purchase-orders/low-stock-suppliers`, `GET /api/purchase-orders/reorder-suggestions` | purchasing editors | Suppliers with low stock; suggested order quantities with the reason (worked out in code) |
+| `GET /api/purchase-orders/low-stock-suppliers`, `GET /api/purchase-orders/reorder-suggestions` | purchasing editors | Suppliers with low stock; suggested order quantities with the reason (worked out in code; with 3+ weeks of sales, next week's sales come from the weekly trend, `app/insights.py` `sales_forecast`) |
 | `GET /api/insights/price-changes` | purchasing access | Delivered unit prices that rose 10% or more |
 | `GET/POST /api/stocktakes`, `GET /api/stocktakes/{id}`, `GET .../products`, `POST .../preview`, `GET .../template.xlsx` | stock count access | Stock counts: list, read, start from the app or an uploaded sheet |
 | `GET /api/stocktakes/{id}/insights`, `POST /api/stocktakes/{id}/explain` | stock count access | "What stands out" (computed); a plain-words explanation by the AI, which never changes the numbers |

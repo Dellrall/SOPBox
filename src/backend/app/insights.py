@@ -20,6 +20,8 @@ REPEAT_SHORT = 2  # this many of them short as well makes a gap a repeat
 USAGE_DAYS = 28  # recent use is measured over this window
 MIN_USAGE_DAYS = 7  # a younger record is still spread over a week, so one busy day is not a trend
 COVER_DAYS = 7  # a suggested order lasts this long at recent use, on top of the minimum
+FORECAST_WEEKS = 8  # the sales trend is read from this many full weeks
+MIN_FORECAST_WEEKS = 3  # fewer weeks of sales is too little to call a trend
 PRICE_DAYS = 30  # price changes delivered in this window are shown
 PRICE_STEP = 0.10  # a change of at least this share is worth a manager's look
 
@@ -104,13 +106,13 @@ def count_insights(conn: psycopg.Connection, ws: int, stocktake_id: int) -> Coun
     )
 
 
-def daily_use(conn: psycopg.Connection, ws: int, today: date | None = None) -> dict[int, float]:
-    """Base units each product used a day lately: what sales took off, plus what counts found
-    missing. Extra found at a count (often the first count, or a delivery not entered) is not
-    negative use, so it is left out. Transfers between storage areas move stock, not use it."""
-    today = today or date.today()
+def _use(conn: psycopg.Connection, ws: int, today: date) -> tuple[dict[int, int], dict[int, int], int]:
+    """Base units sold and found missing at counts per product lately, and the days that covers.
+    Extra found at a count (often the first count, or a delivery not entered) is not negative use,
+    so it is left out. Transfers between storage areas move stock, not use it."""
     since = today - timedelta(days=USAGE_DAYS)
-    used: dict[int, int] = {}
+    sold: dict[int, int] = {}
+    lost: dict[int, int] = {}
     first: date | None = None
     for row in conn.execute(
         "SELECT sl.product_id, SUM(sl.deducted)::bigint AS q, MIN(s.sale_date) AS first FROM sale_lines sl "
@@ -118,7 +120,7 @@ def daily_use(conn: psycopg.Connection, ws: int, today: date | None = None) -> d
         "AND sl.product_id IS NOT NULL GROUP BY sl.product_id",
         (ws, since),
     ).fetchall():
-        used[row["product_id"]] = used.get(row["product_id"], 0) + row["q"]
+        sold[row["product_id"]] = row["q"]
         first = min(first or row["first"], row["first"])
     for row in conn.execute(
         "SELECT l.product_id, SUM(-l.difference)::bigint AS q, MIN(s.count_date) AS first FROM stocktake_lines l "
@@ -126,28 +128,94 @@ def daily_use(conn: psycopg.Connection, ws: int, today: date | None = None) -> d
         "AND l.product_id IS NOT NULL AND l.difference < 0 GROUP BY l.product_id",
         (ws, since),
     ).fetchall():
-        used[row["product_id"]] = used.get(row["product_id"], 0) + row["q"]
+        lost[row["product_id"]] = row["q"]
         first = min(first or row["first"], row["first"])
     if first is None:
-        return {}
-    days = min(USAGE_DAYS, max(MIN_USAGE_DAYS, (today - first).days + 1))
+        return {}, {}, 0
+    return sold, lost, min(USAGE_DAYS, max(MIN_USAGE_DAYS, (today - first).days + 1))
+
+
+def daily_use(conn: psycopg.Connection, ws: int, today: date | None = None) -> dict[int, float]:
+    """Base units each product used a day lately: what sales took off, plus what counts found missing."""
+    sold, lost, days = _use(conn, ws, today or date.today())
+    used = {pid: sold.get(pid, 0) + lost.get(pid, 0) for pid in sold.keys() | lost.keys()}
     return {pid: q / days for pid, q in used.items() if q > 0}
+
+
+def daily_sales(conn: psycopg.Connection, ws: int, today: date | None = None) -> dict[int, float]:
+    """The sales part of daily_use, which a forecast replaces."""
+    sold, _, days = _use(conn, ws, today or date.today())
+    return {pid: q / days for pid, q in sold.items() if q > 0}
+
+
+def trend(weeks: list[float]) -> float | None:
+    """Next week's sales from a straight line through the weekly totals (oldest first).
+
+    Kept between half and double the last four weeks' average, so one odd week cannot send an
+    order wild. None with fewer than MIN_FORECAST_WEEKS weeks.
+    """
+    n = len(weeks)
+    if n < MIN_FORECAST_WEEKS:
+        return None
+    mean_x, mean_y = (n - 1) / 2, sum(weeks) / n
+    slope = sum((x - mean_x) * (y - mean_y) for x, y in enumerate(weeks)) / sum((x - mean_x) ** 2 for x in range(n))
+    recent = sum(weeks[-4:]) / len(weeks[-4:])
+    return min(max(mean_y + slope * (n - mean_x), recent / 2), recent * 2)
+
+
+def sales_forecast(conn: psycopg.Connection, ws: int, today: date | None = None) -> dict[int, float]:
+    """Each product's expected sales over the next COVER_DAYS, from its weekly sales trend.
+
+    Weeks end yesterday. Only full weeks since the product's first sale in the window count, so a
+    product sold for two weeks is not read as zero for the six before.
+    """
+    today = today or date.today()
+    since = today - timedelta(days=7 * FORECAST_WEEKS)
+    weekly: dict[int, list[float]] = {}
+    for row in conn.execute(
+        "SELECT sl.product_id, s.sale_date, SUM(sl.quantity)::bigint AS q, "
+        "MIN(MIN(s.sale_date)) OVER (PARTITION BY sl.product_id) AS first "
+        "FROM sale_lines sl JOIN sales s ON s.id = sl.sale_id "
+        "WHERE s.workspace_id = %s AND s.sale_date >= %s AND s.sale_date < %s AND sl.product_id IS NOT NULL "
+        "GROUP BY sl.product_id, s.sale_date",
+        (ws, since, today),
+    ).fetchall():
+        full = min(FORECAST_WEEKS, (today - row["first"]).days // 7)
+        if full < MIN_FORECAST_WEEKS:
+            continue
+        weeks = weekly.setdefault(row["product_id"], [0.0] * full)
+        back = (today - timedelta(days=1) - row["sale_date"]).days // 7  # 0 is the week just ended
+        if back < full:
+            weeks[full - 1 - back] += row["q"]
+    return {pid: f for pid, weeks in weekly.items() if (f := trend(weeks)) is not None}
 
 
 def _amount(value: float) -> str:
     return f"{value:.0f}" if value >= 10 or value == int(value) else f"{value:.1f}"
 
 
-def reorder(products: list[Product], use: dict[int, float], on_order: dict[int, int]) -> list[ReorderSuggestion]:
+def reorder(
+    products: list[Product],
+    use: dict[int, float],
+    on_order: dict[int, int],
+    forecast: dict[int, float] | None = None,
+    sales: dict[int, float] | None = None,
+) -> list[ReorderSuggestion]:
     """Each product that needs more than it has: COVER_DAYS of recent use plus its minimum.
 
+    With a sales `forecast` for the product, it replaces the recent sales part of its use (`sales`,
+    a day) for those days; count losses still count at their recent rate.
     `quantity` is net of open orders and may be 0 when they already cover it; the product is
     still listed, so the caller can say which order covers it.
     """
+    forecast, sales = forecast or {}, sales or {}
     out = []
     for p in products:
         rate = use.get(p.id, 0.0)
-        need = math.ceil(rate * COVER_DAYS) + p.min_stock - p.stock
+        expected = forecast.get(p.id)
+        flat = sales.get(p.id, 0.0) * COVER_DAYS
+        cover = rate * COVER_DAYS if expected is None else rate * COVER_DAYS - flat + expected
+        need = math.ceil(cover) + p.min_stock - p.stock
         if need <= 0:
             continue
         ordered = on_order.get(p.id, 0)
@@ -157,6 +225,9 @@ def reorder(products: list[Product], use: dict[int, float], on_order: dict[int, 
             reason += f" Orders {COVER_DAYS} days of use" + (f" plus the minimum of {p.min_stock}." if p.min_stock else ".")
         else:
             reason = f"Below its minimum of {p.min_stock} {unit}."
+        if expected is not None:
+            way = " Sales are rising:" if expected > flat * 1.1 else " Sales are falling:" if expected < flat * 0.9 else ""
+            reason += f"{way} about {_amount(expected)} {unit} expected to sell in the next {COVER_DAYS} days."
         if ordered:
             reason += f" {ordered} {unit} already on order."
         out.append(ReorderSuggestion(

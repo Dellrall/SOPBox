@@ -233,7 +233,7 @@ def stock_in(conn: psycopg.Connection, ws: int, storage_id: int) -> list[StockLe
     """Every active product with its quantity in this storage area and its total."""
     resolve(conn, ws, storage_id)
     rows = conn.execute(
-        "SELECT p.id AS product_id, p.name, p.code, c.name AS category, p.base_unit, "
+        "SELECT p.id AS product_id, p.name, p.code, p.barcode, c.name AS category, p.base_unit, "
         "COALESCE(l.quantity, 0) AS quantity, p.stock AS total "
         "FROM products p JOIN categories c ON c.id = p.category_id "
         "LEFT JOIN stock_levels l ON l.product_id = p.id AND l.storage_id = %s "

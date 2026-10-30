@@ -181,7 +181,7 @@ cursor .        # Cursor
 ### 🧪 Run Tests
 
 ```bash
-python -m pytest                       # 383 backend tests, from the repository root (runs in CI)
+python -m pytest                       # 385 backend tests, from the repository root (runs in CI)
 
 cd src/frontend && npm ci && npx playwright install chromium
 npm run test:ui                        # 90 UI test runs on small phones and tablets
@@ -236,7 +236,7 @@ We build these one phase at a time; each phase is its own pull request.
 |---|---|---|
 | 1 | Barcode scanning to pick products when receiving and ordering | ✅ Done |
 | 2 | Daily task lists per role and event-based SOPs (peak hour, new starter) | ✅ Done |
-| 3 | Demand forecasting from sales history, feeding purchase order suggestions | Next |
+| 3 | Demand forecasting from sales history, feeding purchase order suggestions | ✅ Done |
 | 4 | Payments inside the app (upgrades are requests today) | Needs a payment provider |
 | 5 | Light LoRA fine-tune on synthetic delivery orders, behind the same endpoint name | Needs GPU budget |
 | — | Telegram fixes (alerts and sign-in) | In progress |

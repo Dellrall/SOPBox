@@ -77,7 +77,7 @@ export const GUIDES: Guide[] = [
       "Create an order with the products and quantities, then issue it.",
       "When the goods arrive, tap Receive on the order: the receiving check starts with its lines filled in.",
       "Part deliveries are tracked until everything has arrived.",
-      "Draft from low stock: pick a supplier and the amounts cover a week of recent use plus each minimum. Tap a line to see why.",
+      "Draft from low stock: pick a supplier and the amounts cover a week of recent use plus each minimum. With 3 weeks of uploaded sales, next week's sales are forecast from their trend. Tap a line to see why.",
     ],
   },
   {
