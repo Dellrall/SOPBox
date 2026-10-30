@@ -144,6 +144,7 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 
 ```
 .
+├── AGENTS.md                # Setup, structure, contribution and API notes for AI coding agents
 ├── docs/
 │   └── DEVELOPMENT.md       # Full setup, deployment, configuration, API and test details
 ├── runpod/
@@ -236,6 +237,10 @@ uvicorn app.main:app --port 8000
 # 5. In a third terminal: run the frontend on http://localhost:5173
 cd src/frontend && npm install && npm run dev
 ```
+
+### Option 3 — Set up with an AI coding agent
+
+Open the repository in Claude Code, Codex, Cursor or another coding agent and ask it to set up SOPBox locally. [AGENTS.md](AGENTS.md) gives it the setup commands, project structure, rules (AI writes words, code does the maths; workspace isolation), contribution and customization steps, and where the API is documented.
 
 ### 🧪 Run Tests
 
