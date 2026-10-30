@@ -3,7 +3,7 @@ import type { PublicPath } from "./App";
 import { MascotFigure } from "./Mascot";
 import { SiteFooter, SiteHeader, linkTo, usePageMeta } from "./Site";
 
-const UPDATED = "29 October 2026";
+const UPDATED = "30 October 2026";
 
 type Section = { id: string; title: string; body: ReactNode };
 
@@ -55,6 +55,14 @@ export default function Privacy({ navigate, signedIn }: { navigate: (to: PublicP
           <li>
             <strong>Your business&apos;s records:</strong> products, suppliers, deliveries, delivery-order and stock photos, readings,
             approvals, comments, stock counts, sales and the activity log of who did what.
+          </li>
+          <li>
+            <strong>Work you are given:</strong> the jobs you are in charge of (orders, held deliveries, stock counts), requests to take one
+            over and who approved them, and the task list steps you tick.
+          </li>
+          <li>
+            <strong>Team stats:</strong> per person, jobs done on time, deliveries checked, checks that failed and stock count gaps. These are
+            counted from the records above by plain arithmetic, not by AI, and only managers and the owner of your business can see them.
           </li>
           <li>
             <strong>Messages to us:</strong> what you send from the contact page or Settings, such as your name, business, email and phone.
