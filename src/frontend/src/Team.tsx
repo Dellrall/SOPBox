@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Plus } from "lucide-react";
 import { api } from "./api";
-import { DEFAULT_STAFF_ACCESS, SECTION_ACCESS_AREAS, type Accountability, type Me, type Outlet, type SectionAccess, type UserOut } from "./types";
+import { DEFAULT_STAFF_ACCESS, SECTION_ACCESS_AREAS, type Accountability, type Efficiency, type Me, type Outlet, type SectionAccess, type UserOut } from "./types";
 import { USERNAME_HINT, USERNAME_PATTERN, UsernameStatus, cleanUsername, usernameProblem, useUsernameCheck } from "./username";
 import { Empty, ErrorNote, PageTitle, SectionTitle, SuccessNote, cardClass, inputClass, labelClass, primaryButton, roleLabel, secondaryButton } from "./ui";
 import { Select } from "./Select";
@@ -431,6 +431,49 @@ const COUNTS: { key: keyof Pick<Accountability, "received" | "decided" | "stock_
   { key: "tagged", label: "Tagged on" },
 ];
 
+const pct = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : "–");
+
+/** How each person is doing over the last 30 days. The server counts it all from saved records. */
+function EfficiencyCards() {
+  const [rows, setRows] = useState<Efficiency[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    api.efficiency().then(setRows, (e: Error) => setError(e.message));
+  }, []);
+  const busy = rows?.filter((r) => r.jobs_due || r.deliveries || r.counts) ?? [];
+
+  return (
+    <section aria-labelledby="efficiency-title" className="space-y-2">
+      <h2 id="efficiency-title" className="text-lg font-bold text-brand-950">
+        Last 30 days
+      </h2>
+      <ErrorNote message={error} />
+      {rows && busy.length === 0 && <p className="text-sm text-muted">No jobs, deliveries or counts yet.</p>}
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {busy.map((r) => (
+          <li key={r.user_id} className={`${cardClass} space-y-2`}>
+            <p className="font-semibold text-ink">{r.name}</p>
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+              <dt className="text-muted">Jobs on time</dt>
+              <dd className="text-right tabular-nums">{r.jobs_due ? `${r.jobs_on_time} of ${r.jobs_due}` : "–"}</dd>
+              <dt className="text-muted">Deliveries checked</dt>
+              <dd className="text-right tabular-nums">{r.deliveries}</dd>
+              <dt className="text-muted">Checks failed</dt>
+              <dd className="text-right tabular-nums">{pct(r.lines_failed, r.lines_checked)}</dd>
+              <dt className="text-muted">Arrived vs due</dt>
+              <dd className="text-right tabular-nums">
+                {r.avg_days_late === null ? "–" : r.avg_days_late > 0 ? `${r.avg_days_late} days late` : r.avg_days_late < 0 ? `${-r.avg_days_late} days early` : "On the day"}
+              </dd>
+              <dt className="text-muted">Count gap</dt>
+              <dd className="text-right tabular-nums">{r.gap_sen_per_count === null ? "–" : `RM ${(r.gap_sen_per_count / 100).toFixed(2)} a count`}</dd>
+            </dl>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** What each person has done, counted by account from the activity log. */
 function AccountabilityTable() {
   const [rows, setRows] = useState<Accountability[] | null>(null);
@@ -543,6 +586,7 @@ export default function Team({ me }: { me: Me }) {
           ))}
         </ul>
       )}
+      <EfficiencyCards />
       {!manager && <AccountabilityTable />}
     </div>
   );

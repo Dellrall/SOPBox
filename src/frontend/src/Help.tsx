@@ -136,6 +136,7 @@ export const GUIDES: Guide[] = [
       "Manager: looks after the staff at their outlet, adds staff and assistant managers, and can disable accounts.",
       "Assistant manager: adds and looks after staff at their outlet, but cannot disable anyone.",
       "Staff: receive deliveries and use the sections you give them under Section access.",
+      "Last 30 days shows each person's jobs done on time, deliveries checked, checks failed and stock count gaps. It is plain counting, not AI.",
     ],
   },
   {

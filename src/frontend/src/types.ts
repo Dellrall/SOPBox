@@ -613,3 +613,17 @@ export type Job = {
   page: string;
 };
 export type AssignmentRequest = { id: number; kind: JobKind; ref_id: number; title: string; user_id: number; name: string; replaces: string[]; created_at: string };
+
+export type Efficiency = {
+  user_id: number;
+  name: string;
+  role: Role;
+  jobs_due: number;
+  jobs_on_time: number;
+  deliveries: number;
+  avg_days_late: number | null;
+  lines_checked: number;
+  lines_failed: number;
+  counts: number;
+  gap_sen_per_count: number | null;
+};
