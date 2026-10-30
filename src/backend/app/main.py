@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, ask, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks
+from app import apikeys, ask, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -34,6 +34,13 @@ from app.errors import (
 )
 from app.extraction import explain_gaps, extract_lines, extract_products, write_sop
 from app.models import (
+    AssignIn,
+    AssignmentRequest,
+    AssignOut,
+    CountPlanIn,
+    Job,
+    JobKind,
+    RequestDecisionIn,
     TaskList,
     TaskListIn,
     TickIn,
@@ -1176,6 +1183,43 @@ def delete_task_list(list_id: int, user: ManagerUp, conn: Conn) -> None:
 @app.post("/api/tasks/{list_id}/ticks", response_model=TaskList)
 def tick_task(list_id: int, body: TickIn, user: User, conn: Conn):
     return tasks.tick(conn, user, list_id, body)
+
+
+@app.get("/api/jobs", response_model=list[Job])
+def list_jobs(user: User, conn: Conn, day: date = Query()):
+    """Open orders, held deliveries and planned counts, with their PICs and what to do on `day`."""
+    return assignments.jobs(conn, user, day)
+
+
+@app.post("/api/assignments", response_model=AssignOut)
+def assign(body: AssignIn, user: User, conn: Conn):
+    """Make someone PIC. Anyone may add themselves when allowed; otherwise it becomes a request."""
+    return assignments.assign(conn, user, body)
+
+
+@app.delete("/api/assignments/{kind}/{ref_id}/{user_id}", status_code=204)
+def unassign(kind: JobKind, ref_id: int, user_id: int, user: User, conn: Conn) -> None:
+    assignments.unassign(conn, user, kind, ref_id, user_id)
+
+
+@app.get("/api/assignment-requests", response_model=list[AssignmentRequest])
+def list_assignment_requests(user: ManagerUp, conn: Conn):
+    return assignments.requests(conn, user.workspace_id)
+
+
+@app.post("/api/assignment-requests/{request_id}/decision", status_code=204)
+def decide_assignment_request(request_id: int, body: RequestDecisionIn, user: ManagerUp, conn: Conn) -> None:
+    assignments.decide(conn, user, request_id, body.approve)
+
+
+@app.post("/api/count-plans", status_code=204)
+def plan_count(body: CountPlanIn, user: ManagerUp, conn: Conn) -> None:
+    assignments.plan_count(conn, user, body)
+
+
+@app.delete("/api/count-plans/{plan_id}", status_code=204)
+def unplan_count(plan_id: int, user: ManagerUp, conn: Conn) -> None:
+    assignments.unplan_count(conn, user, plan_id)
 
 
 @app.get("/api/outlets", response_model=list[OutletOut])

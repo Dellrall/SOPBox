@@ -161,6 +161,8 @@ export type WorkspaceSettings = {
   telegram_team_title: string;
   telegram_team_invite_link: string;
   mfa_policy: MfaPolicy;
+  big_order_sen: number; // an order worth this much, or with big_order_lines lines, may have 2 PICs
+  big_order_lines: number;
 };
 
 export type PackUnit = { unit: string; base_qty: number };
@@ -594,3 +596,20 @@ export type TaskList = TaskListIn & {
   id: number;
   ticks: { step: number; done_by: string; done_at: string }[]; // steps done on the day asked for
 };
+
+export type JobKind = "po" | "delivery" | "count";
+export type Pic = { user_id: number; name: string };
+export type Job = {
+  kind: JobKind;
+  ref_id: number;
+  title: string;
+  when: string; // what to do now
+  due: string | null;
+  days_left: number | null; // negative when late
+  big: boolean;
+  pics: Pic[];
+  can_take: boolean;
+  asked: boolean; // waiting for a manager to approve taking it over
+  page: string;
+};
+export type AssignmentRequest = { id: number; kind: JobKind; ref_id: number; title: string; user_id: number; name: string; replaces: string[]; created_at: string };

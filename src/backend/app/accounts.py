@@ -351,7 +351,7 @@ def _describe(changes: dict) -> str:
 def get_workspace(conn: psycopg.Connection, workspace_id: int) -> WorkspaceSettings:
     row = conn.execute(
         "SELECT id, public_id, name, telegram_manager_chat_id, telegram_staff_chat_id, telegram_team_chat_id, "
-        "telegram_team_title, telegram_team_invite_link, mfa_policy FROM workspaces "
+        "telegram_team_title, telegram_team_invite_link, mfa_policy, big_order_sen, big_order_lines FROM workspaces "
         "WHERE id = %s",
         (workspace_id,),
     ).fetchone()

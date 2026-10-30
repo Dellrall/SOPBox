@@ -144,9 +144,11 @@ export const GUIDES: Guide[] = [
     icon: ListChecks,
     what: "Checklists for every day, and for busy times or a new starter.",
     how: [
+      "Jobs lists open orders, held deliveries and planned counts, and says what to do today: check an order is on the way the day before, get ready on the day.",
+      "Tap Take it when a job has no PIC (person in charge), or a big order has only one. Otherwise ask to take over, and a manager approves.",
       "Open Tasks and tick each step as you do it. Your name shows next to it, and the list starts fresh each day.",
       "Every day lists open by themselves; lists under When it happens open with a tap.",
-      "Managers: tap Add a list, or start from a ready-made one (Opening, Closing, Peak hour, New starter), and choose who it is for.",
+      "Managers: assign any job to anyone, plan a stock count for a day, and add lists or start from a ready-made one.",
     ],
   },
   {

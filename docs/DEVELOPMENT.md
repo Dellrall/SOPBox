@@ -132,6 +132,10 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `GET/PATCH /api/workspace` | owner | Workspace name and Telegram chat ids |
 | `GET /api/products?q=` | any | Products with stock. `q` searches name, category, SOP text and code, or matches a barcode exactly |
 | `POST /api/products`, `PUT/DELETE /api/products/{id}` | manager | Edit products; optional `code` (SKU) and `barcode` are unique per workspace |
+| `GET /api/jobs?day=` | any | Open issued POs, held deliveries and planned counts, with PICs and what to do on `day` |
+| `POST /api/assignments`, `DELETE /api/assignments/{kind}/{ref_id}/{user_id}` | any (others: manager) | Take or leave a job; staff become PIC only when it has none or is a big order with one, else it becomes a request. Idempotent |
+| `GET /api/assignment-requests`, `POST /api/assignment-requests/{id}/decision` | manager | Requests to take over a job; approving replaces the PICs |
+| `POST /api/count-plans`, `DELETE /api/count-plans/{id}` | manager | Plan a stock count of a storage area for a day, with an optional PIC |
 | `GET /api/tasks?day=` | any | Task lists the person's role sees, with steps ticked on `day` (the phone's date) |
 | `POST /api/tasks`, `PUT/DELETE /api/tasks/{id}` | manager | Edit task lists (daily or event; for everyone, staff or managers) |
 | `POST /api/tasks/{id}/ticks` | any | Tick or untick a step for a day (`{day, step, done}`), within a day of today |

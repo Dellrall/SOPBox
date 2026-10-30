@@ -728,7 +728,7 @@ function Shell({
         )}
         {page === "approvals" && <Approvals key={visit} canDecide={canDecide} onChanged={refreshPending} />}
         {page === "activity" && <Activity key={visit} />}
-        {page === "tasks" && <Tasks key={visit} canEdit={me.role !== "staff"} />}
+        {page === "tasks" && <Tasks key={visit} canEdit={me.role !== "staff"} meId={me.id} go={go} />}
         {page === "stocktake" && <Stocktake key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "stock" && <StockMoves key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "team" && <Team key={visit} me={me} />}

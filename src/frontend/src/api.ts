@@ -59,6 +59,9 @@ import type {
   TransferIn,
   TaskList,
   TaskListIn,
+  Job,
+  JobKind,
+  AssignmentRequest,
 } from "./types";
 
 export class ApiError extends Error {
@@ -216,7 +219,7 @@ export const api = {
   disconnectTeamGroup: () => request<WorkspaceSettings>("DELETE", "/workspace/team-group"),
   removeFromTeamGroup: (id: number, hours: 1 | 24 | 168 | null) => post<UserOut>(`/users/${id}/team-group/remove`, { hours }),
   letBackIntoTeamGroup: (id: number) => post<UserOut>(`/users/${id}/team-group/let-back`),
-  updateWorkspace: (body: Partial<Pick<WorkspaceSettings, "name" | "telegram_manager_chat_id" | "telegram_staff_chat_id" | "mfa_policy">>) =>
+  updateWorkspace: (body: Partial<Pick<WorkspaceSettings, "name" | "telegram_manager_chat_id" | "telegram_staff_chat_id" | "mfa_policy" | "big_order_sen" | "big_order_lines">>) =>
     patch<WorkspaceSettings>("/workspace", body),
 
   // catalogue
@@ -327,4 +330,13 @@ export const api = {
   updateTaskList: (id: number, body: TaskListIn) => put<TaskList>(`/tasks/${id}`, body),
   deleteTaskList: (id: number) => request<void>("DELETE", `/tasks/${id}`),
   tickTask: (id: number, day: string, step: number, done: boolean) => post<TaskList>(`/tasks/${id}/ticks`, { day, step, done }),
+  // jobs and who is in charge of them (PIC)
+  jobs: (day: string) => get<Job[]>(`/jobs?day=${day}`),
+  assign: (kind: JobKind, ref_id: number, user_id?: number) =>
+    post<{ status: "assigned" | "already" | "requested" }>("/assignments", { kind, ref_id, user_id }),
+  unassign: (kind: JobKind, ref_id: number, user_id: number) => request<void>("DELETE", `/assignments/${kind}/${ref_id}/${user_id}`),
+  assignmentRequests: () => get<AssignmentRequest[]>("/assignment-requests"),
+  decideAssignment: (id: number, approve: boolean) => post<void>(`/assignment-requests/${id}/decision`, { approve }),
+  planCount: (storage_id: number, due_date: string, user_id?: number) => post<void>("/count-plans", { storage_id, due_date, user_id }),
+  unplanCount: (id: number) => request<void>("DELETE", `/count-plans/${id}`),
 };
