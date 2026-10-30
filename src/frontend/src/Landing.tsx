@@ -3,10 +3,10 @@ import {
   BellRing,
   BookOpenCheck,
   ClipboardCheck,
-  History,
-  PackageCheck,
-  ShieldCheck,
+  ClipboardList,
+  ShoppingCart,
   Smartphone,
+  Sparkles,
   Thermometer,
   type LucideIcon,
 } from "lucide-react";
@@ -39,12 +39,12 @@ const PRINCIPLES: { who: Who; action: Action; title: string; text: string }[] = 
 ];
 
 const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
-  { icon: Thermometer, title: "Temperature checks", text: "Ranges per category or per product, with the probe reading saved on every line." },
-  { icon: PackageCheck, title: "Pack conversion", text: "1 bundle = 250 pieces. Deliveries are counted in base units, so short packs show up." },
-  { icon: BookOpenCheck, title: "SOP cards and search", text: "How to receive, store and handle each product, searchable from any phone." },
-  { icon: BellRing, title: "Telegram alerts", text: "Managers hear about failures straight away; staff hear the decision." },
-  { icon: History, title: "Full audit log", text: "Who received, who decided, when, and every reading. Ready for an inspection." },
-  { icon: ShieldCheck, title: "Roles and separate workspaces", text: "Owner, manager and staff accounts. Each business sees only its own data." },
+  { icon: Thermometer, title: "Temperature and pack checks", text: "Every line is checked against its range, pack size and the quantity still due on the order." },
+  { icon: BellRing, title: "Manager approvals", text: "Failed deliveries wait for a manager, who hears on Telegram and decides with a reason." },
+  { icon: BookOpenCheck, title: "SOP cards", text: "How to receive, store and handle each product, on any phone." },
+  { icon: ClipboardList, title: "Stock counts", text: "Count each storage area; repeat shortfalls stand out with their value in RM." },
+  { icon: ShoppingCart, title: "Orders from low stock", text: "Draft a purchase order sized to a week of use. Price rises are flagged on delivery." },
+  { icon: Sparkles, title: "Ask the helper", text: "Ask what went missing, what to order or which prices went up." },
 ];
 
 export default function Landing({ navigate }: { navigate: (to: PublicPath) => void }) {

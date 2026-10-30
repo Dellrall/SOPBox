@@ -99,6 +99,8 @@ The backend reads environment variables (Replit Secrets in production). See `src
 | `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` | RunPod endpoint id and API key. Without both, photo reading is off | none |
 | `TELEGRAM_BOT_TOKEN` | Bot token. Each workspace owner sets chat ids under Settings. With no token or chat id, alerts are skipped. Also enables "Continue with Telegram" (set the bot's domain with @BotFather `/setdomain`) | none |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth web client. With both, "Continue with Google" appears | none |
+| `MFA_ENCRYPTION_KEY` | 32 random bytes, base64. Encrypts authenticator secrets. Without it, two-step sign-in can't be turned on. Losing it stops authenticator codes; backup codes still work | none |
+| `OPS_TOKEN` | At least 32 characters. Turns on the support route that hands a workspace to a new owner | none |
 
 Never commit keys. `.env` is git-ignored.
 
@@ -146,8 +148,31 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `GET /api/team` | any signed in | Active teammates, for tagging |
 | `GET /api/team/accountability` | owner | Per-person counts from the audit log |
 | `GET /api/inbox`, `POST /api/inbox/read` | any signed in | My notifications (tagged, approval needed, decision, comment); mark some (`ids`) or all read |
+| `GET /api/auth/username-available?username=` | anyone | Is a username free (the sign-up form checks as you type) |
+| `POST /api/auth/mfa/setup`, `.../enable`, `.../backup-codes`, `DELETE /api/auth/mfa` | any signed in | Set up, turn on, renew backup codes for, or turn off authenticator-app two-step sign-in |
+| `POST /api/auth/mfa/verify` | signing in | Second step: an authenticator or backup code |
+| `GET /api/dashboard` | dashboard access | Today's numbers, waiting approvals and low stock |
+| `GET /api/deliveries/{id}/photos/{photo_id}`, `POST .../comments` | delivery access | Delivery photos and comments on them |
+| `POST /api/products/sop-draft` | product editors | AI draft of an SOP card (words only; saves nothing) |
+| `GET /api/purchase-orders/low-stock-suppliers`, `GET /api/purchase-orders/reorder-suggestions` | purchasing editors | Suppliers with low stock; suggested order quantities with the reason (worked out in code) |
+| `GET /api/insights/price-changes` | purchasing access | Delivered unit prices that rose 10% or more |
+| `GET/POST /api/stocktakes`, `GET /api/stocktakes/{id}`, `GET .../products`, `POST .../preview`, `GET .../template.xlsx` | stock count access | Stock counts: list, read, start from the app or an uploaded sheet |
+| `GET /api/stocktakes/{id}/insights`, `POST /api/stocktakes/{id}/explain` | stock count access | "What stands out" (computed); a plain-words explanation by the AI, which never changes the numbers |
+| `POST /api/ask` | any signed in | Ask the helper how to use the app (English or Malay) |
+| `GET/POST /api/outlets`, `PUT/DELETE /api/outlets/{id}`, `POST /api/storages`, `PUT/DELETE /api/storages/{id}` | any; manager | Outlets and storage areas |
+| `GET /api/storages/{id}/stock`, `GET/POST /api/transfers` | stock count access | Stock per storage area; move stock between them |
+| `GET/POST /api/sales`, `POST /api/sales/preview`, `GET /api/sales/template.csv` | stock count access | Upload till sales, which take stock out |
+| `GET /api/workspace/links`, `POST /api/workspace/link-codes`, `POST/DELETE /api/workspace/hq`, `DELETE /api/workspace/branches/{id}` | owner | Link branches to an HQ workspace |
+| `GET/POST /api/api-keys`, `DELETE /api/api-keys/{id}` | manager | API keys for a till or POS |
+| `GET /api/v1/stock`, `POST /api/v1/sales` | API key | For the till: read stock, record a sale |
+| `GET /api/export` | any signed in | Download a copy of the workspace's data |
+| `POST /api/workspace/close`, `POST /api/workspace/reopen` | owner | Close the business (30-day grace) or reopen it |
+| `GET /api/setup` | owner | Setup checklist progress |
+| `GET /api/pricing`, `POST /api/inquiries` | anyone | Plans; a sales enquiry |
+| `GET /api/plan`, `POST /api/plan/redeem`, `POST /api/plan/upgrade-request`, `POST /api/support` | signed in; owner for redeem and upgrade | Current plan, redeem a plan code, ask to upgrade, contact support |
+| `GET /api/ops/workspaces/{name}`, `POST .../owner` | SOPBox support (`OPS_TOKEN`) | Hand a workspace to a new owner. Off unless `OPS_TOKEN` is set |
 
-"manager" includes the owner. The API docs page is switched off because its script loads from a CDN, which the strict Content-Security-Policy blocks.
+"manager" includes the owner. "X access" and "X editors" mean the sections the owner opened for that person under Team. The API docs page is switched off because its script loads from a CDN, which the strict Content-Security-Policy blocks.
 
 ## Tests
 
@@ -156,9 +181,9 @@ pip install -r src/backend/requirements-dev.txt
 python -m pytest          # from the repository root
 ```
 
-The suite starts an embedded PostgreSQL, so it needs no install, network, GPU or Telegram account. The app connects as an ordinary database role, so Row Level Security applies to every test. It covers sign-up, sign-in, roles, workspace isolation (including a direct database check), the rules, catalogue and delivery flows, decisions that cannot be made twice, the model-reply parser, the hourly cap on model calls, alerts that never break a delivery, and the security headers.
+The suite starts an embedded PostgreSQL, so it needs no install, network, GPU or Telegram account. The app connects as an ordinary database role, so Row Level Security applies to every test. It covers sign-up, sign-in, roles, workspace isolation (including a direct database check), the rules, catalogue and delivery flows, decisions that cannot be made twice, the model-reply parser, the hourly cap on model calls, alerts that never break a delivery, purchase orders and reorder suggestions, stock counts and their insights, price-rise checks, the Ask helper, outlets, sales upload, API keys, two-step sign-in, and the security headers.
 
-### Phone UI tests
+### Phone and tablet UI tests
 
 ```bash
 cd src/frontend
@@ -166,7 +191,7 @@ npm ci && npx playwright install chromium
 npm run test:ui           # PYTHON=path/to/python if the backend's packages aren't in python3
 ```
 
-Playwright builds the frontend, starts the app on a throwaway database (`e2e/server.py`) and opens every page as owner, manager and staff on a 360px Android and a 320px iPhone SE. Each page must fit the screen with no sideways scrolling, and the phone flows are tapped through: password sign-in and the last sign-in notice, the menu and inbox, stock count categories, and kitchen tablet PIN sign-in. `npx playwright show-report` shows a screenshot of every page. GitHub Actions runs them on every pull request.
+Playwright builds the frontend, starts the app on a throwaway database (`e2e/server.py`) and opens every page as owner, manager and staff on a 360px Android, a 320px iPhone SE, and an iPad upright and sideways. Each page must fit the screen with no sideways scrolling, and the phone flows are tapped through: password sign-in and the last sign-in notice, the bottom bar, the More menu and inbox, purchase-order suggestions, stock count categories, and kitchen tablet PIN sign-in. `npx playwright show-report` shows a screenshot of every page. GitHub Actions runs them on every pull request.
 
 ## Known limits
 
@@ -174,4 +199,4 @@ Playwright builds the frontend, starts the app on a throwaway database (`e2e/ser
 - Anyone can create a workspace. An address can create 10 an hour. Accounts store an email and can sign in with it, but the app sends no email yet, so a forgotten owner password cannot be reset by the app: it takes a database change.
 - The sign-in lockout counter is in memory, so it is per server process.
 - The order photo is not stored. The audit log records readings and decisions, not the image.
-- Manual stock corrections, barcode scanning and event-based SOPs (peak hour, new starter) are not built.
+- Barcode scanning and event-based SOPs (peak hour, new starter) are not built.

@@ -32,8 +32,12 @@ export const GUIDES: Guide[] = [
     page: "dashboard",
     title: "Dashboard",
     icon: LayoutDashboard,
-    what: "Today at a glance: deliveries waiting for a decision, products running low, and orders still to arrive.",
-    how: ["Tap a number to open the list behind it.", "Start a receiving check straight from the top of the page."],
+    what: "Today at a glance: deliveries waiting for a decision, products running low, price rises, and orders still to arrive.",
+    how: [
+      "Tap a number to open the list behind it.",
+      "Start a receiving check straight from the top of the page, or from Receive in the middle of the bottom bar.",
+      "Tap the sparkle button by the helper to ask what went missing, what to order or which prices went up.",
+    ],
   },
   {
     page: "receive",
@@ -44,6 +48,7 @@ export const GUIDES: Guide[] = [
       "Photograph the supplier's delivery order: the lines are read for you. Or type them in.",
       "Pick the storage area the stock goes to.",
       "Enter the temperature and quantity of each line, and add photos of anything wrong.",
+      "Add the price per unit from the invoice if you have it: SOPBox flags a price rise of 10% or more.",
       "Lines that pass are accepted and added to stock. Anything that fails goes to Approvals.",
     ],
   },
@@ -70,6 +75,7 @@ export const GUIDES: Guide[] = [
       "Create an order with the products and quantities, then issue it.",
       "When the goods arrive, tap Receive on the order: the receiving check starts with its lines filled in.",
       "Part deliveries are tracked until everything has arrived.",
+      "Draft from low stock: pick a supplier and the amounts cover a week of recent use plus each minimum. Tap a line to see why.",
     ],
   },
   {
@@ -81,6 +87,7 @@ export const GUIDES: Guide[] = [
       "Choose the storage area, then count each product as whole bundles plus loose items.",
       "Leave a product blank if you did not count it. Enter 0 only when you counted none.",
       "Save the count: the difference from the expected stock shows up as a loss or a gain.",
+      "Open a saved count: What stands out shows repeat shortfalls and their value in RM. Explain with AI suggests what to check.",
     ],
   },
   {
