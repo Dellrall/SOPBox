@@ -13,21 +13,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white" alt="Python 3.11 | 3.12">
-  <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI">
-  <img src="https://img.shields.io/badge/React%2018-20232A?logo=react&logoColor=61DAFB" alt="React 18">
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
-  <img src="https://img.shields.io/badge/Tailwind%20v4-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind CSS v4">
-  <img src="https://img.shields.io/badge/PostgreSQL-Row%20Level%20Security-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL with Row Level Security">
-  <br>
-  <img src="https://img.shields.io/badge/RunPod-serverless%20GPU-673AB7" alt="RunPod serverless GPU">
-  <img src="https://img.shields.io/badge/vLLM-Qwen3--VL--8B%20FP8-FF6F00" alt="vLLM serving Qwen3-VL-8B FP8">
-  <img src="https://img.shields.io/badge/Telegram-Bot%20API-26A5E4?logo=telegram&logoColor=white" alt="Telegram Bot API">
-  <img src="https://img.shields.io/badge/tests-383%20pytest%20%C2%B7%2090%20Playwright-success" alt="383 pytest and 90 Playwright tests">
-  <img src="https://img.shields.io/badge/SDG-12.3%20%C2%B7%208-E5243B" alt="SDG 12.3 and 8">
-</p>
-
 > **SOPBox** is a phone-first receiving-control platform for small food and beverage outlets. A vision-language model on a serverless GPU reads every supplier delivery order, a deterministic rules engine decides pass or fail, and a human-in-the-loop approval flow puts a manager in charge of every exception, with a full audit trail and multi-tenant isolation enforced down to the database.
 
 ---
@@ -51,6 +36,7 @@
 | RunPod Endpoint   | https://api.runpod.ai/v2/sriet0cftztbik        |
 | Slide Deck        |https://docs.google.com/presentation/d/19grJuodMn0e-vGj9hfSoVCfKdqcKE-roTmU2JJK2dPU/edit?usp=sharing|
 | Demo Video        |https://youtu.be/mJNwTxj6-pY                                        |
+| How we meet the judging criteria | [docs/JUDGING.md](docs/JUDGING.md) |
 ---
 
 ## 🧭 Overview
@@ -65,18 +51,13 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 
 ### ✨ Key Features
 
-- **Receiving check** — take or choose a photo of the delivery order; the AI fills in the lines (with the unit price) for staff to confirm, with probe temperatures, stock photos and teammate tagging. Scan a pack's barcode to pick the product.
-- **Rules and approvals** — failed lines hold the delivery for a manager, who is notified in the app inbox and on Telegram.
-- **Products & SOP cards** — temperature ranges, pack sizes and step-by-step SOPs per product. An **AI SOP writer** drafts steps from a manager's notes, and a second pass checks them.
-- **Import from a supplier sheet** — photograph a product or SOP sheet; the AI suggests products and SOPs for a manager to correct and add.
-- **Purchase orders** — deliveries are checked against what is still due; **draft from low stock** sizes each line to a week of recent use plus the minimum, and says why.
-- **Stock counts that explain themselves** — after a count, **What stands out** separates repeat shortfalls from one-offs, shows each gap's value in RM, and **Explain with AI** suggests what to check.
-- **Delivered prices** — each delivery records the unit price; the dashboard flags products whose price rose 10% or more.
-- **Ask the helper** — ask in English or Malay ("what went missing this week?", "what should we order?"); answers come from your own data and link to the page.
-- **Outlets and storage areas** — stock per outlet and storage area, transfers between them, sales upload by product code, head-office links to branches, and API keys for a till.
-- **Activity log and roles** — owner, manager and staff each see only what their role needs; every action is recorded.
-- **Easy sign-in** — password, passkey, Google, Telegram, or a PIN on a shared kitchen tablet; two-step sign-in with an authenticator.
-- **Built for phones** — a bottom bar with Receive in the middle, folded filters and short pages; tested on small phones and tablets.
+- **Receiving check** — photograph the delivery order; the AI fills in the lines for staff to confirm.
+- **Rules and approvals** — temperature, pack and order checks in code; failed lines wait for a manager.
+- **Products, SOPs and task lists** — rules and step-by-step SOP cards per product; daily and peak-hour checklists.
+- **Stock and purchase orders** — stock per outlet, counts that explain gaps, orders drafted from low stock.
+- **Built for phones** — tested on small phones and tablets; barcode scanning and kitchen tablet sign-in.
+
+All features: [docs/FEATURES.md](docs/FEATURES.md).
 
 ### 🛠️ Tech Stack
 
@@ -88,55 +69,6 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 | AI / Compute  | RunPod Serverless (GPU), vLLM, Qwen3-VL-8B-Instruct (FP8) |
 | Notifications | Telegram Bot API             |
 | Hosting / Dev | Replit (Deployments, Secrets, PostgreSQL) |
-
----
-
-## 🏁 Final Round: How SOPBox Meets Each Criterion
-
-### The full journey, live
-
-| Step | What happens in SOPBox | Where to see it |
-| ---- | ---------------------- | --------------- |
-| **Trigger** | A supplier delivery arrives. Staff open **Receiving check** and take or choose a photo of the delivery order | Receiving check |
-| **Data** | Qwen3-VL-8B on RunPod reads every line; unclear values are flagged, never guessed. Staff confirm the lines and enter the probe temperature | Receiving check |
-| **Decision** | The rules engine, in code and not the AI, checks each line: temperature range, pack-to-unit conversion, quantity still due on the purchase order, unknown products | Result screen |
-| **Approval** | Any failed line holds the whole delivery. A manager accepts, rejects or returns it, with a reason | Approvals |
-| **Action** | Accepted goods are added to stock in the chosen storage area, the purchase order balance updates and the delivered price is recorded. The manager is alerted in the inbox and on Telegram, and staff hear the decision | Stock, Purchase orders, Telegram |
-| **Result** | The delivery record, the activity log and the dashboard show the outcome, including any price rise | Delivery records, Activity log, Dashboard |
-
-### Technical Execution
-
-- **383 backend tests and 90 phone and tablet UI test runs**, both run in GitHub Actions on every change (badges above).
-- **AI writes words, code does the maths:** reorder amounts, usage rates, gap values and price changes are computed in Python; the model only reads documents and explains results. Every AI feature still works when the GPU is off.
-- **Multi-tenant isolation twice over:** every query is scoped to the signed-in workspace, and PostgreSQL Row Level Security enforces it inside the database.
-- **AI output is untrusted input:** parsed, validated and confirmed line by line by staff; the verdict comes from rules, never the model. An hourly cap bounds GPU spend.
-- **Built to be cheap and fast:** the GPU scales to zero when idle; responses are gzip-compressed; pages load on demand and recent data is reused, so the first screen downloads about 95 KB.
-- **Real sign-in security:** scrypt passwords, account lockout, passkeys, Google and Telegram sign-in, and a recorded history of every sign-in.
-
-### Design & UX
-
-- **Phone-first:** a bottom bar puts Dashboard, Approvals, Receive (a raised button in the middle), Stock and More under the thumb; filters fold away; every page is tested on small phones and tablets with no sideways scrolling.
-- **Built for a busy kitchen:** a shared tablet signs people in with a name tap and a PIN; photos can be taken with the camera or chosen from the gallery; if the AI is asleep, staff can always type the lines.
-- **Plain language everywhere:** the activity log reads as sentences, not codes; the dashboard shows four numbers and the newest notification; every product has a step-by-step SOP card; the helper answers questions in plain English or Malay.
-- **Each role sees only what it needs:** owner, manager and staff menus differ.
-
-### Feasibility as a Business
-
-- **Measured benefit:** SOPBox records every delivery checked, accepted, rejected, returned and held, the RM value of count gaps and price rises, so an outlet can see what it saved. Malaysian figures and the formulas behind them are in [docs/IMPACT.md](docs/IMPACT.md) (a café buying RM20,000 a month could save RM6,240 to RM14,352 a year). Pilot results: _TBC_.
-- **Many SMEs at once:** any business signs up and gets its own isolated workspace on the same deployment, with nothing to install. Chains add outlets, link branches to head office, and connect a till through API keys. The frontend is built on the Orbyte template.
-- **Cost to run:** one AI read takes about 2 seconds on a US$0.69/hour GPU, roughly US$0.0004; the first read after the GPU sleeps costs about US$0.035. An idle outlet costs nothing in GPU time.
-- **Pricing:** Free for one outlet; Pro per extra outlet (yearly or one-time) with head-office links and API keys; add-ons for customisation and priority support; Enterprise through sales. Prices: _TBC_.
-- **Privacy:** each business's data is separated inside the database. Delivery-order photos go only to our own RunPod endpoint running an open-weight model, are not stored, and are not used for training; no third-party AI API sees them. Stock photos stay in that business's workspace for its managers. Keys live in Replit Secrets, never in the code.
-
-### Communication: who answers what in Q&A
-
-| Topic | Answered by |
-| ----- | ----------- |
-| Business case, pricing, Orbyte | Lye Wei Lun (Team Lead) |
-| Rules engine, data and privacy | Leong Zoe Yee (Backend) |
-| The app and user experience | Ng Sze Ya (Frontend) |
-| The AI model and RunPod | Puteri A'ina Auji Farzana (AI / RunPod) |
-| Design and testing | Siow Wei Yik (Design & QA) |
 
 ---
 
@@ -158,13 +90,6 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 ├── AGENTS.md          # Notes for AI agents
 └── README.md
 ```
-
-| Folder | What is in it |
-|---|---|
-| `src/backend/app/` | Accounts, delivery rules, stock, purchase orders, AI client, Ask helper, Telegram |
-| `src/frontend/` | React + TypeScript + Tailwind app, built from the Orbyte template |
-| `runpod/` | RunPod endpoint settings (official vLLM worker, no custom image) |
-| `docs/` | [DEVELOPMENT.md](docs/DEVELOPMENT.md) (setup, config, API, tests) and [IMPACT.md](docs/IMPACT.md) |
 
 ### 🏗️ Architecture
 
