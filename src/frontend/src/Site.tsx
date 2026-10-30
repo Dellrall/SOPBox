@@ -185,11 +185,11 @@ export function SiteHeader({ navigate, signedIn = false }: { navigate: Navigate;
 /** The public pages' footer: every page, how to reach sales, and the SDGs. */
 export function SiteFooter({ navigate }: { navigate: Navigate }) {
   const heading = "mb-2 text-xs font-semibold uppercase tracking-wider text-ink";
-  const link = "block py-1 text-muted hover:text-brand-700";
+  const link = "block py-1 text-[13px] text-muted hover:text-brand-700 sm:text-sm";
   return (
     <footer className="border-t border-line bg-white">
-      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-5 py-8 text-sm sm:gap-8 sm:px-8 sm:py-10 lg:grid-cols-4">
-        <div className="col-span-2 space-y-2 sm:col-span-1">
+      <div className="mx-auto grid max-w-6xl grid-cols-3 gap-x-4 gap-y-5 px-5 py-6 text-sm sm:grid-cols-2 sm:gap-8 sm:px-8 sm:py-10 lg:grid-cols-4">
+        <div className="col-span-3 space-y-1 sm:col-span-1 sm:space-y-2">
           <p className="flex items-center gap-2 font-semibold text-brand-950">
             <ClipboardCheck aria-hidden className="h-4 w-4 text-brand-600" /> SOPBox
           </p>
