@@ -278,7 +278,7 @@ export default function Receive({
   // This page stays mounted (hidden) to keep unsaved work, so it only speaks while it is shown.
   useMascot(active ? scene : null);
 
-  const title = <PageTitle title="Receiving check" subtitle="Record a delivery as it arrives. Each line is checked against its product's rules." />;
+  const title = <PageTitle title="Receiving check" />;
 
   if (!canEdit) {
     return (

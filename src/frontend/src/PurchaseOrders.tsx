@@ -795,7 +795,7 @@ export default function PurchaseOrders({
   const chosenLow = lowSuppliers?.find((s) => String(s.supplier_id) === draftSupplier) ?? lowSuppliers?.[0];
   return (
     <div className="space-y-5">
-      <PageTitle title="Purchase orders" subtitle="What you ordered from each supplier, and how much of it has arrived. Quantities only.">
+      <PageTitle title="Purchase orders">
         {canEdit && (
           <button className={primaryButton} aria-label="New purchase order" onClick={() => setView({ kind: "new" })}>
             <FilePlus2 aria-hidden className="h-4 w-4" /> New<span className="hidden sm:inline"> purchase order</span>

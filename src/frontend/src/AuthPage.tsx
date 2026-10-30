@@ -133,9 +133,6 @@ export default function AuthPage({
         {/* A kitchen tablet goes straight to the names below; phones keep only the headline, so the
             form is in reach without scrolling, and upright tablets skip the feature list. */}
         <div className={`mt-3 max-w-xl sm:my-10 lg:my-0 ${onTablet ? "hidden lg:block" : ""}`}>
-          <p className="mb-4 hidden sm:inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-leaf ring-1 ring-white/15">
-            <ShieldCheck aria-hidden className="h-3.5 w-3.5" /> For food &amp; beverage SMEs
-          </p>
           <h1 className="text-xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
             Receiving checks that <span className="text-sand">catch problems at the door.</span>
           </h1>

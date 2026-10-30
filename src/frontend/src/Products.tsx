@@ -80,7 +80,7 @@ export default function Products({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Products & SOP" subtitle="What you buy, the rules each delivery is checked against, and how to handle it.">
+      <PageTitle title="Products & SOP">
         {canEdit && (
           <div className="flex flex-wrap gap-2 [&>button]:whitespace-nowrap">
             <button className={secondaryButton} onClick={() => setImporting((s) => !s)} aria-expanded={importing}>

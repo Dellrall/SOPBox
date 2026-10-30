@@ -65,9 +65,6 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
 
         <main id="main" className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-10 pt-2 sm:px-8 sm:pb-16 sm:pt-6 md:pt-14 md:grid-cols-[1.1fr_1fr] md:gap-8 lg:gap-12 lg:pb-24 lg:pt-12">
           <div>
-            <p className="mb-5 hidden items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-leaf ring-1 ring-white/15 sm:inline-flex">
-              <ShieldCheck aria-hidden className="h-3.5 w-3.5" /> For food &amp; beverage SMEs
-            </p>
             <h1 className="text-3xl font-extrabold leading-[1.1] sm:text-5xl md:text-4xl lg:text-6xl">
               Catch bad deliveries <span className="text-sand">at the door,</span> not in the kitchen.
             </h1>
@@ -88,7 +85,6 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
                 See how it works
               </a>
             </div>
-            <p className="mt-4 hidden text-sm text-white/60 sm:block">Set up in minutes. Your team signs in with accounts you create.</p>
           </div>
           {/* As wide as the phone, so the crew stays perched on it at every screen width. */}
           <div className="relative mx-auto w-full max-w-sm">
@@ -101,15 +97,10 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
         </main>
       </div>
 
-      <section id="how" aria-labelledby="how-title" className="mx-auto max-w-6xl scroll-mt-6 px-5 py-12 sm:px-8 sm:py-20">
-        <p className="text-sm font-bold uppercase tracking-wider text-brand-600">How it works</p>
-        <h2 id="how-title" className="mt-2 max-w-2xl text-2xl font-extrabold text-brand-950 sm:text-4xl">
+      <section id="how" aria-labelledby="how-title" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-12 sm:px-8 sm:py-20">
+        <h2 id="how-title" className="max-w-2xl text-2xl font-extrabold text-brand-950 sm:text-4xl">
           AI reads. Rules decide. Humans approve.
         </h2>
-        <p className="mt-4 max-w-2xl text-muted">
-          The AI only reads the paperwork. Whether a delivery passes is decided by rules you set, and
-          anything that fails is decided by a person. So it never "guesses" a delivery through.
-        </p>
         <ol className="-mx-5 mt-6 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-1 sm:scroll-px-8 [scrollbar-width:none] sm:-mx-8 sm:mt-10 sm:px-8 md:mx-0 md:grid md:grid-cols-3 md:gap-5 md:overflow-visible md:px-0">
           {PRINCIPLES.map(({ who, action, title, text }, i) => (
             <li key={title} className="w-[78%] shrink-0 snap-start rounded-2xl border border-line bg-white p-4 shadow-sm sm:w-[45%] sm:p-6 md:w-auto">
@@ -128,10 +119,9 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
       </section>
 
       <section id="features" aria-labelledby="features-title" className="border-y border-line bg-white">
-        <div className="mx-auto max-w-6xl scroll-mt-6 px-5 py-12 sm:px-8 sm:py-20">
-          <p className="text-sm font-bold uppercase tracking-wider text-brand-600">Features</p>
-          <h2 id="features-title" className="mt-2 max-w-2xl text-2xl font-extrabold text-brand-950 sm:text-4xl">
-            Everything a receiving check needs, on the phone your staff already carry
+        <div className="mx-auto max-w-6xl scroll-mt-20 px-5 py-12 sm:px-8 sm:py-20">
+          <h2 id="features-title" className="max-w-2xl text-2xl font-extrabold text-brand-950 sm:text-4xl">
+            Everything a receiving check needs
           </h2>
           <ul className="mt-6 grid gap-x-8 gap-y-6 sm:mt-10 sm:gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map(({ icon: Icon, title, text }) => (
@@ -149,9 +139,8 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
         </div>
       </section>
 
-      <section id="sdgs" aria-labelledby="sdgs-title" className="mx-auto max-w-6xl scroll-mt-6 px-5 pt-12 sm:px-8 sm:pt-20">
-        <p className="text-sm font-bold uppercase tracking-wider text-brand-600">Sustainable Development Goals</p>
-        <h2 id="sdgs-title" className="mt-2 max-w-2xl text-2xl font-extrabold text-brand-950 sm:text-4xl">
+      <section id="sdgs" aria-labelledby="sdgs-title" className="mx-auto max-w-6xl scroll-mt-20 px-5 pt-12 sm:px-8 sm:pt-20">
+        <h2 id="sdgs-title" className="max-w-2xl text-2xl font-extrabold text-brand-950 sm:text-4xl">
           Less food wasted, better work in small kitchens
         </h2>
         <ul className="mt-6 space-y-5 sm:mt-10">

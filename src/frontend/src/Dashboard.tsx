@@ -179,7 +179,7 @@ export default function Dashboard({
   if (data.product_count === 0 || data.delivery_count === 0) {
     return (
       <div>
-        <PageTitle title={`Welcome, ${firstName}`} subtitle={`Let's get ${me.workspace.name} ready for its first receiving check.`} />
+        <PageTitle title={`Welcome, ${firstName}`} />
         {me.role === "owner" ? (
           <SetupChecklist me={me} go={go} canHide={false} />
         ) : (
