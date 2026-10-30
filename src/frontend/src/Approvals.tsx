@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, api } from "./api";
+import { ApiError, api, forgetRecent } from "./api";
 import DeliveryLines from "./DeliveryLines";
 import DeliveryPhotos from "./DeliveryPhotos";
 import { DeliveryTags } from "./Tags";
@@ -114,7 +114,7 @@ export default function Approvals({ canDecide, onChanged }: { canDecide: boolean
   return (
     <div className="space-y-4">
       <PageTitle title="Approvals" subtitle="Deliveries that failed a check. Stock is only counted once you accept one, and your name is recorded with the decision.">
-        <button className={secondaryButton} onClick={() => void load()}>
+        <button className={secondaryButton} onClick={() => (forgetRecent(), void load())}>
           Refresh
         </button>
       </PageTitle>

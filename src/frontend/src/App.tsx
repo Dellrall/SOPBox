@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import {
   ArrowLeftRight,
   BookOpen,
@@ -24,34 +24,81 @@ import {
 import { api, setBranch, setSignedOutHandler } from "./api";
 import { ClosedBanner } from "./Closing";
 import { CodePrompt, MfaGate } from "./Mfa";
-import Pricing from "./Pricing";
-import Privacy from "./Privacy";
-import Docs from "./Docs";
-import Contact from "./Contact";
-import { CategoriesAndStorage } from "./Categories";
 import { PolicyLinks } from "./Site";
-import Activity from "./Activity";
-import Approvals from "./Approvals";
 import AuthPage from "./AuthPage";
 import Landing from "./Landing";
-import Dashboard from "./Dashboard";
 import { InboxBell, InboxPanel, useInboxRefresh } from "./Inbox";
 import { describeSignIn, rememberSignIn } from "./signin";
-import Products from "./Products";
-import PurchaseOrders from "./PurchaseOrders";
-import Receive from "./Receive";
-import Records from "./Records";
-import Settings from "./Settings";
-import Stocktake from "./Stocktake";
-import StockMoves from "./StockMoves";
-import Team from "./Team";
-import Help from "./Help";
 import { MascotDock, type Scene } from "./Mascot";
 import { WorkspaceSwitch } from "./WorkspaceSwitch";
 import { OutletSwitch } from "./OutletSwitch";
 import { SdgFooter } from "./Sdg";
 import type { Me, Notification, Role, SectionKey } from "./types";
 import { roleLabel } from "./ui";
+
+// Each page's code loads when it is first opened, so the first screen downloads less. The sign-in
+// and welcome pages are in the first download, since a visitor sees one of them first. Once signed
+// in, the rest is fetched while the browser is idle (prefetchPages), so pages still open at once.
+const LOADERS = {
+  Pricing: () => import("./Pricing"),
+  Privacy: () => import("./Privacy"),
+  Docs: () => import("./Docs"),
+  Contact: () => import("./Contact"),
+  Activity: () => import("./Activity"),
+  Approvals: () => import("./Approvals"),
+  Dashboard: () => import("./Dashboard"),
+  Products: () => import("./Products"),
+  PurchaseOrders: () => import("./PurchaseOrders"),
+  Receive: () => import("./Receive"),
+  Records: () => import("./Records"),
+  Settings: () => import("./Settings"),
+  Stocktake: () => import("./Stocktake"),
+  StockMoves: () => import("./StockMoves"),
+  Team: () => import("./Team"),
+  Help: () => import("./Help"),
+  Categories: () => import("./Categories"),
+};
+const Pricing = lazy(LOADERS.Pricing);
+const Privacy = lazy(LOADERS.Privacy);
+const Docs = lazy(LOADERS.Docs);
+const Contact = lazy(LOADERS.Contact);
+const Activity = lazy(LOADERS.Activity);
+const Approvals = lazy(LOADERS.Approvals);
+const Dashboard = lazy(LOADERS.Dashboard);
+const Products = lazy(LOADERS.Products);
+const PurchaseOrders = lazy(LOADERS.PurchaseOrders);
+const Receive = lazy(LOADERS.Receive);
+const Records = lazy(LOADERS.Records);
+const Settings = lazy(LOADERS.Settings);
+const Stocktake = lazy(LOADERS.Stocktake);
+const StockMoves = lazy(LOADERS.StockMoves);
+const Team = lazy(LOADERS.Team);
+const Help = lazy(LOADERS.Help);
+const CategoriesAndStorage = lazy(() => LOADERS.Categories().then((m) => ({ default: m.CategoriesAndStorage })));
+
+function prefetchPages() {
+  const idle = window.requestIdleCallback ?? ((fn: () => void) => window.setTimeout(fn, 1500));
+  idle(() => Object.values(LOADERS).forEach((load) => void load().catch(() => undefined)));
+}
+
+/** Fades out index.html's loading screen once the first real page is drawn. It sits inside the
+ * page's Suspense, so the screen stays up until that page's code has arrived. */
+function Ready() {
+  useEffect(() => {
+    const boot = document.getElementById("boot");
+    if (!boot) return;
+    boot.classList.add("done");
+    setTimeout(() => boot.remove(), 250);
+  }, []);
+  return null;
+}
+
+const Loaded = ({ children, fallback = null }: { children: ReactNode; fallback?: ReactNode }) => (
+  <Suspense fallback={fallback}>
+    <Ready />
+    {children}
+  </Suspense>
+);
 
 export type PageId =
   | "dashboard"
@@ -183,12 +230,8 @@ export default function App() {
   // Remember how this browser signed in, for the "Last used" tag on the sign-in page.
   useEffect(() => rememberSignIn(me?.sign_in_method), [me?.sign_in_method]);
 
-  // Fade out index.html's loading screen once the first real page is drawn.
   useEffect(() => {
-    const boot = document.getElementById("boot");
-    if (me === undefined || !boot) return;
-    boot.classList.add("done");
-    setTimeout(() => boot.remove(), 250);
+    if (me) prefetchPages();
   }, [me]);
 
   useEffect(() => {
@@ -201,15 +244,15 @@ export default function App() {
 
   // The loading screen from index.html stays up until then.
   if (me === undefined) return null;
-  if (path === "/pricing") return <Pricing navigate={navigate} signedIn={me !== null} />;
-  if (path === "/docs") return <Docs navigate={navigate} signedIn={me !== null} />;
-  if (path === "/privacy") return <Privacy navigate={navigate} signedIn={me !== null} />;
-  if (path === "/contact") return <Contact key={search} navigate={navigate} signedIn={me !== null} />;
+  if (path === "/pricing") return <Loaded><Pricing navigate={navigate} signedIn={me !== null} /></Loaded>;
+  if (path === "/docs") return <Loaded><Docs navigate={navigate} signedIn={me !== null} /></Loaded>;
+  if (path === "/privacy") return <Loaded><Privacy navigate={navigate} signedIn={me !== null} /></Loaded>;
+  if (path === "/contact") return <Loaded><Contact key={search} navigate={navigate} signedIn={me !== null} /></Loaded>;
   if (me === null) {
-    if (path === "/" && !appAddress(window.location.pathname)) return <Landing navigate={navigate} />;
-    return <AuthPage mode={path === "/register" ? "register" : "signin"} navigate={navigate} onSignedIn={signedIn} />;
+    if (path === "/" && !appAddress(window.location.pathname)) return <Loaded><Landing navigate={navigate} /></Loaded>;
+    return <Loaded><AuthPage mode={path === "/register" ? "register" : "signin"} navigate={navigate} onSignedIn={signedIn} /></Loaded>;
   }
-  if (me.mfa_pending) return <MfaGate onDone={setMe} onSignOut={() => void api.logout().finally(() => setMe(null))} />;
+  if (me.mfa_pending) return <Loaded><MfaGate onDone={setMe} onSignOut={() => void api.logout().finally(() => setMe(null))} /></Loaded>;
   // In a branch, the pages see the branch and the role this person has there (see auth.in_branch).
   const choice = me.workspaces.find((w) => w.public_id === branch && w.id !== me.workspace.id);
   setBranch(choice?.id ?? null); // every API call from here on names the branch
@@ -635,6 +678,7 @@ function Shell({
         <ClosedBanner me={me} onOpen={() => go("settings")} />
         <LastSignIn me={me} onReview={() => go("settings")} />
         <InboxPanel onOpen={openNotification} />
+        <Loaded fallback={<p className="text-sm text-muted">Loading…</p>}>
         {/* Receive stays mounted so a half-filled delivery survives a look at another page. */}
         <div hidden={page !== "receive"}>
           <Receive
@@ -680,6 +724,7 @@ function Shell({
         {page === "team" && <Team key={visit} me={me} />}
         {page === "help" && <Help key={visit} me={me} go={go} canOpen={canOpen} />}
         {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}
+        </Loaded>
         {/* Pushed to the bottom on short pages. */}
         <div className="mt-auto pt-12">
           <SdgFooter className="border-t border-line pt-5" />

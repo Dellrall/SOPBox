@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Download, FileUp, X } from "lucide-react";
-import { api } from "./api";
+import { api, forgetRecent } from "./api";
 import StocktakeHistory from "./StocktakeHistory";
 import { CountGaps } from "./CountGaps";
 import { StorageSelect, firstStorageId, useStorages } from "./StorageSelect";
@@ -533,7 +533,7 @@ export default function Stocktake({ canEdit }: { canEdit: boolean }) {
         selected={selected}
         onOpen={(id) => void showDetails(id)}
         onClose={() => setSelected(null)}
-        onRefresh={() => void load()}
+        onRefresh={() => (forgetRecent(), void load())}
       >
         {selected && (
           <>
