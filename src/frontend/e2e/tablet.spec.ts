@@ -27,7 +27,7 @@ test.describe("signed in", () => {
   test("every page and Settings tab fits a tablet", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     await page.goto("/");
-    const menu = page.getByRole("button", { name: "Open the menu" });
+    const menu = page.getByRole("button", { name: "More", exact: true });
     const nav = page.getByRole("navigation", { name: "Main" });
     // Upright, the pages are in a drawer behind the menu button; on its side, the sidebar is always there.
     const drawer = await menu.isVisible();

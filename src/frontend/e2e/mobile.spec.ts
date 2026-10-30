@@ -32,7 +32,7 @@ async function snapshot(page: Page, testInfo: TestInfo, name: string) {
 }
 
 async function openPage(page: Page, label: string) {
-  await page.getByRole("button", { name: "Open the menu" }).click();
+  await page.getByRole("button", { name: "More", exact: true }).click();
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect(nav).toBeInViewport();
   await openGroups(page);
@@ -57,7 +57,7 @@ async function openGroups(page: Page) {
 
 /** The pages in the menu (not the group buttons that open and close). */
 async function navLabels(page: Page) {
-  await page.getByRole("button", { name: "Open the menu" }).click();
+  await page.getByRole("button", { name: "More", exact: true }).click();
   await openGroups(page);
   const labels = await page.getByRole("navigation", { name: "Main" }).locator("button:not([aria-expanded])").allInnerTexts();
   await page.getByRole("button", { name: "Close the menu" }).click();
@@ -127,7 +127,7 @@ test.describe("signed out", () => {
     await page.getByLabel("Username or email").fill(PEOPLE.staff.username);
     await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in", exact: true }).tap();
-    await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "More", exact: true })).toBeVisible();
     // The sign-in before this one is shown, so a sign-in the person didn't make stands out.
     await expect(page.getByRole("status").filter({ hasText: /last sign-in:/i })).toBeVisible();
     await expectFitsScreen(page);
@@ -180,7 +180,7 @@ for (const who of ["owner", "manager", "staff"] as const) {
 
     test("each page in the menu fits a phone", async ({ page }, testInfo) => {
       await page.goto("/");
-      await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "More", exact: true })).toBeVisible();
       const labels = await navLabels(page);
       expect(labels.length).toBeGreaterThan(2);
       for (const label of labels) {
@@ -199,13 +199,13 @@ test.describe("phone layout", () => {
 
   test("on a small phone the helper starts small with its message folded away", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "More", exact: true })).toBeVisible();
     const show = page.getByRole("button", { name: "Show the helper's messages" });
     await expect(show).toBeVisible();
     await show.tap();
     await expect(show).toBeHidden();
     await page.reload(); // the person's choice is remembered
-    await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "More", exact: true })).toBeVisible();
     await expect(show).toBeHidden();
   });
 
@@ -224,7 +224,7 @@ test.describe("phone layout", () => {
 
   test("the header keeps the menu and inbox in reach, and menu items are big enough to tap", async ({ page }) => {
     await page.goto("/");
-    const menu = page.getByRole("button", { name: "Open the menu" });
+    const menu = page.getByRole("button", { name: "More", exact: true });
     await expect(menu).toBeInViewport();
     await expect(page.locator("header").getByRole("button", { name: /inbox|notification/i }).first()).toBeInViewport();
     await menu.tap();
@@ -238,7 +238,7 @@ test.describe("phone layout", () => {
     await page.goto("/");
     const bar = page.getByRole("navigation", { name: "Quick" });
     await expect(bar).toBeInViewport();
-    await expect(bar.getByRole("button")).toHaveText([/Receive/, /Approvals/, /Dashboard/, /Stock/, /More/]);
+    await expect(bar.getByRole("button")).toHaveText([/Dashboard/, /Approvals/, /Receive/, /Stock/, /More/]);
     await bar.getByRole("button", { name: "Stock" }).tap();
     await expect(page.getByRole("heading", { level: 1, name: "Stock Count" })).toBeVisible();
     await expect(bar.getByRole("button", { name: "Stock" })).toHaveAttribute("aria-current", "page");
@@ -341,7 +341,7 @@ test.describe("phone layout", () => {
     await branch.dispose();
 
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the menu" }).click();
+    await page.getByRole("button", { name: "More", exact: true }).click();
     const nav = page.getByRole("complementary").or(page.locator("aside"));
     await nav.getByRole("button", { name: /Switch workspace/ }).click();
     await nav.getByRole("list", { name: "Workspaces" }).getByRole("button", { name }).click();
@@ -410,7 +410,7 @@ test.describe("outlets", () => {
     expect((await context.request.post("/api/auth/login", { data: { username: `m${tag}`, password: PASSWORD } })).ok()).toBe(true);
     const page = await context.newPage();
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the menu" }).click();
+    await page.getByRole("button", { name: "More", exact: true }).click();
     await expect(page.getByRole("button", { name: "Outlet: Sri Gombak. Switch outlet" })).toBeVisible();
     await page.getByRole("button", { name: "Close the menu" }).click();
 
@@ -597,7 +597,7 @@ test.describe("sign-in page", () => {
     await page.getByLabel("Username or email").fill(PEOPLE.staff.username);
     await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in", exact: true }).tap();
-    await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "More", exact: true })).toBeVisible();
     // Signing out of this browser only: other tests share the staff session cookie file, not this one.
     await page.request.post("/api/auth/logout");
     await page.goto("/signin");
@@ -682,7 +682,7 @@ test.describe("kitchen tablet", () => {
     await person.tap();
     await page.getByLabel(`${PEOPLE.staff.name}'s PIN`).fill(STAFF_PIN);
     await page.getByRole("button", { name: "Sign in", exact: true }).tap();
-    await expect(page.getByRole("button", { name: "Open the menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "More", exact: true })).toBeVisible();
   });
 
   test("the tablet itself stops being a kitchen tablet", async ({ page }) => {
