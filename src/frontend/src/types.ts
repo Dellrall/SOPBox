@@ -611,6 +611,8 @@ export type Job = {
   can_take: boolean;
   asked: boolean; // waiting for a manager to approve taking it over
   page: string;
+  steps: string[]; // the SOP for this job, written by the server from the order's products
+  ticks: { step: string; done_by: string }[];
 };
 export type AssignmentRequest = { id: number; kind: JobKind; ref_id: number; title: string; user_id: number; name: string; replaces: string[]; created_at: string };
 

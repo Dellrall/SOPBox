@@ -571,6 +571,42 @@ test.describe("ask the helper", () => {
   });
 });
 
+test.describe("jobs", () => {
+  test("taking an order says so, offers Undo and Open, and shows its steps and the week", async ({ browser, baseURL }, testInfo) => {
+    // Its own workspace, so the other phones do not take the same order.
+    const context = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const tag = `${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    expect((await context.request.post("/api/auth/register", {
+      data: { workspace_name: `Jobs ${tag}`, display_name: "Jo Owner", email: `j${tag}@example.com`, username: `j${tag}`, password: PASSWORD },
+    })).ok()).toBe(true);
+    const category = await (await context.request.post("/api/categories", { data: { name: "Chilled", temp_min_c: 0, temp_max_c: 4 } })).json();
+    const product = await (await context.request.post("/api/products", { data: { name: "Milk", category_id: category.id, base_unit: "L" } })).json();
+    const supplier = await (await context.request.post("/api/suppliers", { data: { name: "Dairy Farm" } })).json();
+    const today = new Date().toLocaleDateString("en-CA");
+    const order = await (await context.request.post("/api/purchase-orders", {
+      data: { supplier_id: supplier.id, order_date: today, expected_date: today, lines: [{ product_id: product.id, quantity: 10, unit: "L" }] },
+    })).json();
+    expect((await context.request.post(`/api/purchase-orders/${order.id}/issue`)).ok()).toBe(true);
+
+    const page = await context.newPage();
+    await page.goto("/");
+    await openPage(page, "Tasks");
+    await expect(page.getByRole("group", { name: "Jobs by day" })).toBeVisible();
+    await page.getByRole("button", { name: "Take it" }).tap();
+    const status = page.getByRole("status").filter({ hasText: "You are now the PIC" });
+    await expect(status).toBeVisible();
+    await expect(page.getByText("Chilled: check 0 to 4°C")).toBeVisible(); // steps open on your job due today
+    await expectFitsScreen(page);
+    await snapshot(page, testInfo, "jobs");
+    await status.getByRole("button", { name: "Undo" }).tap();
+    await expect(page.getByRole("status").filter({ hasText: "Undone." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Take it" })).toBeVisible();
+    await page.getByRole("button", { name: "Open order" }).tap();
+    await expect(page.getByText(order.reference).first()).toBeVisible();
+    await context.close();
+  });
+});
+
 test.describe("closing the business", () => {
   test("the owner downloads a copy, closes it, sees it read-only, and reopens it", async ({ browser, baseURL }, testInfo) => {
     // Its own workspace: closing one the other tests share would stop them.

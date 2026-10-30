@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, forgetRecent } from "./api";
+import { takeOpen } from "./openTarget";
 import DeliveryLines from "./DeliveryLines";
 import DeliveryPhotos from "./DeliveryPhotos";
 import { DeliveryTags } from "./Tags";
@@ -44,7 +45,7 @@ function PendingCard({ delivery: initial, canDecide, onDone }: { delivery: Deliv
   const mixed = passed > 0 && failed > 0;
 
   return (
-    <article className={`${cardClass} space-y-3`}>
+    <article id={`delivery-${delivery.id}`} className={`${cardClass} scroll-mt-20 space-y-3`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold">
           Delivery #{delivery.id} {delivery.supplier && `from ${delivery.supplier}`}
@@ -100,6 +101,8 @@ export default function Approvals({ canDecide, onChanged }: { canDecide: boolean
     try {
       setPending(await api.deliveries("pending_approval", 100));
       setError("");
+      const wanted = takeOpen("delivery");
+      if (wanted) requestAnimationFrame(() => document.getElementById(`delivery-${wanted}`)?.scrollIntoView({ block: "start" }));
     } catch (e) {
       setError((e as Error).message);
     } finally {

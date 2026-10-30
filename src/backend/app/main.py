@@ -40,6 +40,7 @@ from app.models import (
     CountPlanIn,
     Job,
     JobKind,
+    JobTickIn,
     RequestDecisionIn,
     TaskList,
     TaskListIn,
@@ -1195,6 +1196,11 @@ def tick_task(list_id: int, body: TickIn, user: User, conn: Conn):
 def list_jobs(user: User, conn: Conn, day: date = Query()):
     """Open orders, held deliveries and planned counts, with their PICs and what to do on `day`."""
     return assignments.jobs(conn, user, day)
+
+
+@app.post("/api/jobs/{kind}/{ref_id}/ticks", status_code=204)
+def tick_job(kind: JobKind, ref_id: int, body: JobTickIn, user: User, conn: Conn):
+    assignments.tick(conn, user, kind, ref_id, body)
 
 
 @app.post("/api/assignments", response_model=AssignOut)
