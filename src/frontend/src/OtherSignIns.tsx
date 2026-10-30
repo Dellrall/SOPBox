@@ -39,15 +39,46 @@ function GoogleMark() {
   );
 }
 
+// The server's sign-in options, kept on this device so the buttons show at once next time.
+const METHODS_KEY = "sopbox-sign-in-methods";
+
+function savedMethods(): SignInMethods | null {
+  try {
+    return JSON.parse(localStorage.getItem(METHODS_KEY) ?? "null") as SignInMethods | null;
+  } catch {
+    return null;
+  }
+}
+
+/** Asks the server which options are on, trying once more if the first request fails. */
+async function fetchMethods(): Promise<SignInMethods> {
+  try {
+    return await api.signInMethods();
+  } catch {
+    await new Promise((r) => setTimeout(r, 1500));
+    return api.signInMethods();
+  }
+}
+
 /** Passkey, Google and Telegram buttons under the password form, plus finishing a Telegram return. */
 export function OtherSignIns({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
-  const [methods, setMethods] = useState<SignInMethods | null>(null);
+  // Null until known: the buttons wait, so passkey never shows alone while Google and Telegram load.
+  const [methods, setMethods] = useState<SignInMethods | null>(savedMethods);
   const [error, setError] = useState(() => takeAuthReturn().error ?? "");
   const [busy, setBusy] = useState(false);
   const last = lastSignIn();
 
   useEffect(() => {
-    api.signInMethods().then(setMethods).catch(() => setMethods({ google: false, telegram_bot_id: null }));
+    fetchMethods()
+      .then((m) => {
+        setMethods(m);
+        try {
+          localStorage.setItem(METHODS_KEY, JSON.stringify(m));
+        } catch {
+          // private window: asked again next time
+        }
+      })
+      .catch(() => setMethods((m) => m ?? { google: false, telegram_bot_id: null }));
     const telegram = consumeTelegram();
     if (telegram) {
       setBusy(true);
@@ -77,7 +108,14 @@ export function OtherSignIns({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
       <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-muted">
         <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
       </div>
-      <div className="flex gap-2 sm:flex-col sm:gap-3">
+      {methods === null && (
+        <div aria-busy="true" aria-label="Loading sign-in options" className="flex gap-2 sm:flex-col sm:gap-3">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="h-[62px] flex-1 animate-pulse rounded-xl bg-slate-200/70 sm:h-12" />
+          ))}
+        </div>
+      )}
+      <div hidden={methods === null} className="flex gap-2 sm:flex-col sm:gap-3">
       {passkeysSupported() && (
         <button type="button" className={optionButton} aria-label="Sign in with a passkey" disabled={busy} onClick={() => void passkey()}>
           <Fingerprint aria-hidden className="h-5 w-5" /> <Short word="Passkey" full="Sign in with a passkey" />
