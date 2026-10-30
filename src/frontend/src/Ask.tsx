@@ -50,7 +50,7 @@ export function AskPanel({ go, onClose }: { go: (page: PageId) => void; onClose:
       role="dialog"
       aria-label="Ask the helper"
       onKeyDown={(e) => e.key === "Escape" && onClose()}
-      className="mascot-pop pointer-events-auto fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-2 z-30 lg:bottom-20 flex max-h-[min(32rem,60vh)] lg:max-h-[min(32rem,70vh)] w-[min(22rem,calc(100vw-1rem))] flex-col rounded-2xl bg-white text-sm text-ink shadow-xl ring-1 ring-line print:hidden sm:bottom-24 sm:right-4"
+      className="mascot-pop pointer-events-auto fixed bottom-[calc(8rem+env(safe-area-inset-bottom))] right-2 z-30 lg:bottom-20 flex max-h-[min(32rem,60vh)] lg:max-h-[min(32rem,70vh)] w-[min(22rem,calc(100vw-1rem))] flex-col rounded-2xl bg-white text-sm text-ink shadow-xl ring-1 ring-line print:hidden sm:bottom-24 sm:right-4"
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
         <p className="font-bold text-brand-950">Ask the helper</p>

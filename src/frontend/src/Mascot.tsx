@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { MessageCircle, Sparkles, X } from "lucide-react";
+import { BellDot, Sparkles, X } from "lucide-react";
 import type { PageId } from "./App";
 import { AskPanel } from "./Ask";
 
@@ -540,7 +540,13 @@ export function MascotDock({ fallback, go, page }: { fallback: Scene; go: (page:
   else if (text)
     bubble = (
       <div className="mascot-pop pointer-events-auto relative mb-10 max-w-52 rounded-2xl rounded-br-sm bg-white py-2 pl-3 pr-7 text-xs font-medium text-ink shadow-lg ring-1 ring-line sm:max-w-60 sm:text-sm">
-        <p aria-live="polite" className="line-clamp-4">{text}</p>
+        {target && !petLine ? (
+          <button type="button" onClick={() => go(target)} className="line-clamp-4 text-left hover:underline" aria-live="polite">
+            {text}
+          </button>
+        ) : (
+          <p aria-live="polite" className="line-clamp-4">{text}</p>
+        )}
         {!petLine && !error && scene.progress !== undefined && (
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
             <div className="h-full rounded-full bg-brand-600 transition-all duration-500" style={{ width: `${Math.round(Math.min(1, Math.max(0, scene.progress)) * 100)}%` }} />
@@ -594,32 +600,27 @@ export function MascotDock({ fallback, go, page }: { fallback: Scene; go: (page:
           aria-label="Show the helper's messages"
           title="Show messages"
         >
-          <MessageCircle aria-hidden className="h-4 w-4" />
+          <BellDot aria-hidden className="h-4 w-4" />
         </button>
       )}
       <button
         type="button"
         onClick={() => setAsking((a) => !a)}
         aria-expanded={asking}
-        className="pointer-events-auto mb-1 rounded-full bg-brand-600 p-2 text-white shadow ring-1 ring-brand-700 hover:bg-brand-700"
-        aria-label="Ask the helper"
-        title="Ask about your stock, orders and prices"
-      >
-        <Sparkles aria-hidden className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onClick={() => target && go(target)}
         onContextMenu={(e) => {
           e.preventDefault();
           pet();
         }}
         ref={homeRef}
-        className={`pointer-events-auto rounded-full ${target ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"} ${roam ? "invisible" : ""} focus-visible:outline-2 focus-visible:outline-brand-600`}
-        aria-label={target ? "Open what the helper is pointing at" : "The helper (right-click to pet)"}
-        title={target ? "Click to go there · right-click to pet me" : "Right-click to pet me!"}
+        className={`pointer-events-auto relative cursor-pointer rounded-full ${roam ? "invisible" : ""} focus-visible:outline-2 focus-visible:outline-brand-600`}
+        aria-label="Ask the helper"
+        title="Ask about your stock, orders and prices · right-click to pet me"
       >
         <MascotFigure who={scene.who} action={action} paw={paw} size={tucked || smallScreen() ? 48 : 64} />
+        {/* Marks the helper as the place to ask. */}
+        <span aria-hidden className="absolute -left-1 top-0 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white shadow ring-2 ring-white">
+          <Sparkles className="h-3 w-3" />
+        </span>
       </button>
     </div>
     </>
