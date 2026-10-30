@@ -108,8 +108,7 @@ export function StorageAreas({ canEdit }: { canEdit: boolean }) {
           Storage areas
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Stock is kept per storage area. Deliveries, counts, transfers and sales each name one. An area can be deleted only while it
-          is empty and has no history.
+          Where stock is kept. Only an empty area with no history can be deleted.
         </p>
       </div>
       {outlets.map((o) => (

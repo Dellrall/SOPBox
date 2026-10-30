@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Plus } from "lucide-react";
 import { api } from "./api";
 import { DEFAULT_STAFF_ACCESS, SECTION_ACCESS_AREAS, type Accountability, type Me, type Outlet, type SectionAccess, type UserOut } from "./types";
 import { USERNAME_HINT, USERNAME_PATTERN, UsernameStatus, cleanUsername, usernameProblem, useUsernameCheck } from "./username";
@@ -57,7 +58,7 @@ function SectionAccessFields({
   );
 }
 
-function CreateForm({ onCreated, outlets, level }: { onCreated: () => void; outlets: Outlet[]; level: Level }) {
+function CreateForm({ onCreated, onClose, outlets, level }: { onCreated: () => void; onClose: () => void; outlets: Outlet[]; level: Level }) {
   const choices = positionChoices(level);
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
@@ -178,9 +179,14 @@ function CreateForm({ onCreated, outlets, level }: { onCreated: () => void; outl
       {role === "staff" && <SectionAccessFields value={sectionAccess} onChange={setSectionAccess} />}
       <ErrorNote message={error} />
       {done && <SuccessNote>{done}</SuccessNote>}
-      <button type="submit" disabled={busy} className={primaryButton}>
-        Create account
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" disabled={busy} className={primaryButton}>
+          Create account
+        </button>
+        <button type="button" className={secondaryButton} onClick={onClose}>
+          Done
+        </button>
+      </div>
     </form>
   );
 }
@@ -515,11 +521,19 @@ export default function Team({ me }: { me: Me }) {
       .catch((e: Error) => setError(e.message));
   }, []);
   useEffect(load, [load]);
+  // Folded until asked for: the form and its section access fill several phone screens.
+  const [adding, setAdding] = useState(false);
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Team" />
-      <CreateForm onCreated={load} outlets={outlets} level={level} />
+      <PageTitle title="Team">
+        {!adding && (
+          <button type="button" className={primaryButton} onClick={() => setAdding(true)}>
+            <Plus aria-hidden className="h-4 w-4" /> Add a person
+          </button>
+        )}
+      </PageTitle>
+      {adding && <CreateForm onCreated={load} onClose={() => setAdding(false)} outlets={outlets} level={level} />}
       <ErrorNote message={error} />
       {users?.length === 0 && <Empty>No accounts yet.</Empty>}
       {users && (
