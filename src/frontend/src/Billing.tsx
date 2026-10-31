@@ -135,8 +135,11 @@ export function PlanCard({ owner }: { owner: boolean }) {
                   className={inputClass}
                   value={form.billing}
                   choices={[
-                    { value: "annual", label: `Every year (${price(pricing, "pro_outlet_year")} per extra outlet)` },
-                    { value: "lifetime", label: `Once, for life (${price(pricing, "pro_outlet_lifetime")} per extra outlet)` },
+                    { value: "annual", label: `Every year (${price(pricing, "pro_month")} a month + ${price(pricing, "pro_outlet_month")} per extra outlet)` },
+                    // Offered only while plans.py has a price for it.
+                    ...(pricing?.prices.pro_outlet_lifetime == null
+                      ? []
+                      : [{ value: "lifetime", label: `Once, for life (${price(pricing, "pro_outlet_lifetime")} per extra outlet)` }]),
                   ]}
                   onChange={(v) => setForm({ ...form, billing: v as "annual" | "lifetime" })}
                 />
@@ -159,7 +162,7 @@ export function PlanCard({ owner }: { owner: boolean }) {
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.customization} onChange={(e) => setForm({ ...form, customization: e.target.checked })} />
-              Customization: branding, own fields and checks, SOP templates and reports
+              Custom work: own checks, reports, SOP templates (quoted per task)
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -167,7 +170,7 @@ export function PlanCard({ owner }: { owner: boolean }) {
                 checked={form.priority_support}
                 onChange={(e) => setForm({ ...form, priority_support: e.target.checked })}
               />
-              Priority support ({price(pricing, "priority_support_year")} a year)
+              Priority support ({price(pricing, "priority_support_year")} a year, first year free at launch)
             </label>
             <div>
               <label className={labelClass} htmlFor="up-phone">

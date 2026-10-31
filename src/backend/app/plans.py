@@ -6,10 +6,9 @@ the plan on (`python -m app.set_plan`, later the internal operations site), or g
 code (`python -m app.plan_codes`) to enter in Settings, Plan & billing.
 
 - Free: one outlet (any number of storage areas in it), the whole team, AI reading, stock, sales.
-- Pro: extra outlets (priced per outlet, a year or for life), HQ branch links, till API keys.
-  Add-ons: customization (branding, own fields and checks, own SOP templates and reports) and
-  priority support, each paid on its own.
-- Enterprise: a price agreed with sales; everything on.
+- Pro: a monthly price with its first outlet plus one per extra outlet, paid yearly; HQ branch links,
+  till API keys. Add-ons: customization (custom work, quoted per task) and priority support (yearly).
+- Enterprise: a price agreed with sales, from a listed starting price; everything on.
 Workspaces from before plans are pre-alpha users: what they already set up keeps working, and
 adding more follows their plan. An annual plan that has run out counts as Free (nothing is deleted).
 """
@@ -24,12 +23,19 @@ from app.errors import ConflictError, ForbiddenError, InvalidRequestError
 from app.models import PlanOut, PricingOut
 
 CURRENCY = "RM"
+# Launch prices hold for an early customer's first 12 months; "_later" is the list price after that.
 PRICES: dict[str, int | None] = {
-    "pro_outlet_year": None,  # each outlet after the first, per year
-    "pro_outlet_lifetime": None,  # each outlet after the first, once
-    "customization_year": None,
+    "pro_month": 49,  # Pro with its first outlet, a month, paid yearly
+    "pro_month_later": 89,
+    "pro_outlet_month": 29,  # each outlet after the first, a month
+    "pro_outlet_month_later": 49,
+    "pro_outlet_year": 348,  # the same extra outlet, paid for the year
+    "pro_outlet_lifetime": None,  # not offered: AI reading and hosting cost money every month
+    "customization_year": None,  # custom work is quoted per task instead
     "customization_lifetime": None,
-    "priority_support_year": None,
+    "custom_task_from": 100,  # smallest custom job, quoted before work starts
+    "priority_support_year": 190,  # free in an early customer's first year
+    "enterprise_month_from": 399,
 }
 KOFI_URL = ""  # e.g. https://ko-fi.com/sopbox; the Donate button shows once set
 SALES_EMAIL = ""
