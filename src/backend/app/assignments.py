@@ -17,7 +17,7 @@ import psycopg
 
 from app import inbox, insights, locations, notifications, purchasing
 from app.auditlog import audit
-from app.auth import CurrentUser
+from app.auth import CurrentUser, can_access_section
 from app.errors import ForbiddenError, InvalidRequestError, NotFoundError
 from app.models import AssignIn, AssignmentRequest, AssignOut, CountPlanIn, Job, JobTick, JobTickIn, Pic
 
@@ -76,6 +76,10 @@ def _order_steps(supplier: str, product_ids: list[int], products: dict[int, dict
     return steps
 
 
+# The section someone needs edit access to, to do each kind of job.
+SECTION = {"po": "receive", "delivery": "approvals", "count": "stocktake"}
+
+
 def _open_work(conn: psycopg.Connection, ws: int) -> dict[tuple[str, int], dict]:
     """Every open job: its title, due date, whether it is big, and its steps."""
     big_sen, big_lines = _thresholds(conn, ws)
@@ -102,7 +106,8 @@ def _open_work(conn: psycopg.Connection, ws: int) -> dict[tuple[str, int], dict]
     for d in conn.execute(
         "SELECT d.id, d.supplier, COUNT(l.id) AS lines, COALESCE(SUM(l.unit_price_sen * l.quantity), 0) AS value "
         "FROM deliveries d LEFT JOIN delivery_lines l ON l.delivery_id = d.id "
-        "WHERE d.workspace_id = %s AND d.status = 'pending_approval' GROUP BY d.id ORDER BY d.id",
+        "WHERE d.workspace_id = %s AND d.status = 'pending_approval' "
+        f"AND (d.storage_id IS NULL OR {locations.mine('d.storage_id')}) GROUP BY d.id ORDER BY d.id",
         (ws,),
     ).fetchall():
         work[("delivery", d["id"])] = {
@@ -115,7 +120,7 @@ def _open_work(conn: psycopg.Connection, ws: int) -> dict[tuple[str, int], dict]
     for c in conn.execute(
         f"SELECT c.id, c.due_date, {locations.LABEL_SQL} AS label FROM count_plans c "
         "JOIN storages s ON s.id = c.storage_id JOIN outlets o ON o.id = s.outlet_id "
-        "WHERE c.workspace_id = %s AND c.stocktake_id IS NULL ORDER BY c.due_date",
+        f"WHERE c.workspace_id = %s AND c.stocktake_id IS NULL AND {locations.mine('c.storage_id')} ORDER BY c.due_date",
         (ws,),
     ).fetchall():
         work[("count", c["id"])] = {
@@ -157,6 +162,8 @@ def jobs(conn: psycopg.Connection, user: CurrentUser, day: date) -> list[Job]:
         ticks.setdefault((r["kind"], r["ref_id"]), []).append(JobTick(step=r["step"], done_by=r["done_by"]))
     out = []
     for (kind, ref), w in _open_work(conn, ws).items():
+        if not can_access_section(user, SECTION[kind], edit=True):
+            continue  # not their work: staff without approvals access never see held deliveries
         mine = pics.get((kind, ref), [])
         days = (w["due"] - day).days if w["due"] else None
         out.append(Job(
@@ -177,12 +184,15 @@ def _job(conn: psycopg.Connection, ws: int, kind: str, ref_id: int) -> dict:
     return found
 
 
-def _member(conn: psycopg.Connection, ws: int, user_id: int) -> str:
+def _member(conn: psycopg.Connection, ws: int, user_id: int, kind: str) -> str:
+    """Their name, once they are known to be able to do this kind of job."""
     row = conn.execute(
-        "SELECT display_name FROM users WHERE id = %s AND workspace_id = %s AND active", (user_id, ws)
+        "SELECT display_name, role, section_access FROM users WHERE id = %s AND workspace_id = %s AND active", (user_id, ws)
     ).fetchone()
     if row is None:
         raise InvalidRequestError("that person is not an active member of this workspace")
+    if row["role"] == "staff" and (row["section_access"] or {}).get(SECTION[kind]) != "edit":
+        raise ForbiddenError(f"{row['display_name']} cannot do this kind of job; give them access in Team first")
     return row["display_name"]
 
 
@@ -194,7 +204,7 @@ def assign(conn: psycopg.Connection, user: CurrentUser, data: AssignIn) -> Assig
         # One change at a time per workspace, so two people cannot both become the only PIC.
         conn.execute("SELECT id FROM workspaces WHERE id = %s FOR UPDATE", (ws,))
         job = _job(conn, ws, data.kind, data.ref_id)
-        name = _member(conn, ws, target)
+        name = _member(conn, ws, target, data.kind)
         current = _pics(conn, ws).get((data.kind, data.ref_id), [])
         if any(p.user_id == target for p in current):
             return AssignOut(status="already")

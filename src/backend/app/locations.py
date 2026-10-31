@@ -12,7 +12,7 @@ import psycopg
 
 from app import plans
 from app.auditlog import audit
-from app.errors import ConflictError, InvalidRequestError, NotFoundError
+from app.errors import ConflictError, ForbiddenError, InvalidRequestError, NotFoundError
 from app.models import OutletOut, SetupOut, StockLevelOut, StorageOut, TransferIn, TransferLineOut, TransferOut
 
 DEFAULT_OUTLET = "Main outlet"
@@ -20,6 +20,13 @@ DEFAULT_STORAGE = "Store"
 
 # A storage area as people read it: "Main outlet / Store".
 LABEL_SQL = "(o.name || ' / ' || s.name)"
+# The outlet the signed-in person is tied to (auth.act_as), or NULL for the owner and anyone free to work anywhere.
+OWN_OUTLET = "NULLIF(current_setting('app.outlet_id', true), '')::bigint"
+
+
+def mine(storage_col: str) -> str:
+    """SQL: this row's storage area is in the person's outlet, or they are not tied to one."""
+    return f"({OWN_OUTLET} IS NULL OR {storage_col} IN (SELECT id FROM storages WHERE outlet_id = {OWN_OUTLET}))"
 
 
 def _now() -> str:
@@ -68,11 +75,16 @@ def storage_label(conn: psycopg.Connection, ws: int, storage_id: int) -> str:
 
 
 def resolve(conn: psycopg.Connection, ws: int, storage_id: int | None) -> int:
-    """The storage area asked for, checked to be this workspace's, or the first one."""
+    """The storage area asked for, checked to be this workspace's and in the person's outlet, or their first one."""
     first = default_storage(conn, ws)
     if storage_id is None:
-        return first
+        own = conn.execute(
+            f"SELECT id FROM storages WHERE workspace_id = %s AND outlet_id = {OWN_OUTLET} ORDER BY id LIMIT 1", (ws,)
+        ).fetchone()
+        return own["id"] if own else first
     storage_label(conn, ws, storage_id)
+    if not conn.execute(f"SELECT 1 FROM storages WHERE id = %s AND {mine('id')}", (storage_id,)).fetchone():
+        raise ForbiddenError("you work at another outlet, so you cannot use that storage area")
     return storage_id
 
 
@@ -115,11 +127,14 @@ def adjust(conn: psycopg.Connection, ws: int, product_id: int, storage_id: int, 
 def list_outlets(conn: psycopg.Connection, ws: int) -> list[OutletOut]:
     default_storage(conn, ws)
     outlets = conn.execute(
-        "SELECT id, name FROM outlets WHERE workspace_id = %s ORDER BY lower(name)", (ws,)
+        f"SELECT id, name FROM outlets WHERE workspace_id = %s AND ({OWN_OUTLET} IS NULL OR id = {OWN_OUTLET}) "
+        "ORDER BY lower(name)",
+        (ws,),
     ).fetchall()
     storages = conn.execute(
         f"SELECT s.id, s.name, s.outlet_id, o.name AS outlet, {LABEL_SQL} AS label "
-        "FROM storages s JOIN outlets o ON o.id = s.outlet_id WHERE s.workspace_id = %s ORDER BY lower(s.name)",
+        f"FROM storages s JOIN outlets o ON o.id = s.outlet_id WHERE s.workspace_id = %s AND {mine('s.id')} "
+        "ORDER BY lower(s.name)",
         (ws,),
     ).fetchall()
     return [
@@ -278,7 +293,7 @@ def _transfers(conn: psycopg.Connection, ws: int, where: str, params: tuple) -> 
 
 
 def list_transfers(conn: psycopg.Connection, ws: int) -> list[TransferOut]:
-    return _transfers(conn, ws, "", ())
+    return _transfers(conn, ws, f"AND ({mine('t.from_storage_id')} OR {mine('t.to_storage_id')})", ())
 
 
 def create_transfer(conn: psycopg.Connection, ws: int, by: str, data: TransferIn) -> TransferOut:

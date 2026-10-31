@@ -9,7 +9,8 @@ const remembered = (me: Me) => `sopbox-outlet-${me.id}-${me.workspace.id}`;
 
 /**
  * The outlet under the workspace name: pages start on its storage areas. It starts at the outlet the
- * person works at (Team), or the one they picked last on this device. Shown once there is more than one.
+ * person works at (Team), or the one they picked last on this device. Shown once there is more than one;
+ * someone tied to an outlet (Team) gets only theirs from the server, and sees its name.
  */
 export function OutletSwitch({ me, onChange, onManage }: { me: Me; onChange: () => void; onManage?: () => void }) {
   const [outlets, setOutlets] = useState<Outlet[]>([]);
@@ -70,8 +71,16 @@ export function OutletSwitch({ me, onChange, onManage }: { me: Me; onChange: () 
     onChange();
   };
 
-  if (outlets.length < 2) return null;
   const name = outlets.find((o) => o.id === current)?.name ?? "";
+  // Someone tied to an outlet sees only theirs: name it, with nothing to switch to.
+  if (outlets.length === 1 && me.outlet_id != null)
+    return (
+      <p className="mt-2 border-t border-white/10 pt-2">
+        <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/50">Your outlet</span>
+        <span className="block truncate text-sm text-white/85">{name}</span>
+      </p>
+    );
+  if (outlets.length < 2) return null;
   return (
     <div ref={box} className="relative mt-2 border-t border-white/10 pt-2">
       <button

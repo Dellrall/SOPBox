@@ -452,7 +452,8 @@ test.describe("outlets", () => {
     const page = await context.newPage();
     await page.goto("/");
     await page.getByRole("button", { name: "More", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Outlet: Sri Gombak. Switch outlet" })).toBeVisible();
+    await expect(page.getByText("Your outlet")).toBeVisible(); // tied to Sri Gombak: only it, nothing to switch to
+    await expect(page.getByRole("button", { name: /Switch outlet/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Close the menu" }).click();
 
     await openPage(page, "Team");
@@ -561,6 +562,9 @@ test.describe("ask the helper", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Ask the helper" }).tap();
     const chat = page.getByRole("dialog", { name: "Ask the helper" });
+    await chat.getByLabel("Your question").click();
+    await page.keyboard.type("rice"); // the helper drums along, and must not swallow the keys
+    await expect(chat.getByLabel("Your question")).toHaveValue("rice");
     await chat.getByRole("button", { name: "What should we order?" }).tap();
     await expect(chat).toContainText("Cooking oil: 4 L. Below its minimum of 4 L.");
     await expectFitsScreen(page);

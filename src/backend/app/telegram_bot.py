@@ -197,7 +197,7 @@ def handle_message(conn: psycopg.Connection, msg: dict[str, Any]) -> None:
         return  # a command for another bot in the group
     if not private and not (text.startswith("/") or (bot_name and f"@{bot_name}" in text.lower()) or (bot_id and replied_to == bot_id)):
         return  # group chatter that is not for the bot
-    person = conn.execute("SELECT id, workspace_id FROM users WHERE telegram_id = %s AND active", (sender["id"],)).fetchone()
+    person = conn.execute("SELECT id, workspace_id, role, outlet_id FROM users WHERE telegram_id = %s AND active", (sender["id"],)).fetchone()
     if not private:
         ws = conn.execute("SELECT id FROM workspaces WHERE telegram_team_chat_id = %s", (str(chat["id"]),)).fetchone()
         if ws is None:
@@ -207,7 +207,7 @@ def handle_message(conn: psycopg.Connection, msg: dict[str, Any]) -> None:
     if person is None:
         _reply(chat["id"], LINK_FIRST, msg.get("message_id"))
         return
-    scope_to_user(conn, person["workspace_id"], person["id"])
+    scope_to_user(conn, person["workspace_id"], person["id"], None if person["role"] == "owner" else person["outlet_id"])
     if sender.get("username"):
         conn.execute("UPDATE users SET telegram_username = %s WHERE id = %s", (str(sender["username"])[:64], person["id"]))
     _reply(chat["id"], respond(conn, get_me(conn, person["id"]), text, msg.get("entities") or []), msg.get("message_id"))

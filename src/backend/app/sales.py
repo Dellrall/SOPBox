@@ -128,7 +128,7 @@ def _sales(conn: psycopg.Connection, ws: int, where: str, params: tuple) -> list
 
 
 def list_sales(conn: psycopg.Connection, ws: int) -> list[SaleOut]:
-    return _sales(conn, ws, "", ())
+    return _sales(conn, ws, f"AND {locations.mine('x.storage_id')}", ())
 
 
 def create_sale(
