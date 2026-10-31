@@ -185,7 +185,7 @@ export default function Records() {
 
   return (
     <div className="space-y-5">
-      <PageTitle title="Delivery records">
+      <PageTitle title="Order records">
         <button type="button" className={secondaryButton} aria-label="Download CSV" disabled={!matching.length} onClick={() => downloadCsv(matching)}>
           <Download aria-hidden className="h-4 w-4" /> <span className="hidden sm:inline">Download</span> CSV
         </button>

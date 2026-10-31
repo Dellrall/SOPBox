@@ -107,7 +107,7 @@ function Levels({ storages }: { storages: Storages }) {
           <li className="hidden grid-cols-[minmax(0,1.6fr)_1fr_1fr] gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted sm:grid">
             <span>Product</span>
             <span className="truncate">{here}</span>
-            <span>All storage areas</span>
+            <span>All storage in outlet</span>
           </li>
           {shown.map((r) => (
             <li key={r.product_id} className="grid grid-cols-2 gap-x-3 gap-y-1 px-3 py-2.5 sm:grid-cols-[minmax(0,1.6fr)_1fr_1fr]">
@@ -121,7 +121,7 @@ function Levels({ storages }: { storages: Storages }) {
                 {r.quantity} {r.base_unit}
               </span>
               <span className="text-slate-600">
-                <span className="text-xs text-muted sm:hidden">All areas: </span>
+                <span className="text-xs text-muted sm:hidden">Whole outlet: </span>
                 {r.total} {r.base_unit}
               </span>
             </li>
