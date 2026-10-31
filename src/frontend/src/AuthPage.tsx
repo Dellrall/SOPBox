@@ -313,6 +313,12 @@ export default function AuthPage({
               </Field>
               {mode === "register" && <PasswordStrength password={password} />}
             </section>
+            {mode === "register" && (
+              <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+                <strong>Free plan:</strong> 1 outlet and up to 50 products. One free workspace per business: extra free workspaces for the
+                same business may be closed. Upgrade to Pro any time in Settings.
+              </p>
+            )}
             <ErrorNote message={error} />
             <button type="submit" disabled={busy} className={`${primaryButton} relative w-full py-3 text-base`}>
               {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create workspace"}

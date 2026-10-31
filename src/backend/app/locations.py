@@ -322,6 +322,8 @@ def list_transfers(conn: psycopg.Connection, ws: int) -> list[TransferOut]:
 
 def create_transfer(conn: psycopg.Connection, ws: int, by: str, data: TransferIn) -> TransferOut:
     """Move stock between two storage areas at once. Refused when the source holds too little."""
+    from app import lots  # lots reads this module's SQL when it loads
+
     source = resolve(conn, ws, data.from_storage_id)
     target = resolve(conn, ws, data.to_storage_id)
     product_ids = [line.product_id for line in data.lines]
@@ -360,6 +362,7 @@ def create_transfer(conn: psycopg.Connection, ws: int, by: str, data: TransferIn
                 "VALUES (%s, %s, %s, %s, %s)",
                 (transfer_id, line.product_id, product["name"], product["base_unit"], line.quantity),
             )
+            lots.move(conn, ws, line.product_id, source, target, line.quantity)  # earliest expiry goes first
             adjust(conn, ws, line.product_id, source, -line.quantity)
             adjust(conn, ws, line.product_id, target, line.quantity)
         audit(

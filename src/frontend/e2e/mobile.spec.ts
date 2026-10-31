@@ -561,6 +561,41 @@ test.describe("stock insights", () => {
   });
 });
 
+test.describe("expiry dates", () => {
+  test("a dated delivery shows its lot, how soon it expires, and can be disposed of", async ({ browser, baseURL }, testInfo) => {
+    const context = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const tag = `${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    expect((await context.request.post("/api/auth/register", {
+      data: { workspace_name: `Expiry ${tag}`, display_name: "Eve Owner", email: `e${tag}@example.com`, username: `e${tag}`, password: PASSWORD },
+    })).ok()).toBe(true);
+    const category = await (await context.request.post("/api/categories", { data: { name: "Dry" } })).json();
+    const product = await (await context.request.post("/api/products", {
+      data: { name: "Yoghurt", category_id: category.id, base_unit: "cup", track_expiry: true, warn_days: 3 },
+    })).json();
+    const soon = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+    expect((await context.request.post("/api/deliveries", {
+      data: { supplier: "Dairy Farm", lines: [{ product_id: product.id, name: "Yoghurt", quantity: 12, unit: "cup", expiry_on: soon }] },
+    })).ok()).toBe(true);
+
+    const page = await context.newPage();
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: /1 expiring soon/ })).toBeVisible();
+    await openPage(page, "Expiry dates");
+    const lot = page.getByTestId("lot");
+    await expect(lot).toContainText("Yoghurt");
+    await expect(lot).toContainText("12 cup at Main outlet / Store");
+    await expect(lot).toContainText("2 days left");
+    await expectFitsScreen(page);
+    await lot.getByRole("button", { name: "Dispose" }).tap();
+    await lot.getByLabel("How many cup").fill("2");
+    await lot.getByRole("button", { name: "Dispose and record" }).tap();
+    await expect(page.getByText("2 cup of Yoghurt disposed and recorded.")).toBeVisible();
+    await expect(page.getByTestId("lot")).toContainText("10 cup at Main outlet / Store");
+    await expectFitsScreen(page);
+    await context.close();
+  });
+});
+
 test.describe("ask the helper", () => {
   test("a manager asks what to order and opens the details", async ({ browser, baseURL }, testInfo) => {
     const context = await browser.newContext({ baseURL, ...testInfo.project.use });

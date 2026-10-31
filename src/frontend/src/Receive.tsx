@@ -4,6 +4,7 @@ import { Camera, Loader2, X } from "lucide-react";
 import { PhotoPicker } from "./PhotoPicker";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
+import { LotLabels } from "./LotLabels";
 import DeliveryPhotos from "./DeliveryPhotos";
 import { DeliveryTags, TagPicker } from "./Tags";
 import SearchSelect from "./SearchSelect";
@@ -36,6 +37,8 @@ type Draft = {
   expected: string; // expected quantity in base units, optional
   price: string; // RM for one unit, optional
   note: string; // what the AI flagged on this line, for staff to check
+  expiry: string; // YYYY-MM-DD from the pack, optional unless the product tracks expiry
+  expiryLater: boolean; // the date cannot be seen yet
 };
 
 let nextKey = 1;
@@ -49,6 +52,8 @@ const blankLine = (): Draft => ({
   expected: "",
   price: "",
   note: "",
+  expiry: "",
+  expiryLater: false,
 });
 
 const unitsFor = (p?: Product): string[] => (p ? [p.base_unit, ...p.pack_units.map((u) => u.unit)] : []);
@@ -220,6 +225,8 @@ export default function Receive({
         return setError(`Line ${i + 1}: expected quantity must be a whole number above 0.`);
       if (price !== null && (Number.isNaN(price) || price < 0))
         return setError(`Line ${i + 1}: price must be an amount in RM, like 12.50.`);
+      if (product?.track_expiry && !l.expiry && !l.expiryLater)
+        return setError(`Line ${i + 1}: add the expiry date on the pack, or tick "Can't see it yet".`);
       payload.push({
         product_id: l.productId,
         name,
@@ -228,6 +235,8 @@ export default function Receive({
         temp_c: temp,
         expected_base_qty: expected,
         unit_price_sen: price === null ? null : Math.round(price * 100),
+        expiry_on: l.expiry || null,
+        expiry_later: !l.expiry && l.expiryLater,
       });
     }
 
@@ -316,6 +325,7 @@ export default function Receive({
             : "A manager must decide before this stock is counted. They have been alerted."}
         </p>
         <DeliveryLines lines={result.lines} />
+        {result.status === "accepted" && <LotLabels deliveryId={result.id} />}
         <DeliveryPhotos delivery={result} onChanged={setResult} />
         <DeliveryTags delivery={result} onChanged={setResult} />
         <button className={primaryButton} onClick={startAnother}>
@@ -503,6 +513,41 @@ export default function Receive({
                   />
                   <p className="mt-1 text-xs text-slate-600">As on the invoice. Spots price rises.</p>
                 </div>
+                {product && (
+                  <div className="col-span-2">
+                    <label className={labelClass} htmlFor={`expiry-${line.key}`}>
+                      Expiry date on the pack{product.track_expiry ? "" : " (optional)"}
+                    </label>
+                    <input
+                      id={`expiry-${line.key}`}
+                      type="date"
+                      className={inputClass}
+                      value={line.expiry}
+                      onChange={(e) => update(line.key, { expiry: e.target.value, expiryLater: false })}
+                    />
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                      {product.track_expiry && !line.expiry && (
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={line.expiryLater} onChange={(e) => update(line.key, { expiryLater: e.target.checked })} />
+                          Can&apos;t see it yet: open the box later
+                        </label>
+                      )}
+                      <button
+                        type="button"
+                        className="text-brand-700 underline"
+                        onClick={() =>
+                          setLines((all) => {
+                            const at = all.findIndex((l) => l.key === line.key);
+                            const copy = { ...blankLine(), productId: line.productId, name: line.name, unit: line.unit, temp: line.temp };
+                            return [...all.slice(0, at + 1), copy, ...all.slice(at + 1)];
+                          })
+                        }
+                      >
+                        Two dates? Split this line
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               {lines.length > 1 && (
                 <button type="button" className="text-sm text-red-800 underline" onClick={() => setLines((all) => all.filter((l) => l.key !== line.key))}>

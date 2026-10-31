@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, ArrowRight, TrendingUp, CheckCircle2, Circle, Clock, PackageX, ScanLine, ThumbsUp, Truck, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, TrendingUp, CheckCircle2, Circle, Clock, PackageX, ScanLine, ThumbsUp, Truck, type LucideIcon } from "lucide-react";
 import { api } from "./api";
 import { DeliveriesChart, LowStockBars } from "./DashboardCharts";
 import { useMascot } from "./Mascot";
 import { LatestNotification } from "./Inbox";
 import { SetupChecklist } from "./Guide";
 import type { PageId } from "./App";
-import type { DashboardSummary, Me, Notification, PriceChange, PurchaseOrder } from "./types";
+import type { DashboardSummary, Lot, Me, Notification, PriceChange, PurchaseOrder } from "./types";
 import { Empty, ErrorNote, PageTitle, SectionTitle, StatusBadge, cardClass, panelClass, primaryButton, secondaryButton, when } from "./ui";
 
 /** A number with what it counts and when ("today", "right now"); opens its page when it has one. */
@@ -127,6 +127,7 @@ export default function Dashboard({
   const [error, setError] = useState("");
   const [coming, setComing] = useState<PurchaseOrder[] | null>(null);
   const [prices, setPrices] = useState<PriceChange[]>([]);
+  const [lots, setLots] = useState<Lot[]>([]);
 
   useEffect(() => {
     api
@@ -146,7 +147,11 @@ export default function Dashboard({
         )
         .catch(() => setComing(null));
     if (canViewPurchasing) api.priceChanges().then(setPrices).catch(() => setPrices([]));
+    // Refused for people without stock access: then there is simply no banner.
+    api.lots().then(setLots).catch(() => setLots([]));
   }, [canViewPurchasing]);
+  const expired = lots.filter((l) => l.status === "expired").length;
+  const soon = lots.filter((l) => l.status === "soon").length;
 
   const waiting = data?.pending_count ?? 0;
   const lowCount = data?.low_stock_products.length ?? 0;
@@ -261,6 +266,19 @@ export default function Dashboard({
           <AlertTriangle aria-hidden className="h-5 w-5 shrink-0" />
           <span className="flex-1 text-sm font-semibold">
             {pending} {pending === 1 ? "delivery is" : "deliveries are"} waiting for your decision
+          </span>
+          <ArrowRight aria-hidden className="h-4 w-4" />
+        </button>
+      )}
+
+      {expired + soon > 0 && (
+        <button
+          onClick={() => go("expiry")}
+          className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${expired ? "border-red-200 bg-red-50 text-red-900 hover:bg-red-100" : "border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100"}`}
+        >
+          <CalendarClock aria-hidden className="h-5 w-5 shrink-0" />
+          <span className="flex-1 text-sm font-semibold">
+            {[expired && `${expired} expired: dispose of ${expired === 1 ? "it" : "them"}`, soon && `${soon} expiring soon: use first`].filter(Boolean).join(" · ")}
           </span>
           <ArrowRight aria-hidden className="h-4 w-4" />
         </button>

@@ -19,6 +19,8 @@ export default function DeliveryLines({ lines }: { lines: DeliveryLine[] }) {
               ` (${line.received_base_qty} base units)`}
             {line.temp_c !== null && `, ${line.temp_c} °C`}
             {line.unit_price_sen !== null && `, RM${(line.unit_price_sen / 100).toFixed(2)} per ${line.unit}`}
+            {line.expiry_on && `, expires ${new Date(`${line.expiry_on}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`}
+            {line.expiry_later && ", expiry date to fill in"}
           </p>
           {line.issues.map((issue) => (
             <p key={issue} className="text-amber-900">

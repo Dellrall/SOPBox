@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, ask, telegram_bot, closing, export, hq, inquiries, insights, locations, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
+from app import apikeys, ask, telegram_bot, closing, export, hq, inquiries, insights, locations, lots, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -147,6 +147,10 @@ from app.models import (
     StorageIn,
     TransferIn,
     TransferOut,
+    LotOut,
+    LotExpiryIn,
+    DisposeIn,
+    DisposalOut,
 )
 from app.notifications import approval_needed_message, decision_message, send_telegram
 from app.security import SECURITY_HEADERS
@@ -1293,6 +1297,26 @@ def stock_in_storage(storage_id: int, user: StocktakeReader, conn: Conn):
 @app.get("/api/transfers", response_model=list[TransferOut])
 def list_transfers(user: StocktakeReader, conn: Conn):
     return locations.list_transfers(conn, user.workspace_id)
+
+
+@app.get("/api/lots", response_model=list[LotOut])
+def list_lots(user: StocktakeReader, conn: Conn):
+    return lots.list_lots(conn, user.workspace_id)
+
+
+@app.put("/api/lots/{lot_id}/expiry", response_model=LotOut)
+def set_lot_expiry(lot_id: int, body: LotExpiryIn, user: StocktakeEditor, conn: Conn):
+    return lots.set_expiry(conn, user.workspace_id, lot_id, body.expiry_on, user.display_name)
+
+
+@app.post("/api/lots/{lot_id}/dispose", response_model=DisposalOut, status_code=201)
+def dispose_lot(lot_id: int, body: DisposeIn, user: StocktakeEditor, conn: Conn):
+    return lots.dispose(conn, user.workspace_id, lot_id, body, user.display_name)
+
+
+@app.get("/api/disposals", response_model=list[DisposalOut])
+def list_disposals(user: StocktakeReader, conn: Conn):
+    return lots.list_disposals(conn, user.workspace_id)
 
 
 @app.post("/api/transfers", response_model=TransferOut, status_code=201)

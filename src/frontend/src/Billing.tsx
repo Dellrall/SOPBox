@@ -79,6 +79,15 @@ export function PlanCard({ owner }: { owner: boolean }) {
         {plan.billing === "lifetime" && " Paid for life."}
         {extras.length > 0 && ` Includes ${extras.join(", ")}.`}
       </p>
+      <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+        This month so far: <b>{plan.active_outlets}</b> outlet{plan.active_outlets === 1 ? "" : "s"} with work recorded
+        {plan.bill_sen !== null && (
+          <>
+            , so this month&apos;s bill is <b>RM {(plan.bill_sen / 100).toFixed(2)}</b>
+          </>
+        )}
+        . An outlet with no deliveries, counts, orders or sales in a month is not charged.
+      </p>
       {plan.lapsed && (
         <p className="text-sm font-semibold text-amber-800">
           Your yearly plan has run out, so the workspace works as Free until it is renewed. Nothing was deleted.
@@ -135,11 +144,11 @@ export function PlanCard({ owner }: { owner: boolean }) {
                   className={inputClass}
                   value={form.billing}
                   choices={[
-                    { value: "annual", label: `Every year (${price(pricing, "pro_month")} a month + ${price(pricing, "pro_outlet_month")} per extra outlet)` },
+                    { value: "annual", label: `Monthly, by use (${price(pricing, "pro_month")} + ${price(pricing, "pro_outlet_month")} per extra active outlet)` },
                     // Offered only while plans.py has a price for it.
                     ...(pricing?.prices.pro_outlet_lifetime == null
                       ? []
-                      : [{ value: "lifetime", label: `Once, for life (${price(pricing, "pro_outlet_lifetime")} per extra outlet)` }]),
+                      : [{ value: "lifetime", label: `Lifetime, once (${price(pricing, "pro_outlet_lifetime")} per outlet, then AI reads only; needs approval)` }]),
                   ]}
                   onChange={(v) => setForm({ ...form, billing: v as "annual" | "lifetime" })}
                 />

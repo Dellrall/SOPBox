@@ -26,6 +26,9 @@ export default function ProductForm({
   const [minStock, setMinStock] = useState(String(product?.min_stock ?? 0));
   const [code, setCode] = useState(product?.code ?? "");
   const [barcode, setBarcode] = useState(product?.barcode ?? "");
+  const [trackExpiry, setTrackExpiry] = useState(product?.track_expiry ?? false);
+  const [minDays, setMinDays] = useState(product?.min_days_left?.toString() ?? "");
+  const [warnDays, setWarnDays] = useState(String(product?.warn_days ?? 3));
   const [tempMin, setTempMin] = useState(product?.temp_min_c?.toString() ?? "");
   const [tempMax, setTempMax] = useState(product?.temp_max_c?.toString() ?? "");
   const [packs, setPacks] = useState<{ unit: string; qty: string }[]>(
@@ -51,6 +54,10 @@ export default function ProductForm({
     if ((low === null) !== (high === null)) return "Fill in both temperatures, or leave both empty.";
     if ((low !== null && Number.isNaN(low)) || (high !== null && Number.isNaN(high))) return "Temperatures must be numbers.";
     if (!Number.isInteger(stockMin) || stockMin < 0) return "Minimum stock must be a whole number, 0 or more.";
+    const least = minDays.trim() ? Number(minDays) : null;
+    const warn = Number(warnDays || 0);
+    if ((least !== null && (!Number.isInteger(least) || least < 0)) || !Number.isInteger(warn) || warn < 0)
+      return "Expiry days must be whole numbers, 0 or more.";
     const packUnits: PackUnit[] = [];
     for (const p of packs) {
       if (!p.unit.trim() && !p.qty.trim()) continue; // a blank row the user added but did not fill
@@ -69,6 +76,9 @@ export default function ProductForm({
       pack_units: packUnits,
       code: code.trim() || null,
       barcode: barcode.trim() || null,
+      track_expiry: trackExpiry,
+      min_days_left: least,
+      warn_days: warn,
     };
   }
 
@@ -147,6 +157,31 @@ export default function ProductForm({
           <p className="mt-1 text-xs text-slate-600">Scan it when receiving to pick this product.</p>
         </div>
       </div>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-slate-700">Expiry date</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={trackExpiry} onChange={(e) => setTrackExpiry(e.target.checked)} />
+          Track expiry: ask for the date on the pack at every delivery
+        </label>
+        {trackExpiry && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass} htmlFor="p-min-days">
+                Fewest days left
+              </label>
+              <input id="p-min-days" inputMode="numeric" placeholder="e.g. 5" className={inputClass} value={minDays} onChange={(e) => setMinDays(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="p-warn-days">
+                Warn days before
+              </label>
+              <input id="p-warn-days" inputMode="numeric" className={inputClass} value={warnDays} onChange={(e) => setWarnDays(e.target.value)} />
+            </div>
+          </div>
+        )}
+        {trackExpiry && <p className="text-xs text-slate-600">Fewer days left than this at delivery: held for a manager. Leave empty for no limit.</p>}
+      </fieldset>
 
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium text-slate-700">Own temperature range (optional)</legend>

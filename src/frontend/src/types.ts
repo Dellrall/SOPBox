@@ -87,6 +87,8 @@ export type Plan = {
   hq_links: boolean;
   customization: boolean;
   priority_support: boolean;
+  active_outlets: number; // outlets with work recorded this month
+  bill_sen: number | null; // Pro by use, this month so far
 };
 
 export type Pricing = {
@@ -193,6 +195,9 @@ export type Product = {
   archived: boolean; // left out of receiving; history kept
   code: string | null; // the POS / sales sheet code (SKU)
   barcode: string | null; // printed on the pack, scanned to pick the product
+  track_expiry: boolean; // each delivery needs an expiry date
+  min_days_left: number | null; // fewer days left at delivery: held for a manager
+  warn_days: number; // everyone is told this many days before
 };
 
 export type ProductIn = {
@@ -206,6 +211,9 @@ export type ProductIn = {
   pack_units: PackUnit[];
   code?: string | null;
   barcode?: string | null;
+  track_expiry?: boolean;
+  min_days_left?: number | null;
+  warn_days?: number;
 };
 
 export type SopDraft = {
@@ -248,6 +256,8 @@ export type DeliveryLineIn = {
   temp_c: number | null;
   expected_base_qty: number | null;
   unit_price_sen: number | null; // one delivered unit, as on the invoice
+  expiry_on?: string | null; // YYYY-MM-DD, as printed on the pack
+  expiry_later?: boolean; // cannot be seen yet: filled in on the lot later
 };
 
 // The server records who received it from the signed-in user.
@@ -486,7 +496,7 @@ export type PurchaseOrderIn = {
 
 export type TeamMember = { id: number; username: string; display_name: string; role: Role };
 
-export type NotificationKind = "tagged" | "approval_needed" | "decided" | "comment" | "sign_in" | "security";
+export type NotificationKind = "tagged" | "approval_needed" | "decided" | "comment" | "sign_in" | "security" | "expiry";
 export type Notification = {
   id: number;
   kind: NotificationKind;
@@ -628,4 +638,39 @@ export type Efficiency = {
   lines_failed: number;
   counts: number;
   gap_sen_per_count: number | null;
+};
+
+export type LotStatus = "expired" | "soon" | "ok" | "no_date";
+/** What is left of one received batch, where it is and where it came from. */
+export type Lot = {
+  id: number;
+  code: string; // written on the box
+  product_id: number;
+  product: string;
+  base_unit: string;
+  storage_id: number;
+  location: string;
+  expiry_on: string | null;
+  days_left: number | null;
+  status: LotStatus;
+  left: number;
+  received: number;
+  supplier: string;
+  delivery_id: number | null;
+  purchase_order: string | null;
+  received_at: string;
+};
+export type DisposalMethod = "food_waste" | "donated" | "returned" | "general_waste";
+export type Disposal = {
+  id: number;
+  lot_code: string | null;
+  product: string;
+  location: string;
+  quantity: number;
+  base_unit: string;
+  method: DisposalMethod;
+  value_sen: number | null;
+  notes: string;
+  disposed_by: string;
+  created_at: string;
 };

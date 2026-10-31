@@ -114,3 +114,27 @@ def test_only_owners_redeem_and_expired_codes_do_not_work(client, make_user, _da
     assert (plan["billing"], plan["until"]) == ("lifetime", None)
     yearly = _code(capsys, "--outlets", "5", "--days", "30")
     assert client.post("/api/plan/redeem", json={"code": yearly}).status_code == 409  # would cut life to a year
+
+
+def test_free_holds_up_to_fifty_products(client, catalogue_ids, _database):
+    _free(_database, client)
+    category = catalogue_ids["packaging_category"]
+    for i in range(48):  # the catalogue already has 2
+        assert client.post("/api/products", json={"name": f"Item {i}", "category_id": category, "base_unit": "pcs"}).status_code == 201
+    refused = client.post("/api/products", json={"name": "One too many", "category_id": category, "base_unit": "pcs"})
+    assert refused.status_code == 403 and "up to 50 products" in refused.json()["detail"]
+    assert client.get("/api/pricing").json()["prices"]["free_products"] == 50
+
+
+def test_pro_bills_only_outlets_with_work_this_month(client, catalogue_ids):
+    from app import plans
+
+    assert plans.monthly_bill_sen(0) == 0  # a quiet month costs nothing
+    assert plans.monthly_bill_sen(1) == 4900
+    assert plans.monthly_bill_sen(3) == 4900 + 2 * 2900
+    before = client.get("/api/plan").json()["active_outlets"]
+    client.post(
+        "/api/deliveries",
+        json={"supplier": "S", "lines": [{"product_id": catalogue_ids["fries"], "name": "Fries", "quantity": 1, "unit": "pcs"}]},
+    )
+    assert client.get("/api/plan").json()["active_outlets"] == max(before, 1)

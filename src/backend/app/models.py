@@ -90,6 +90,10 @@ class ProductIn(_In):
     code: str | None = Field(default=None, max_length=40)
     # The barcode printed on the pack, as a scanner reads it. Empty: none.
     barcode: str | None = Field(default=None, max_length=40, pattern=r"^[0-9A-Za-z\-.]*$")
+    # Expiry: each delivery needs a date; refuse less than `min_days_left` days; warn `warn_days` before.
+    track_expiry: bool = False
+    min_days_left: int | None = Field(default=None, ge=0, le=3650)
+    warn_days: int = Field(default=3, ge=0, le=365)
 
     @model_validator(mode="after")
     def _check(self) -> "ProductIn":
@@ -151,6 +155,9 @@ class Product(BaseModel):
     archived: bool = False
     code: str | None = None
     barcode: str | None = None
+    track_expiry: bool = False
+    min_days_left: int | None = None
+    warn_days: int = 3
 
 
 class ArchiveIn(_In):
@@ -259,6 +266,8 @@ class DeliveryLineIn(_In):
     temp_c: float | None = Field(default=None, ge=-60, le=100)  # probe reading
     expected_base_qty: int | None = Field(default=None, gt=0)
     unit_price_sen: int | None = Field(default=None, ge=0, le=100_000_000)  # one delivered unit, in sen
+    expiry_on: date | None = None  # as printed on the pack
+    expiry_later: bool = False  # the date cannot be seen yet: someone fills it in on the lot later
 
 
 class DeliveryIn(_In):
@@ -341,6 +350,8 @@ class DeliveryLine(BaseModel):
     issues: list[str]
     returned: bool = False  # sent back while the rest of the delivery was accepted
     unit_price_sen: int | None = None
+    expiry_on: date | None = None
+    expiry_later: bool = False
 
 
 class Delivery(BaseModel):
@@ -1007,7 +1018,7 @@ class TeamMember(BaseModel):
     role: Role
 
 
-NotificationKind = Literal["tagged", "approval_needed", "decided", "comment", "sign_in", "security"]
+NotificationKind = Literal["tagged", "approval_needed", "decided", "comment", "sign_in", "security", "expiry"]
 
 
 class Notification(BaseModel):
@@ -1207,6 +1218,55 @@ class TransferOut(BaseModel):
     lines: list[TransferLineOut]
 
 
+LotStatus = Literal["expired", "soon", "ok", "no_date"]
+DisposalMethod = Literal["food_waste", "donated", "returned", "general_waste"]
+
+
+class LotOut(BaseModel):
+    """What is left of one received batch, where it is, and where it came from."""
+
+    id: int
+    code: str  # written on the box, e.g. L2610-0012
+    product_id: int
+    product: str
+    base_unit: str
+    storage_id: int
+    location: str  # "Outlet: Storage area"
+    expiry_on: date | None
+    days_left: int | None
+    status: LotStatus
+    left: int  # base units still on the shelf, earliest expiry used first
+    received: int
+    supplier: str
+    delivery_id: int | None
+    purchase_order: str | None  # e.g. PO-000012
+    received_at: str
+
+
+class LotExpiryIn(_In):
+    expiry_on: date
+
+
+class DisposeIn(_In):
+    quantity: int = Field(gt=0)
+    method: DisposalMethod
+    notes: str = Field(default="", max_length=300)
+
+
+class DisposalOut(BaseModel):
+    id: int
+    lot_code: str | None
+    product: str
+    location: str
+    quantity: int
+    base_unit: str
+    method: DisposalMethod
+    value_sen: int | None
+    notes: str
+    disposed_by: str
+    created_at: str
+
+
 class SaleIn(_In):
     storage_id: int
     sale_date: date
@@ -1352,6 +1412,9 @@ class PlanOut(BaseModel):
     hq_links: bool
     customization: bool
     priority_support: bool
+    # Pay for what is used: outlets with work recorded this calendar month, and what Pro would bill for it.
+    active_outlets: int = 0
+    bill_sen: int | None = None  # None: not billed by use (Free, Enterprise, or no price set)
 
 
 class PlanCodeIn(BaseModel):

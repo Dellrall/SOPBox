@@ -25,18 +25,20 @@ from app.models import PlanOut, PricingOut
 CURRENCY = "RM"
 # Launch prices hold for an early customer's first 12 months; "_later" is the list price after that.
 PRICES: dict[str, int | None] = {
-    "pro_month": 49,  # Pro with its first outlet, a month, paid yearly
+    "pro_month": 49,  # Pro, a month with work recorded at its first outlet; a quiet month costs 0
     "pro_month_later": 89,
-    "pro_outlet_month": 29,  # each outlet after the first, a month
+    "pro_outlet_month": 29,  # each further outlet with work recorded that month
     "pro_outlet_month_later": 49,
     "pro_outlet_year": 348,  # the same extra outlet, paid for the year
-    "pro_outlet_lifetime": None,  # not offered: AI reading and hosting cost money every month
+    "pro_outlet_lifetime": 2990,  # once per outlet, approved by the team; then only AI reading is charged
+    "ai_read_sen": 30,  # one AI reading (delivery order, product sheet, SOP writer) on a lifetime plan
     "customization_year": None,  # custom work is quoted per task instead
     "customization_lifetime": None,
     "custom_task_from": 100,  # smallest custom job, quoted before work starts
     "priority_support_year": 190,  # free in an early customer's first year
-    "enterprise_month_from": 399,
+    "enterprise_month_from": None,  # agreed with sales
 }
+FREE_PRODUCTS = 50  # products a Free workspace can hold (archived ones do not count)
 KOFI_URL = ""  # e.g. https://ko-fi.com/sopbox; the Donate button shows once set
 SALES_EMAIL = ""
 SALES_PHONE = ""
@@ -46,7 +48,32 @@ UPGRADE = "your plan does not include this: see Settings, Plan & billing"
 
 
 def pricing() -> PricingOut:
-    return PricingOut(currency=CURRENCY, prices=PRICES, kofi_url=KOFI_URL, sales_email=SALES_EMAIL, sales_phone=SALES_PHONE)
+    return PricingOut(
+        currency=CURRENCY, prices={**PRICES, "free_products": FREE_PRODUCTS}, kofi_url=KOFI_URL,
+        sales_email=SALES_EMAIL, sales_phone=SALES_PHONE,
+    )
+
+
+# Work that counts as using SOPBox in a month; signing in or changing settings does not.
+USAGE_ACTIONS = ("delivery", "po", "stocktake", "stock", "sales", "lot", "task_list", "assignment", "count")
+
+
+def monthly_bill_sen(active_outlets: int) -> int | None:
+    """Pro by use: nothing in a month with no work, else the first outlet plus each further active one."""
+    base, extra = PRICES["pro_month"], PRICES["pro_outlet_month"]
+    if base is None or extra is None:
+        return None
+    return 0 if active_outlets == 0 else (base + (active_outlets - 1) * extra) * 100
+
+
+def active_outlets(conn: psycopg.Connection, ws: int, today: date | None = None) -> int:
+    """Outlets with work recorded this calendar month. Entries from before outlets count as the first."""
+    start = (today or date.today()).replace(day=1).isoformat()
+    return conn.execute(
+        "SELECT count(DISTINCT COALESCE(outlet_id, (SELECT min(id) FROM outlets WHERE workspace_id = %s))) AS n "
+        "FROM audit_log WHERE workspace_id = %s AND at >= %s AND split_part(action, '.', 1) = ANY(%s)",
+        (ws, ws, start, list(USAGE_ACTIONS)),
+    ).fetchone()["n"]
 
 
 def current(conn: psycopg.Connection, ws: int) -> PlanOut:
@@ -73,6 +100,8 @@ def current(conn: psycopg.Connection, ws: int) -> PlanOut:
         customization=plan == "enterprise" or (paid and row["customization"]),
         priority_support=plan == "enterprise"
         or (row["priority_support_until"] is not None and row["priority_support_until"] >= today),
+        active_outlets=(active := active_outlets(conn, ws, today)),
+        bill_sen=monthly_bill_sen(active) if plan == "pro" else None,
     )
 
 
@@ -85,6 +114,16 @@ def require(conn: psycopg.Connection, ws: int, feature: str) -> None:
                 f"your plan includes {plan.outlets_allowed} outlet{'s' if plan.outlets_allowed > 1 else ''}: "
                 "see Settings, Plan & billing to add more"
             )
+    elif feature == "product":
+        if plan.plan == "free":
+            used = conn.execute(
+                "SELECT count(*) AS n FROM products WHERE workspace_id = %s AND NOT archived", (ws,)
+            ).fetchone()["n"]
+            if used >= FREE_PRODUCTS:
+                raise ForbiddenError(
+                    f"the Free plan holds up to {FREE_PRODUCTS} products: archive one you no longer buy, "
+                    "or see Settings, Plan & billing to upgrade"
+                )
     elif not getattr(plan, feature):
         raise ForbiddenError(UPGRADE)
 

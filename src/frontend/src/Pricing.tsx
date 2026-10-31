@@ -19,31 +19,40 @@ const shown = (p: PricingData | null, key: string) => (p?.prices[key] == null ? 
 export type Tier = { name: string; tagline: string; items: string[] };
 export const FREE: Tier = {
   name: "Free",
-  tagline: "For a single store",
+  tagline: "One café, restaurant or kitchen",
   items: [
-    "One outlet, any number of storage areas",
-    "Your whole team",
-    "AI delivery-order reading",
-    "Stock, transfers, counts and sales upload",
-    "Two-step sign-in",
+    "1 outlet, up to 50 products, any number of storage areas",
+    "Snap a delivery order: AI reads the lines for you",
+    "Every delivery checked: temperature, quantity, pack size and expiry date",
+    "Failed deliveries held for a manager to accept, return or reject",
+    "Stock counts, transfers, sales upload and expiry alerts",
+    "Your whole team, each with their own sign-in and access",
+    "Activity log, print or PDF records, download all your data",
   ],
 };
 export const PRO: Tier = {
   name: "Pro",
-  tagline: "For businesses with more than one outlet",
+  tagline: "Two or more outlets",
   items: [
-    "Everything in Free",
-    "Add as many outlets as you need",
-    "Staff and managers tied to their own outlet",
-    "HQ sees its branches' stock and deliveries",
-    "Till (POS) sales sent in automatically by API key",
-    "Add custom work or priority support when you need them",
+    "Everything in Free, plus:",
+    "Unlimited products",
+    "Add outlets: each keeps its own stock, staff, orders and records",
+    "Switch between outlets, or see all of them together",
+    "Staff and managers see only their own outlet",
+    "Head office sees every branch's stock and deliveries",
+    "Till (POS) sales sent in automatically",
   ],
 };
 export const ENTERPRISE: Tier = {
   name: "Enterprise",
-  tagline: "For groups and franchises",
-  items: ["Everything in Pro", "Customization included", "Priority support included", "One price for your whole group"],
+  tagline: "Groups, franchises and central kitchens",
+  items: [
+    "Everything in Pro, plus:",
+    "Your own checks, reports and SOP templates, built for you",
+    "Priority support with a named contact",
+    "Help loading your product list and training your staff",
+    "One agreed price for every outlet in your group",
+  ],
 };
 
 const COMPARE: [string, boolean | string, boolean | string, boolean | string][] = [
@@ -62,7 +71,7 @@ const COMPARE: [string, boolean | string, boolean | string, boolean | string][] 
 const FAQ: [string, string][] = [
   [
     "Is the Free plan really free?",
-    "Yes. One outlet with any number of storage areas, your whole team and every check, with no time limit and no card needed.",
+    "Yes. One outlet with up to 50 products, any number of storage areas, your whole team and every check, with no time limit and no card needed. One free workspace per business: extra free workspaces for the same business may be closed.",
   ],
   [
     "What counts as an outlet?",
@@ -70,7 +79,7 @@ const FAQ: [string, string][] = [
   ],
   [
     "What is the launch price?",
-    "Early customers pay the launch price for their first 12 months, paid yearly, and get priority support free for that year. After that the normal price applies.",
+    "Early customers pay the launch price for their first 12 months and get priority support free for that year. After that the normal price applies. Either way you pay only for months and outlets with work recorded.",
   ],
   [
     "What if a yearly plan runs out?",
@@ -102,7 +111,7 @@ function PlanCard({
 }: {
   tier: Tier;
   amount: string;
-  note: string;
+  note: React.ReactNode;
   featured?: boolean;
   peek?: React.ReactNode; // a character peeking over the card's top edge
   children: React.ReactNode;
@@ -112,14 +121,14 @@ function PlanCard({
       className={`relative flex flex-col rounded-3xl bg-white p-6 shadow-sm ${featured ? "ring-2 ring-brand-600 shadow-lg shadow-brand-900/10" : "ring-1 ring-line"}`}
     >
       {featured && (
-        <p className="absolute -top-3 left-6 rounded-full bg-brand-600 px-3 py-1 text-xs font-semibold text-white">Grow to more outlets</p>
+        <p className="absolute -top-3 left-6 rounded-full bg-brand-600 px-3 py-1 text-xs font-semibold text-white">Flexible: pay per use</p>
       )}
       {peek && <div className="pointer-events-none absolute -top-11 right-5">{peek}</div>}
       <h2 className="text-xl font-bold text-ink">{tier.name}</h2>
       <p className="text-sm text-muted">{tier.tagline}</p>
       <p className="mt-5 min-h-[4.5rem]">
         <span className="block text-4xl font-extrabold tracking-tight text-ink">{amount}</span>
-        <span className="text-sm text-muted">{note}</span>
+        <span className="block text-sm text-muted">{note}</span>
       </p>
       <div className="mt-4">{children}</div>
       <ul className="mt-6 space-y-2.5 border-t border-line pt-6 text-sm">
@@ -139,7 +148,7 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
   const [pricing, setPricing] = useState<PricingData | null>(null);
   usePageMeta(
     "Pricing · SOPBox",
-    "SOPBox pricing: free for one store, Pro from RM 49 a month at launch, and Enterprise plans for groups. Custom work quoted per task; priority support yearly.",
+    "SOPBox pricing: free for one store; Pro from RM 49 a month, charged only for months and outlets you use; Enterprise by quote. Custom work quoted per task; priority support yearly.",
   );
 
   useEffect(() => {
@@ -157,8 +166,8 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
         <div className="mx-auto max-w-3xl px-5 pt-2 text-center sm:px-8 sm:pt-8">
           <h1 className="text-3xl font-extrabold leading-tight sm:text-5xl">Free for one store. Pay only as you grow.</h1>
           <p className="mx-auto mt-3 max-w-xl text-white/75 sm:mt-4 sm:text-lg">
-            Every plan has the full receiving check: AI reading, your rules, manager approvals and the activity log. Upgrade to Pro when
-            you open more outlets.
+            Every plan has the full receiving check: AI reading, your rules, manager approvals and the activity log. Pro is charged only
+            for the months, and the outlets, you actually use.
           </p>
         </div>
       </div>
@@ -168,7 +177,7 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
           <PlanCard
             tier={FREE}
             amount={`${pricing?.currency ?? "RM"} 0`}
-            note="forever, for one outlet"
+            note="Free forever. No card needed."
             peek={<MascotFigure who="cabbage" action="wave" size={60} />}
           >
             {signedIn ? (
@@ -185,7 +194,31 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
             tier={PRO}
             featured
             amount={shown(pricing, "pro_month")}
-            note={`a month with your first outlet, plus ${price(pricing, "pro_outlet_month")} a month for each extra outlet. Paid yearly. Launch price for your first 12 months, then ${price(pricing, "pro_month_later")} and ${price(pricing, "pro_outlet_month_later")}.`}
+            note={
+              <>
+                only in a month you use it. A month with no work recorded costs RM 0.
+                <span className="mt-3 block rounded-xl bg-brand-50 p-3 text-left text-brand-950">
+                  <span className="block font-semibold">+ {price(pricing, "pro_outlet_month")} for each extra outlet used that month</span>
+                  {(() => {
+                    const base = pricing?.prices.pro_month;
+                    const extra = pricing?.prices.pro_outlet_month;
+                    return base != null && extra != null ? (
+                      <span className="block">
+                        Example: 3 busy outlets = {price(pricing, "pro_month")} + 2 × {price(pricing, "pro_outlet_month")} ={" "}
+                        <b>
+                          {pricing!.currency} {base + 2 * extra}
+                        </b>{" "}
+                        a month
+                      </span>
+                    ) : null;
+                  })()}
+                  <span className="mt-1 block text-xs text-brand-800">
+                    &quot;Used&quot; means a delivery, count, order, transfer, sale or task was recorded there. Launch price for your first 12 months;
+                    then {price(pricing, "pro_month_later")} + {price(pricing, "pro_outlet_month_later")}.
+                  </span>
+                </span>
+              </>
+            }
           >
             <a href={signedIn ? "/settings#billing" : "/register"} className={`${primaryButton} ${wide}`}>
               {signedIn ? "Upgrade in Settings" : "Start free, upgrade later"}
@@ -194,13 +227,34 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
           <PlanCard
             tier={ENTERPRISE}
             amount={pricing?.prices.enterprise_month_from == null ? "Let's talk" : `From ${price(pricing, "enterprise_month_from")}`}
-            note="a month, one price for your whole group"
+            note="One agreed price for your whole group, with setup and support."
           >
             <a {...linkTo(navigate, "/contact?topic=sales")} className={`${secondaryButton} ${wide}`}>
               Contact sales
             </a>
           </PlanCard>
         </div>
+
+        {pricing?.prices.pro_outlet_lifetime != null && (
+          <section aria-labelledby="lifetime" className={`${cardClass} space-y-2 text-center`}>
+            <h2 id="lifetime" className="text-2xl font-bold">
+              Or own it: lifetime
+            </h2>
+            <p className="text-4xl font-extrabold tracking-tight text-ink">
+              {price(pricing, "pro_outlet_lifetime")} <span className="text-base font-medium text-muted">once, per outlet</span>
+            </p>
+            <p className="mx-auto max-w-xl text-sm text-muted">
+              Everything in Pro for that outlet, for as long as SOPBox runs. No monthly bill. You pay only when you use AI reading:{" "}
+              <b className="text-ink">
+                {pricing.currency} {((pricing.prices.ai_read_sen ?? 0) / 100).toFixed(2)}
+              </b>{" "}
+              a read (a delivery order, product sheet or SOP draft). Each lifetime plan is approved by our team before payment.
+            </p>
+            <a href={signedIn ? "/settings#billing" : "/contact?topic=sales"} className={`${secondaryButton} inline-flex`}>
+              {signedIn ? "Ask for lifetime in Settings" : "Ask about lifetime"}
+            </a>
+          </section>
+        )}
 
         <section aria-labelledby="addons" className="space-y-5">
           <div className="text-center">
