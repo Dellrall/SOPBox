@@ -33,10 +33,11 @@ export const PRO: Tier = {
   tagline: "For businesses with more than one outlet",
   items: [
     "Everything in Free",
-    "More outlets, priced per outlet",
-    "HQ and branch links",
-    "Till API keys",
-    "Add customization or priority support",
+    "Add outlets: pay only for each one after the first",
+    "Staff and managers tied to their own outlet",
+    "HQ sees its branches' stock and deliveries",
+    "Till (POS) sales sent in automatically by API key",
+    "Add customization or priority support when you need them",
   ],
 };
 export const ENTERPRISE: Tier = {

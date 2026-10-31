@@ -85,6 +85,7 @@ function Levels({ storages }: { storages: Storages }) {
   const { rows, error } = useStock(storageId);
   const [search, setSearch] = useState("");
   const shown = rows.filter((r) => `${r.name} ${r.code ?? ""} ${r.category}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const here = storages.find((s) => s.id === storageId)?.name ?? "This area";
   return (
     <section className={`${cardClass} space-y-4`}>
       <div className="flex flex-wrap items-end gap-3">
@@ -105,7 +106,7 @@ function Levels({ storages }: { storages: Storages }) {
         <ul className="divide-y divide-line rounded-lg border border-line text-sm">
           <li className="hidden grid-cols-[minmax(0,1.6fr)_1fr_1fr] gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted sm:grid">
             <span>Product</span>
-            <span>Here</span>
+            <span className="truncate">{here}</span>
             <span>All storage areas</span>
           </li>
           {shown.map((r) => (
@@ -116,11 +117,11 @@ function Levels({ storages }: { storages: Storages }) {
                 <span className="block text-xs text-muted">{r.category}</span>
               </span>
               <span className="font-semibold text-ink">
-                <span className="text-xs font-normal text-muted sm:hidden">Here </span>
+                <span className="text-xs font-normal text-muted sm:hidden">{here}: </span>
                 {r.quantity} {r.base_unit}
               </span>
               <span className="text-slate-600">
-                <span className="text-xs text-muted sm:hidden">All </span>
+                <span className="text-xs text-muted sm:hidden">All areas: </span>
                 {r.total} {r.base_unit}
               </span>
             </li>

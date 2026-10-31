@@ -741,7 +741,7 @@ function Shell({
           <div className="hidden sm:block">
             <SdgFooter className="border-t border-line pt-5" />
           </div>
-          <PolicyLinks className="mt-3" />
+          <PolicyLinks className="mt-3" privacyOnly={me.role !== "owner"} />
         </div>
       </main>
       <MascotDock fallback={IDLE[page]} go={go} page={page} />

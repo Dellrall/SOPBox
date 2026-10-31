@@ -186,18 +186,23 @@ export default function Dashboard({
         <section className={`${cardClass} max-w-2xl`}>
           <SectionTitle>Getting started</SectionTitle>
           <ol className="mt-2 divide-y divide-line">
-            <Step done={data.product_count > 0} title="Add your products and their rules">
-              <p className="mt-1 text-sm text-muted">
-                {canEditProducts
-                  ? "Categories carry the temperature they should arrive at; products carry pack sizes and the SOP."
-                  : "Ask a manager to add the products you receive."}
-              </p>
-              {canEditProducts && (
+            {/* Setting up products is a manager's job: staff only hear about it while there are none. */}
+            {canEditProducts ? (
+              <Step done={data.product_count > 0} title="Add your products and their rules">
+                <p className="mt-1 text-sm text-muted">
+                  Categories carry the temperature they should arrive at; products carry pack sizes and the SOP.
+                </p>
                 <button className={`${primaryButton} mt-3`} onClick={() => go("products")}>
                   Add products <ArrowRight aria-hidden className="h-4 w-4" />
                 </button>
-              )}
-            </Step>
+              </Step>
+            ) : (
+              data.product_count === 0 && (
+                <Step done={false} title="Wait for your manager to add products">
+                  <p className="mt-1 text-sm text-muted">You can check deliveries once they are in.</p>
+                </Step>
+              )
+            )}
             <Step done={data.delivery_count > 0} title="Record your first delivery">
               <p className="mt-1 text-sm text-muted">Photograph the supplier's order or type the lines, then check them.</p>
               {data.product_count > 0 && canStartReceive && (

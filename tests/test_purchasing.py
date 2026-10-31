@@ -69,7 +69,10 @@ def test_a_supplier_lists_the_products_it_sells(client, catalogue_ids):
     assert made.json()["product_ids"] == [ids["fries"], ids["sausage"]]  # duplicates dropped
 
     # Editing contact details without the list keeps it; sending a list replaces it.
-    kept = client.put(f"/api/suppliers/{sid}", json={"name": "Cold Co", "phone": "012"})
+    assert client.put(f"/api/suppliers/{sid}", json={"name": "Cold Co", "phone": "012"}).status_code == 422  # too short
+    assert client.put(f"/api/suppliers/{sid}", json={"name": "Cold Co", "phone": "call me"}).status_code == 422
+    kept = client.put(f"/api/suppliers/{sid}", json={"name": "Cold Co", "phone": " +60 12-345 6789 "})
+    assert kept.json()["phone"] == "+60 12-345 6789"
     assert kept.json()["product_ids"] == [ids["fries"], ids["sausage"]]
     changed = client.put(f"/api/suppliers/{sid}", json={"name": "Cold Co", "product_ids": [ids["sausage"]]})
     assert changed.json()["product_ids"] == [ids["sausage"]]

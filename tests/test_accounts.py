@@ -51,6 +51,10 @@ def test_usernames_are_unique_across_workspaces_ignoring_case(client, anon):
         {"username": "has space"},
         {"username": "UPPER!"},
         {"password": "short"},
+        {"password": "88888888"},
+        {"password": "12345678"},
+        {"password": "abababab"},
+        {"password": "Password123"},
         {"workspace_name": "  "},
         {"display_name": ""},
         {"email": ""},
@@ -422,6 +426,8 @@ def test_a_refused_request_never_echoes_the_password(anon):
 def test_validation_messages_name_the_field(anon):
     resp = anon.post("/api/auth/register", json=register_body(password="short"))
     assert resp.json()["detail"].startswith("Password: ")
+    easy = anon.post("/api/auth/register", json=register_body(password="88888888")).json()["detail"]
+    assert "too easy to guess" in easy and "88888888" not in easy
 
 
 def test_invisible_characters_are_removed_from_text(client):

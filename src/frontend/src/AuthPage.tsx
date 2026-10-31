@@ -34,6 +34,47 @@ function Field({ id, label, icon: Icon, children }: { id: string; label: string;
   );
 }
 
+// Matches _password in app/models.py, which refuses these on the server.
+const COMMON = ["password", "password1", "password123", "passw0rd", "iloveyou", "sopbox123", "welcome1", "abcd1234", "qwerty123"];
+const RUNS = ["01234567890", "09876543210", "abcdefghijklmnopqrstuvwxyz", "qwertyuiopasdfghjklzxcvbnm"];
+const easyPassword = (p: string) => {
+  const low = p.toLowerCase();
+  return new Set(low).size < 4 || COMMON.includes(low) || RUNS.some((run) => run.includes(low));
+};
+
+/** 0 to 3: too short or easy to guess, OK, good, strong. */
+function strength(p: string): number {
+  if (p.length < 8 || easyPassword(p)) return 0;
+  const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^a-zA-Z\d]/].filter((r) => r.test(p)).length;
+  return Math.min(3, 1 + (p.length >= 12 ? 1 : 0) + (kinds >= 3 ? 1 : 0));
+}
+
+const STRENGTH = [
+  { label: "Too easy to guess", bar: "bg-red-500", text: "text-red-700" },
+  { label: "OK", bar: "bg-amber-500", text: "text-amber-800" },
+  { label: "Good", bar: "bg-brand-500", text: "text-brand-700" },
+  { label: "Strong", bar: "bg-brand-700", text: "text-brand-800" },
+];
+
+function PasswordStrength({ password }: { password: string }) {
+  if (!password) return null;
+  const score = strength(password);
+  const s = STRENGTH[score];
+  return (
+    <div className="mt-1.5">
+      <div className="flex gap-1" aria-hidden>
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= score ? s.bar : "bg-slate-200"}`} />
+        ))}
+      </div>
+      <p className={`mt-1 text-xs font-semibold ${s.text}`} aria-live="polite">
+        Password: {s.label}
+        {score === 0 && <span className="font-normal text-muted"> · {password.length < 8 ? "use at least 8 characters" : "use a few words, or mix letters and numbers"}</span>}
+      </p>
+    </div>
+  );
+}
+
 const groupClass = "space-y-3 rounded-2xl border border-line bg-white p-4 shadow-sm";
 const groupTitle = "text-xs font-bold uppercase tracking-wider text-brand-700";
 
@@ -270,6 +311,7 @@ export default function AuthPage({
                   {showPassword ? <EyeOff aria-hidden className="h-4 w-4" /> : <Eye aria-hidden className="h-4 w-4" />}
                 </button>
               </Field>
+              {mode === "register" && <PasswordStrength password={password} />}
             </section>
             <ErrorNote message={error} />
             <button type="submit" disabled={busy} className={`${primaryButton} relative w-full py-3 text-base`}>
