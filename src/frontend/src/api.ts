@@ -55,6 +55,9 @@ import type {
   Sale,
   SaleIn,
   SalePreview,
+  Report,
+  ReportFilter,
+  ReportKind,
   SaleDraftKept,
   SalesConfirmLine,
   SalesDraft,
@@ -336,6 +339,11 @@ export const api = {
 
   // purchasing
   suppliers: () => get<Supplier[]>("/suppliers"),
+  report: (kind: ReportKind, f: ReportFilter) =>
+    get<Report>(
+      `/reports/${kind}?` +
+        new URLSearchParams(Object.entries(f).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])),
+    ),
   createSupplier: (body: SupplierIn) => post<Supplier>("/suppliers", body),
   updateSupplier: (id: number, body: SupplierIn) => put<Supplier>(`/suppliers/${id}`, body),
   setSupplierArchived: (id: number, archived: boolean) => patch<Supplier>(`/suppliers/${id}`, { archived }),
