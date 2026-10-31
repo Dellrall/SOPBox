@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Plus } from "lucide-react";
+import { Check, ChevronDown, ListChecks, Plus } from "lucide-react";
 import { api } from "./api";
 import type { PageId } from "./App";
 import Jobs from "./Jobs";
@@ -124,6 +124,13 @@ export default function Tasks({ canEdit, meId, go }: { canEdit: boolean; meId: n
   return (
     <div className="space-y-5">
       <PageTitle title="Tasks" subtitle="Jobs with who is in charge, daily checklists, and steps for busy times.">
+        <button
+          type="button"
+          className={secondaryButton}
+          onClick={() => document.getElementById("checklists")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        >
+          <ListChecks aria-hidden className="h-4 w-4" /> Checklists
+        </button>
         {canEdit && !editing && (
           <button type="button" className={primaryButton} onClick={() => setEditing("new")}>
             <Plus aria-hidden className="h-4 w-4" /> Add a list
@@ -137,7 +144,7 @@ export default function Tasks({ canEdit, meId, go }: { canEdit: boolean; meId: n
         <Empty>No task lists yet. Your manager adds them.</Empty>
       ) : (
         <>
-          <section className="space-y-3">
+          <section id="checklists" className="scroll-mt-20 space-y-3">
             <SectionTitle>Every day</SectionTitle>
             {daily.length === 0 && <p className="text-sm text-muted">No daily lists yet.</p>}
             {daily.map((l) => (

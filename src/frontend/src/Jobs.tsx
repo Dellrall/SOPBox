@@ -44,6 +44,8 @@ function urgency(j: Job): { label: string; tone: string; stripe: string } {
  * to do it. The server works out the jobs and their steps; this page shows them by day and sends who
  * takes what, telling the person what happened each time, with a way to undo it.
  */
+const FOLD_KEY = "sopbox-jobs-folded";
+
 export default function Jobs({ day, meId, manager, go }: { day: string; meId: number; manager: boolean; go: (page: PageId) => void }) {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [asks, setAsks] = useState<AssignmentRequest[]>([]);
@@ -55,6 +57,22 @@ export default function Jobs({ day, meId, manager, go }: { day: string; meId: nu
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const team = useTeam();
   const timer = useRef<number>(undefined);
+  const [folded, setFolded] = useState(() => {
+    try {
+      return localStorage.getItem(FOLD_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  /** Folded or not is kept on this device, so someone who only uses checklists skips Jobs each time. */
+  function fold(next: boolean) {
+    setFolded(next);
+    try {
+      localStorage.setItem(FOLD_KEY, next ? "1" : "0");
+    } catch {
+      /* storage blocked: only this visit */
+    }
+  }
 
   const latest = useRef(0);
   const load = () => {
@@ -151,15 +169,21 @@ export default function Jobs({ day, meId, manager, go }: { day: string; meId: nu
     <section className="space-y-3" aria-labelledby="jobs-title">
       <div className="flex items-center justify-between gap-2">
         <h2 id="jobs-title" className="text-lg font-bold text-brand-950">
-          Jobs
+          <button type="button" aria-expanded={!folded} className="inline-flex items-center gap-1" onClick={() => fold(!folded)}>
+            <ChevronDown aria-hidden className={`h-5 w-5 transition ${folded ? "-rotate-90" : ""}`} />
+            Jobs
+            {folded && jobs && <span className="ml-1 rounded-full bg-slate-100 px-2 text-sm font-semibold tabular-nums text-slate-600">{counts.mine} mine</span>}
+          </button>
         </h2>
-        {manager && !planning && (
+        {manager && !planning && !folded && (
           <button type="button" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700" onClick={() => setPlanning(true)}>
             <Plus aria-hidden className="h-4 w-4" /> Plan a count
           </button>
         )}
       </div>
       {error && <ErrorNote message={error} />}
+      {!folded && (
+      <>
       {planning && (
         <PlanCount
           team={team}
@@ -241,6 +265,8 @@ export default function Jobs({ day, meId, manager, go }: { day: string; meId: nu
           onOpen={() => open(j)}
         />
       ))}
+      </>
+      )}
       <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-3 bottom-20 z-30 flex justify-center lg:bottom-6">
         {toast && (
           <div className="pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-2xl bg-brand-950 px-4 py-3 text-sm text-white shadow-lg">
