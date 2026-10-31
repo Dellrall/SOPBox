@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 import psycopg
 
-from app import catalogue, inbox, locations, purchasing, rules
+from app import catalogue, inbox, locations, lots, purchasing, rules
 from app.auditlog import audit
 from app.auth import CurrentUser
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
@@ -65,6 +65,7 @@ def _add_stock(conn: psycopg.Connection, ws: int, delivery_id: int) -> None:
         (delivery_id,),
     ).fetchall():
         locations.adjust(conn, ws, r["product_id"], storage, int(r["qty"]))
+    lots.from_delivery(conn, ws, delivery_id, storage)
 
 
 def _tag(
@@ -153,8 +154,8 @@ def create_delivery(
         for line, check in zip(lines, checks):
             conn.execute(
                 "INSERT INTO delivery_lines (delivery_id, product_id, name, quantity, unit, temp_c, "
-                "expected_base_qty, received_base_qty, passed, issues, unit_price_sen) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                "expected_base_qty, received_base_qty, passed, issues, unit_price_sen, expiry_on, expiry_later) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (
                     delivery_id,
                     line.product_id,
@@ -167,6 +168,8 @@ def create_delivery(
                     check.passed,
                     json.dumps(check.issues),
                     line.unit_price_sen,
+                    line.expiry_on,
+                    line.expiry_later and line.expiry_on is None,
                 ),
             )
         for photo in data.photos:

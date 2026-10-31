@@ -226,7 +226,7 @@ CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, id 
 -- New sign-ins from an unfamiliar device or method are announced in the inbox too.
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_kind_check;
 ALTER TABLE notifications ADD CONSTRAINT notifications_kind_check
-    CHECK (kind IN ('tagged', 'approval_needed', 'decided', 'comment', 'sign_in', 'security'));
+    CHECK (kind IN ('tagged', 'approval_needed', 'decided', 'comment', 'sign_in', 'security', 'expiry'));
 -- Other ways to sign in. Google and Telegram are linked by the person, from Settings, while
 -- signed in: an email typed into SOPBox is never trusted to prove who owns a Google account.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT;
@@ -554,6 +554,72 @@ CREATE UNIQUE INDEX IF NOT EXISTS assignment_requests_pending_key ON assignment_
 ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
 ALTER TABLE task_lists ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
+
+-- Expiry dates. A product that tracks expiry needs a date on each delivery line (or "check later"),
+-- at least `min_days_left` days ahead, and warns `warn_days` before it.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS track_expiry BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS min_days_left INTEGER CHECK (min_days_left >= 0);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS warn_days INTEGER NOT NULL DEFAULT 3 CHECK (warn_days >= 0);
+ALTER TABLE delivery_lines ADD COLUMN IF NOT EXISTS expiry_on DATE;
+ALTER TABLE delivery_lines ADD COLUMN IF NOT EXISTS expiry_later BOOLEAN NOT NULL DEFAULT FALSE;
+-- A lot: one product, one expiry date, from one delivery, in one storage area. What is left of it is
+-- worked out from the storage area's stock, earliest expiry used first (lots.py), so sales, counts
+-- and transfers need not say which box they took.
+CREATE TABLE IF NOT EXISTS stock_lots (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    number BIGINT NOT NULL,
+    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    storage_id BIGINT NOT NULL REFERENCES storages(id),
+    delivery_id BIGINT REFERENCES deliveries(id) ON DELETE SET NULL,
+    from_lot_id BIGINT REFERENCES stock_lots(id) ON DELETE SET NULL,  -- moved here by a transfer
+    expiry_on DATE,  -- NULL: still to be filled in
+    quantity BIGINT NOT NULL CHECK (quantity > 0),
+    used BIGINT NOT NULL DEFAULT 0 CHECK (used >= 0),  -- disposed of or moved away
+    created_at TEXT NOT NULL,
+    alerted TEXT,  -- the last alert sent: 'soon' or 'expired'
+    UNIQUE (workspace_id, number)
+);
+CREATE INDEX IF NOT EXISTS stock_lots_place_idx ON stock_lots (product_id, storage_id);
+-- What a sold item takes off stock, learnt once from a person (or the AI, confirmed by a person):
+-- "Hot dog set" = 1 pcs Hot dog bun + 1 pcs Beef sausage. A row with no product: not stock (a service
+-- charge, a delivery fee). Matching by this table needs no AI.
+CREATE TABLE IF NOT EXISTS sale_mappings (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    sold_key TEXT NOT NULL,
+    sold_name TEXT NOT NULL,
+    product_id BIGINT REFERENCES products(id) ON DELETE CASCADE,
+    per_sold DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (per_sold >= 0),  -- base units per item sold
+    updated_by TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sale_mappings_key_idx ON sale_mappings (workspace_id, sold_key);
+-- Sales a till sent by item name that could not all be matched: kept for a person to finish.
+CREATE TABLE IF NOT EXISTS sale_drafts (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    storage_id BIGINT NOT NULL REFERENCES storages(id),
+    sale_date DATE NOT NULL,
+    source TEXT NOT NULL,
+    items TEXT NOT NULL,  -- JSON list of sold items: name, code, quantity, unit
+    external_ref TEXT,
+    created_at TEXT NOT NULL,
+    done_at TEXT
+);
+CREATE TABLE IF NOT EXISTS stock_disposals (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    lot_id BIGINT REFERENCES stock_lots(id) ON DELETE SET NULL,
+    product_id BIGINT REFERENCES products(id) ON DELETE SET NULL,
+    storage_id BIGINT NOT NULL REFERENCES storages(id),
+    quantity BIGINT NOT NULL CHECK (quantity > 0),
+    method TEXT NOT NULL,
+    value_sen BIGINT,
+    notes TEXT NOT NULL DEFAULT '',
+    disposed_by TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible
@@ -575,6 +641,10 @@ RLS_TABLES = {
         f"AND t.workspace_id = {_WS})"
     ),
     "products": f"workspace_id = {_WS}",
+    "stock_lots": f"workspace_id = {_WS}",
+    "stock_disposals": f"workspace_id = {_WS}",
+    "sale_mappings": f"workspace_id = {_WS}",
+    "sale_drafts": f"workspace_id = {_WS}",
     "deliveries": f"workspace_id = {_WS}",
     "audit_log": f"workspace_id = {_WS}",
     "stocktakes": f"workspace_id = {_WS}",

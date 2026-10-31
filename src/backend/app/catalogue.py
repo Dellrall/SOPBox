@@ -8,6 +8,7 @@ from collections import defaultdict
 
 import psycopg
 
+from app import plans
 from app.errors import InvalidRequestError, NotFoundError
 from app.models import Category, CategoryIn, PackUnit, Product, ProductIn
 
@@ -114,6 +115,9 @@ def _load(conn: psycopg.Connection, ws: int, where: str = "", params: tuple = ()
                 archived=r["archived"],
                 code=r["code"],
                 barcode=r["barcode"],
+                track_expiry=r["track_expiry"],
+                min_days_left=r["min_days_left"],
+                warn_days=r["warn_days"],
             )
         )
     return products
@@ -162,11 +166,12 @@ def _replace_packs(conn: psycopg.Connection, product_id: int, packs: list[PackUn
 def create_product(conn: psycopg.Connection, ws: int, data: ProductIn) -> Product:
     """New products start with no stock. Stock changes only when a delivery is accepted."""
     _require_category(conn, ws, data.category_id)
+    plans.require(conn, ws, "product")
     with conn.transaction():
         row = conn.execute(
             "INSERT INTO products "
-            "(workspace_id, name, category_id, base_unit, temp_min_c, temp_max_c, min_stock, sop, code, barcode) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            "(workspace_id, name, category_id, base_unit, temp_min_c, temp_max_c, min_stock, sop, code, barcode, "
+            "track_expiry, min_days_left, warn_days) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (
                 ws,
                 data.name,
@@ -178,6 +183,9 @@ def create_product(conn: psycopg.Connection, ws: int, data: ProductIn) -> Produc
                 data.sop,
                 data.code,
                 data.barcode,
+                data.track_expiry,
+                data.min_days_left,
+                data.warn_days,
             ),
         ).fetchone()
         _replace_packs(conn, row["id"], data.pack_units)
@@ -195,7 +203,8 @@ def update_product(conn: psycopg.Connection, ws: int, product_id: int, data: Pro
     with conn.transaction():
         cur = conn.execute(
             "UPDATE products SET name = %s, category_id = %s, base_unit = %s, temp_min_c = %s, "
-            "temp_max_c = %s, min_stock = %s, sop = %s, code = %s, barcode = %s WHERE id = %s AND workspace_id = %s",
+            "temp_max_c = %s, min_stock = %s, sop = %s, code = %s, barcode = %s, track_expiry = %s, "
+            "min_days_left = %s, warn_days = %s WHERE id = %s AND workspace_id = %s",
             (
                 data.name,
                 data.category_id,
@@ -206,6 +215,9 @@ def update_product(conn: psycopg.Connection, ws: int, product_id: int, data: Pro
                 data.sop,
                 data.code,
                 data.barcode,
+                data.track_expiry,
+                data.min_days_left,
+                data.warn_days,
                 product_id,
                 ws,
             ),

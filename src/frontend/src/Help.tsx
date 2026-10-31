@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   ArrowRight,
   Building2,
+  CalendarClock,
   Check,
   ClipboardCheck,
   ClipboardList,
@@ -65,6 +66,7 @@ export const GUIDES: Guide[] = [
       "Pick the storage area the stock goes to.",
       "Enter the temperature and quantity of each line, and add photos of anything wrong.",
       "Add the price per unit from the invoice if you have it: SOPBox flags a price rise of 10% or more.",
+      "Type the expiry date printed on the pack. Two dates in one delivery? Tap Split this line. Can't see it in a sealed box? Tick Can't see it yet and fill it in later on Expiry dates.",
       "Lines that pass are accepted and added to stock. Anything that fails goes to Approvals.",
     ],
   },
@@ -103,6 +105,21 @@ export const GUIDES: Guide[] = [
     how: [
       "Move stock between storage areas or outlets with a transfer. Tap Print / PDF on a transfer for a paper copy.",
       "Upload your till's sales so the next count shows only real losses.",
+      "Sales by menu item: tap Read a report and pick a photo, PDF or sheet from any till, or paste the text. Products are matched by code or name; the AI suggests the rest or asks you a question. Check each line, answer, then Take off stock. Matches are remembered, so next time needs no AI.",
+      "A till connected by API key that sends an unknown item waits under Till sales waiting for you: tap Finish.",
+    ],
+  },
+  {
+    page: "expiry",
+    title: "Expiry dates",
+    icon: CalendarClock,
+    what: "Every batch received with its expiry date, where it is, and which supplier, delivery and order it came from.",
+    how: [
+      "Turn on Track expiry for a product in Products & SOP: each delivery then needs its date, and too few days left goes to Approvals.",
+      "Each batch gets a lot code. Write it and the date on the box, or tap Print labels. New stock goes behind; the earliest date goes in front.",
+      "Sales, counts and transfers use the earliest date first, so the list shows what should be left of each batch.",
+      "Everyone at the outlet is told when a batch is about to expire and again when it has.",
+      "Expired: take it off the shelf, tap Dispose and pick how. Food waste goes in its own bin; only best-before items still before their date can be donated.",
     ],
   },
   {

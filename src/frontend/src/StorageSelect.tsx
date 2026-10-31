@@ -4,8 +4,8 @@ import type { StorageArea } from "./types";
 import { inputClass, labelClass } from "./ui";
 import { Select } from "./Select";
 
-/** Every storage area in the workspace, outlet by outlet. Empty until loaded. */
-export function useStorages(): StorageArea[] {
+/** Every storage area in the workspace, outlet by outlet. Empty until loaded; loads again when `reload` changes. */
+export function useStorages(reload?: unknown): StorageArea[] {
   const [storages, setStorages] = useState<StorageArea[]>([]);
   useEffect(() => {
     api
@@ -13,7 +13,7 @@ export function useStorages(): StorageArea[] {
       // Only the picked outlet's areas: the server refuses the others while one outlet is picked.
       .then((outlets) => setStorages(outlets.filter((o) => currentOutlet === null || o.id === currentOutlet).flatMap((o) => o.storages)))
       .catch(() => setStorages([]));
-  }, []);
+  }, [reload]);
   return storages;
 }
 

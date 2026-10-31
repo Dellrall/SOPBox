@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import {
   ArrowLeftRight,
+  CalendarClock,
   BookOpen,
   Boxes,
   ChevronDown,
@@ -60,6 +61,7 @@ const LOADERS = {
   Help: () => import("./Help"),
   Categories: () => import("./Categories"),
   Tasks: () => import("./Tasks"),
+  Expiry: () => import("./Expiry"),
 };
 const Pricing = lazy(LOADERS.Pricing);
 const Privacy = lazy(LOADERS.Privacy);
@@ -77,6 +79,7 @@ const Settings = lazy(LOADERS.Settings);
 const Stocktake = lazy(LOADERS.Stocktake);
 const StockMoves = lazy(LOADERS.StockMoves);
 const Team = lazy(LOADERS.Team);
+const Expiry = lazy(LOADERS.Expiry);
 const Help = lazy(LOADERS.Help);
 const CategoriesAndStorage = lazy(() => LOADERS.Categories().then((m) => ({ default: m.CategoriesAndStorage })));
 
@@ -116,6 +119,7 @@ export type PageId =
   | "activity"
   | "stocktake"
   | "stock"
+  | "expiry"
   | "team"
   | "help"
   | "settings";
@@ -132,6 +136,7 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
   { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager", "staff"], access: "activity" },
   { id: "stocktake", label: "Stock Count", icon: ClipboardList, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "stock", label: "Stock & sales", icon: ArrowLeftRight, roles: ["owner", "manager", "staff"], access: "stocktake" },
+  { id: "expiry", label: "Expiry dates", icon: CalendarClock, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "team", label: "Team", icon: Users, roles: ["owner", "manager"] },
   { id: "help", label: "Help & guides", icon: BookOpen, roles: ["owner", "manager", "staff"] },
   { id: "settings", label: "Settings", icon: SettingsIcon, roles: ["owner", "manager", "staff"] },
@@ -143,9 +148,9 @@ const MENU: (PageId | Group)[] = [
   "dashboard",
   "tasks",
   { label: "Catalogue", icon: PackageSearch, items: ["products", "categories"] },
-  { label: "Stock", icon: Boxes, items: ["stocktake", "stock"] },
-  { label: "Ordering", icon: Truck, items: ["purchasing", "receive", "records"] }, // order, receive it, then the record
-  "approvals",
+  { label: "Stock", icon: Boxes, items: ["stocktake", "stock", "expiry"] },
+  // Order, receive it, approve what failed, then the record.
+  { label: "Ordering", icon: Truck, items: ["purchasing", "receive", "approvals", "records"] },
 ];
 /** Pages about the person and the business, in the menu under their picture. */
 const PROFILE: PageId[] = ["team", "activity", "help", "settings"];
@@ -352,6 +357,7 @@ const IDLE: Record<PageId, Scene> = {
   tasks: { who: "carrot", action: "write" },
   stocktake: { who: "cabbage", action: "count" },
   stock: { who: "carrot", action: "count" },
+  expiry: { who: "fish", action: "read" },
   team: { who: "crew", action: "wave" },
   help: { who: "cabbage", action: "read", text: "Pick a page to read about, or tap Show me and I'll walk you through it." },
   settings: { who: "cabbage", action: "sleep" },
@@ -463,6 +469,7 @@ function Shell({
   // Bumped on every menu click, so choosing the page you are on returns it to its start
   // (for example from one purchase order back to the list).
   const [visit, setVisit] = useState(0);
+  const [outletTurn, setOutletTurn] = useState(0); // Receive stays mounted: it reloads when this changes
   const go = (id: PageId) => {
     setPage(id);
     setVisit((v) => v + 1);
@@ -473,7 +480,8 @@ function Shell({
   const canViewRecords = sectionAllowed(me, "records");
   // A notification is always about a delivery: open the list where it can be seen.
   const openNotification = (n: Notification) => {
-    if (n.kind === "approval_needed" && canViewApprovals) go("approvals");
+    if (n.kind === "expiry" && sectionAllowed(me, "stocktake")) go("expiry");
+    else if (n.kind === "approval_needed" && canViewApprovals) go("approvals");
     else if (canViewRecords) go("records");
     else if (canViewApprovals) go("approvals");
   };
@@ -620,7 +628,10 @@ function Shell({
             )}
             <OutletSwitch
               me={me}
-              onChange={() => setVisit((v) => v + 1)}
+              onChange={() => {
+                setVisit((v) => v + 1);
+                setOutletTurn((v) => v + 1);
+              }}
               onManage={
                 me.role === "staff"
                   ? undefined
@@ -695,6 +706,7 @@ function Shell({
             canEdit={sectionAllowed(me, "receive", true)}
             purchaseOrderId={receivePo}
             onPurchaseOrderTaken={() => setReceivePo(null)}
+            reload={outletTurn}
           />
         </div>
         {page === "dashboard" && (
@@ -731,6 +743,7 @@ function Shell({
         {page === "tasks" && <Tasks key={visit} canEdit={me.role !== "staff"} meId={me.id} go={go} />}
         {page === "stocktake" && <Stocktake key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "stock" && <StockMoves key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
+        {page === "expiry" && <Expiry key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "team" && <Team key={visit} me={me} />}
         {page === "help" && <Help key={visit} me={me} go={go} canOpen={canOpen} />}
         {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}

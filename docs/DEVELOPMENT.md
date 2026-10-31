@@ -65,6 +65,7 @@ Replit is mandatory for the challenge. The deployed filesystem is not persistent
 |---|---|---|
 | `DATABASE_URL` | Yes | Set by the Replit database. Do not copy it into the repo |
 | `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` | For photo reading | The endpoint id (for example `sriet0cftztbik`) and an API key from your RunPod account (see [`runpod/README.md`](../runpod/README.md)). Without them staff type lines by hand |
+| `AI_API_KEY` | For reading sales reports | An OpenAI-compatible key (KrackedDev). Optional: `AI_BASE_URL` (default `https://litellm.rapidscreen.io/v1`), `AI_MODEL` (default `gpt-5.4-mini`). Without it, sales lines are matched by hand |
 | `TELEGRAM_BOT_TOKEN` | For alerts and Telegram sign-in | From @BotFather in Telegram. For sign-in, also send @BotFather `/setdomain` with the app's domain (e.g. `sopbox.replit.app`) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | For Google sign-in | Google Cloud console, APIs & Services, Credentials, OAuth client ID (Web application). Authorised redirect URI: `https://<your domain>/api/auth/google/callback`, one per domain you use |
 
@@ -97,6 +98,7 @@ The backend reads environment variables (Replit Secrets in production). See `src
 | `DATABASE_URL` | PostgreSQL connection string. Required | none |
 | `COOKIE_SECURE` | `0` allows the session cookie over plain http, for local runs only | `1` |
 | `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` | RunPod endpoint id and API key. Without both, photo reading is off | none |
+| `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` | OpenAI-compatible service that reads sales reports and matches menu items (`app/sales_ai.py`). Locally, `AI_` lines in `src/backend/.env` are loaded. Without a key, people match lines by hand | none, `https://litellm.rapidscreen.io/v1`, `gpt-5.4-mini` |
 | `TELEGRAM_BOT_TOKEN` | Bot token. Each workspace owner sets chat ids under Settings. With no token or chat id, alerts are skipped. Also enables "Continue with Telegram" (set the bot's domain with @BotFather `/setdomain`) | none |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth web client. With both, "Continue with Google" appears | none |
 | `MFA_ENCRYPTION_KEY` | 32 random bytes, base64. Encrypts authenticator secrets. Without it, two-step sign-in can't be turned on. Losing it stops authenticator codes; backup codes still work | none |
@@ -172,9 +174,11 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `GET/POST /api/outlets`, `PUT/DELETE /api/outlets/{id}`, `POST /api/storages`, `PUT/DELETE /api/storages/{id}` | any; manager | Outlets and storage areas |
 | `GET /api/storages/{id}/stock`, `GET/POST /api/transfers` | stock count access | Stock per storage area; move stock between them |
 | `GET/POST /api/sales`, `POST /api/sales/preview`, `GET /api/sales/template.csv` | stock count access | Upload till sales, which take stock out |
+| `POST /api/sales/read`, `POST /api/sales/confirm`, `GET /api/sales/drafts` | stock count access | Sales by menu item: read a photo, PDF, sheet or text (AI), match to products (code, saved matches, then AI suggestions or questions), confirm; totals are worked out in code and matches remembered |
+| `GET /api/lots`, `PUT /api/lots/{id}/expiry`, `POST /api/lots/{id}/dispose`, `GET /api/disposals` | stock count access | Expiry lots (earliest expiry first), fill in a date, record a disposal |
 | `GET /api/workspace/links`, `POST /api/workspace/link-codes`, `POST/DELETE /api/workspace/hq`, `DELETE /api/workspace/branches/{id}` | owner | Link branches to an HQ workspace |
 | `GET/POST /api/api-keys`, `DELETE /api/api-keys/{id}` | manager | API keys for a till or POS |
-| `GET /api/v1/stock`, `POST /api/v1/sales` | API key | For the till: read stock, record a sale |
+| `GET /api/v1/stock`, `POST /api/v1/sales`, `POST /api/v1/sales/items` | API key | For the till: read stock, record a sale by product code, or by item name (unknown items wait for a person) |
 | `GET /api/export` | any signed in | Download a copy of the workspace's data |
 | `POST /api/workspace/close`, `POST /api/workspace/reopen` | owner | Close the business (30-day grace) or reopen it |
 | `GET /api/setup` | owner | Setup checklist progress |
