@@ -1161,7 +1161,7 @@ class StockLevelOut(BaseModel):
     category: str
     base_unit: str
     quantity: int  # in this storage area
-    total: int  # over every storage area
+    total: int  # over every storage area of the same outlet
 
 
 class _ProductQuantity(_In):

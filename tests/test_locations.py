@@ -62,7 +62,8 @@ def test_each_storage_area_keeps_its_own_stock_and_the_total_adds_up(client, cat
 
     assert _stock(client, store, fries)["quantity"] == 260
     assert _stock(client, kl, fries)["quantity"] == 30
-    assert _stock(client, kl, fries)["total"] == 290
+    assert _stock(client, kl, fries)["total"] == 30  # the whole of Outlet KL
+    assert _stock(client, store, fries)["total"] == 260  # the whole of Main outlet
     # Counting one storage area compares against that area only.
     stale = client.post(
         "/api/stocktakes",
@@ -88,7 +89,7 @@ def test_a_transfer_moves_stock_and_refuses_more_than_the_source_holds(client, c
     assert moved.json()["from_storage"] == "Main outlet / Store"
     assert moved.json()["lines"][0]["quantity"] == 4
     assert _stock(client, store, fries)["quantity"] == 6
-    assert _stock(client, kl, fries) | {"quantity": 4, "total": 10} == _stock(client, kl, fries)
+    assert _stock(client, kl, fries) | {"quantity": 4, "total": 4} == _stock(client, kl, fries)  # KL holds only what moved in
 
     too_much = client.post(
         "/api/transfers",

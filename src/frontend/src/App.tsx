@@ -10,7 +10,6 @@ import {
   Layers,
   LayoutDashboard,
   ListChecks,
-  LogOut,
   Menu,
   PackageSearch,
   ShoppingCart,
@@ -29,6 +28,7 @@ import { PolicyLinks } from "./Site";
 import AuthPage from "./AuthPage";
 import Landing from "./Landing";
 import { InboxBell, InboxPanel, useInboxRefresh } from "./Inbox";
+import { ProfileMenu } from "./ProfileMenu";
 import { describeSignIn, rememberSignIn } from "./signin";
 import { MascotDock, type Scene } from "./Mascot";
 import { WorkspaceSwitch } from "./WorkspaceSwitch";
@@ -122,7 +122,7 @@ export type PageId =
 const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?: SectionKey }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "manager", "staff"], access: "dashboard" },
   { id: "receive", label: "Receiving check", icon: ScanLine, roles: ["owner", "manager", "staff"], access: "receive" },
-  { id: "records", label: "Delivery records", icon: Truck, roles: ["owner", "manager", "staff"], access: "records" },
+  { id: "records", label: "Order records", icon: Truck, roles: ["owner", "manager", "staff"], access: "records" },
   { id: "products", label: "Products & SOP", icon: PackageSearch, roles: ["owner", "manager", "staff"], access: "products" },
   { id: "categories", label: "Categories & storage", icon: Layers, roles: ["owner", "manager", "staff"], access: "products" },
   { id: "purchasing", label: "Purchase orders", icon: ShoppingCart, roles: ["owner", "manager", "staff"], access: "purchasing" },
@@ -140,17 +140,14 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
 type Group = { label: string; icon: LucideIcon; items: PageId[] };
 const MENU: (PageId | Group)[] = [
   "dashboard",
-  "receive",
-  "approvals",
   "tasks",
-  { label: "Deliveries", icon: Truck, items: ["purchasing", "records"] }, // order first, then what arrived
-  { label: "Stock", icon: Boxes, items: ["stocktake", "stock"] },
   { label: "Catalogue", icon: PackageSearch, items: ["products", "categories"] },
-  "team",
-  "activity",
-  "help",
-  "settings",
+  { label: "Stock", icon: Boxes, items: ["stocktake", "stock"] },
+  { label: "Ordering", icon: Truck, items: ["purchasing", "receive", "records"] }, // order, receive it, then the record
+  "approvals",
 ];
+/** Pages about the person and the business, in the menu under their picture. */
+const PROFILE: PageId[] = ["team", "activity", "help", "settings"];
 const OPEN_GROUPS = "sopbox-menu-open";
 
 /** The phone's bottom bar: the first four of these the person may open, then More for the full menu. */
@@ -178,14 +175,6 @@ function firstPage(me: Me): PageId {
     "settings"
   );
 }
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("");
 
 /** Signed-out visitors move between three addresses: the welcome page, sign in and sign up. */
 export type PublicRoute = "/" | "/signin" | "/register" | "/pricing" | "/docs" | "/privacy" | "/contact";
@@ -559,6 +548,25 @@ function Shell({
     );
   };
 
+  const profileMenu = (where: "sidebar" | "top") => (
+    <ProfileMenu
+      name={me.display_name}
+      detail={`${roleLabel(me)} · ${me.username}`}
+      items={PROFILE.flatMap((id) => nav.filter((n) => n.id === id))}
+      page={page}
+      go={go}
+      signOut={() => void signOut()}
+      where={where}
+    />
+  );
+  // Receiving is the main job: one tap from beside the bell.
+  const receiveShortcut = (className: string) =>
+    canOpen("receive") && (
+      <button type="button" onClick={() => go("receive")} aria-label="Start a receiving check" title="Receiving check" className={className}>
+        <ScanLine aria-hidden className="h-5 w-5" />
+      </button>
+    );
+
   return (
     <div className="min-h-screen bg-surface text-ink lg:flex">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:shadow">
@@ -566,9 +574,11 @@ function Shell({
       </a>
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-white/85 px-4 py-2 backdrop-blur lg:hidden print:hidden">
         <img src="/logo-128.webp" alt="" className="h-8 w-8 rounded-lg object-cover" />
-        <span className="font-bold text-brand-950">SOPBox</span>
-        <div className="ml-auto flex items-center gap-2">
+        <span className="hidden font-bold text-brand-950 min-[400px]:inline">SOPBox</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          {receiveShortcut("rounded-xl p-2 text-brand-700 ring-1 ring-line hover:bg-brand-50")}
           <InboxBell />
+          {profileMenu("top")}
         </div>
       </header>
 
@@ -588,7 +598,8 @@ function Shell({
             <span className="text-xs text-white/60">Receiving checks</span>
           </div>
           {/* On phones the bell is in the top bar instead. */}
-          <div className="ml-auto hidden lg:block">
+          <div className="ml-auto hidden items-center gap-1.5 lg:flex">
+            {receiveShortcut("rounded-xl p-2 text-white/80 ring-1 ring-white/15 hover:bg-white/10 hover:text-white")}
             <InboxBell tone="dark" />
           </div>
           <button aria-label="Close the menu" onClick={() => setMenuOpen(false)} className="ml-auto rounded-lg p-1.5 hover:bg-white/10 lg:hidden">
@@ -657,20 +668,7 @@ function Shell({
             );
           })}
         </nav>
-        <div className="m-3 flex items-center gap-3 rounded-xl bg-white/[0.06] p-3 ring-1 ring-white/10">
-          <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-leaf text-sm font-bold text-brand-950">
-            {initials(me.display_name)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{me.display_name}</p>
-            <p className="truncate text-xs text-white/60">
-              {roleLabel(me)} · {me.username}
-            </p>
-          </div>
-          <button onClick={() => void signOut()} aria-label="Sign out" title="Sign out" className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white">
-            <LogOut aria-hidden className="h-4 w-4" />
-          </button>
-        </div>
+        <div className="hidden lg:block">{profileMenu("sidebar")}</div>
       </aside>
 
       <main id="main" className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col px-4 pb-44 pt-4 sm:px-6 sm:pt-6 lg:px-10 lg:py-10 lg:pb-28">

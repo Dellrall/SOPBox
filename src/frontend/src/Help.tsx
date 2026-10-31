@@ -76,7 +76,7 @@ export const GUIDES: Guide[] = [
   },
   {
     page: "records",
-    title: "Delivery records",
+    title: "Order records",
     icon: Truck,
     what: "Every delivery received, with its readings, photos and outcome.",
     how: ["Search by supplier, PO, delivery number, product or person.", "Open one to see exactly what was checked, by whom and when."],

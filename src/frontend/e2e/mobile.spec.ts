@@ -31,7 +31,17 @@ async function snapshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
 
+/** Team, Activity log, Help & guides and Settings sit in the account menu under the person's picture. */
+const PROFILE_PAGES = ["Team", "Activity log", "Help & guides", "Settings"];
+
 async function openPage(page: Page, label: string) {
+  if (PROFILE_PAGES.includes(label)) {
+    await page.getByRole("button", { name: /^Account menu/ }).click();
+    await page.getByRole("menu", { name: "Account" }).getByRole("menuitem", { name: label, exact: true }).click();
+    await expect(page.locator("main h1:visible")).toHaveCount(1);
+    await page.waitForLoadState("networkidle");
+    return;
+  }
   await page.getByRole("button", { name: "More", exact: true }).click();
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect(nav).toBeInViewport();
@@ -61,7 +71,10 @@ async function navLabels(page: Page) {
   await openGroups(page);
   const labels = await page.getByRole("navigation", { name: "Main" }).locator("button:not([aria-expanded])").allInnerTexts();
   await page.getByRole("button", { name: "Close the menu" }).click();
-  return labels.map((l) => l.trim()).filter(Boolean);
+  await page.getByRole("button", { name: /^Account menu/ }).click();
+  const account = await page.getByRole("menu", { name: "Account" }).getByRole("menuitem").allInnerTexts();
+  await page.keyboard.press("Escape");
+  return [...labels, ...account.filter((l) => l.trim() !== "Sign out")].map((l) => l.trim()).filter(Boolean);
 }
 
 test.describe("signed out", () => {
@@ -725,13 +738,13 @@ test.describe("addresses", () => {
     // A random id, not a count of workspaces.
     await expect(page).toHaveURL(/\/w\/[0-9a-f]{12}\/dashboard$/);
     const ws = /\/w\/([0-9a-f]{12})\//.exec(page.url())![1];
-    await openPage(page, "Delivery records");
+    await openPage(page, "Order records");
     await expect(page).toHaveURL(new RegExp(`/w/${ws}/records$`));
     await page.reload();
-    await expect(page.getByRole("heading", { level: 1, name: "Delivery records" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Order records" })).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`/w/${ws}/dashboard$`));
-    await expect(page.locator("main h1:visible")).not.toHaveText("Delivery records");
+    await expect(page.locator("main h1:visible")).not.toHaveText("Order records");
 
     // Another workspace's id opens nothing of it: the same page, in the person's own workspace.
     await page.goto("/w/0123456789ab/records");
@@ -745,7 +758,7 @@ test.describe("addresses", () => {
     await visitor.getByLabel("Username or email").fill(PEOPLE.owner.username);
     await visitor.getByLabel("Password", { exact: true }).fill(PASSWORD);
     await visitor.getByRole("button", { name: "Sign in", exact: true }).click();
-    await expect(visitor.getByRole("heading", { level: 1, name: "Delivery records" })).toBeVisible();
+    await expect(visitor.getByRole("heading", { level: 1, name: "Order records" })).toBeVisible();
     await expect(visitor).toHaveURL(new RegExp(`/w/${ws}/records$`));
     await fresh.close();
   });

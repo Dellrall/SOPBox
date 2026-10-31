@@ -267,15 +267,17 @@ def setup_progress(conn: psycopg.Connection, ws: int) -> SetupOut:
 
 
 def stock_in(conn: psycopg.Connection, ws: int, storage_id: int) -> list[StockLevelOut]:
-    """Every active product with its quantity in this storage area and its total."""
+    """Every active product with its quantity in this storage area and in all of that outlet's areas."""
     resolve(conn, ws, storage_id)
     rows = conn.execute(
         "SELECT p.id AS product_id, p.name, p.code, p.barcode, c.name AS category, p.base_unit, "
-        "COALESCE(l.quantity, 0) AS quantity, p.stock AS total "
+        "COALESCE(l.quantity, 0) AS quantity, "
+        "(SELECT COALESCE(sum(o.quantity), 0) FROM stock_levels o JOIN storages s ON s.id = o.storage_id "
+        " WHERE o.product_id = p.id AND s.outlet_id = (SELECT outlet_id FROM storages WHERE id = %s)) AS total "
         "FROM products p JOIN categories c ON c.id = p.category_id "
         "LEFT JOIN stock_levels l ON l.product_id = p.id AND l.storage_id = %s "
         "WHERE p.workspace_id = %s AND NOT p.archived ORDER BY lower(c.name), lower(p.name)",
-        (storage_id, ws),
+        (storage_id, storage_id, ws),
     ).fetchall()
     return [StockLevelOut(**r) for r in rows]
 
