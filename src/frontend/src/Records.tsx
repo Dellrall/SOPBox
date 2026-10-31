@@ -13,13 +13,21 @@ import { Select } from "./Select";
 const LOAD = 200;
 const PAGE = 20;
 
-const STATUSES: { id: DeliveryStatus | ""; label: string }[] = [
+type Group = "" | "waiting" | "accepted" | "partial" | "rejected";
+const STATUSES: { id: Group; label: string }[] = [
   { id: "", label: "All" },
-  { id: "pending_approval", label: "Waiting" },
+  { id: "waiting", label: "Waiting" },
   { id: "accepted", label: "Accepted" },
+  { id: "partial", label: "Partial" },
   { id: "rejected", label: "Rejected" },
-  { id: "returned", label: "Returned" },
 ];
+
+/** The tab a delivery falls under: returned counts as rejected; accepted with some lines sent back is partial. */
+function groupOf(d: Delivery): Group {
+  if (d.status === "pending_approval") return "waiting";
+  if (d.status === "rejected" || d.status === "returned") return "rejected";
+  return d.lines.some((l) => l.returned) ? "partial" : "accepted";
+}
 
 const RANGES = [
   { id: "all", label: "Any time", days: null },
@@ -91,7 +99,7 @@ function downloadCsv(rows: Delivery[]) {
 export default function Records() {
   const [all, setAll] = useState<Delivery[] | null>(null);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState<DeliveryStatus | "">("");
+  const [status, setStatus] = useState<Group>("");
   const [query, setQuery] = useState("");
   const [supplier, setSupplier] = useState("");
   const [receiver, setReceiver] = useState("");
@@ -150,10 +158,10 @@ export default function Records() {
 
   const counts = useMemo(() => {
     const c = new Map<string, number>([["", base.length]]);
-    for (const d of base) c.set(d.status, (c.get(d.status) ?? 0) + 1);
+    for (const d of base) c.set(groupOf(d), (c.get(groupOf(d)) ?? 0) + 1);
     return c;
   }, [base]);
-  const byStatus = status ? base.filter((d) => d.status === status) : base;
+  const byStatus = status ? base.filter((d) => groupOf(d) === status) : base;
   const perDay = useMemo(() => {
     const m = new Map<string, number>();
     for (const d of byStatus) m.set(dayOf(d.created_at), (m.get(dayOf(d.created_at)) ?? 0) + 1);
