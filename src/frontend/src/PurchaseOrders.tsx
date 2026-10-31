@@ -660,23 +660,29 @@ function OrderDetail({
           doc={() => ({
             title: "Purchase order",
             reference: order.reference,
+            badges: [
+              order.status[0].toUpperCase() + order.status.slice(1),
+              ...(order.status === "issued" ? [RECEIVING_LABEL[order.receiving_status]] : []),
+            ],
             details: [
               ["Supplier", order.supplier],
-              ["Status", order.status === "issued" ? `Issued, ${order.receiving_status.replace(/_/g, " ")}` : order.status],
               ["Order date", order.order_date],
-              ["Expected", order.expected_date ?? ""],
-              ["Created by", order.created_by],
-              ["Issued by", order.issued_by ? `${order.issued_by}, ${order.issued_at?.slice(0, 10)}` : ""],
-              ["Deliveries", order.delivery_ids.map((d) => `#${d}`).join(", ")],
+              ["Expected delivery", order.expected_date ?? ""],
+              ...(order.delivery_ids.length ? [["Deliveries", order.delivery_ids.map((d) => `#${d}`).join(", ")] as [string, string]] : []),
             ],
             columns: ["Product", "Ordered", "Received", "Still to come"],
             rows: order.lines.map((l) => [
               l.product_name,
-              `${l.quantity} ${l.unit}`,
+              l.unit === l.base_unit ? `${l.quantity} ${l.unit}` : [`${l.quantity} ${l.unit}`, `= ${l.ordered_base_qty} ${l.base_unit}`],
               `${l.received_base_qty} ${l.base_unit}`,
               `${l.outstanding_base_qty} ${l.base_unit}`,
             ]),
             notes: order.notes,
+            history: [
+              `Created by ${order.created_by} on ${when(order.created_at)}`,
+              order.issued_by && order.issued_at ? `issued by ${order.issued_by} on ${when(order.issued_at)}` : "",
+              order.cancelled_by && order.cancelled_at ? `cancelled by ${order.cancelled_by} on ${when(order.cancelled_at)}` : "",
+            ].filter(Boolean).join(" · "),
             sign: ["Ordered by", "Approved by"],
           })}
         />

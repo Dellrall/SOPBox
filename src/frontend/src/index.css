@@ -147,4 +147,6 @@
   body.printing-doc > :not(#print-doc) {
     display: none !important;
   }
+  /* Keep the pills and tints on paper and in the PDF. */
+  #print-doc { print-color-adjust: exact; -webkit-print-color-adjust: exact }
 }

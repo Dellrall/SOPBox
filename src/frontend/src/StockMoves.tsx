@@ -324,6 +324,7 @@ function Transfers({ storages, canEdit }: { storages: Storages; canEdit: boolean
                     columns: ["Product", "Quantity"],
                     rows: t.lines.map((l) => [l.product_name, `${l.quantity} ${l.base_unit}`]),
                     notes: t.notes,
+                    history: `Moved by ${t.moved_by} on ${when(t.created_at)}`,
                     sign: ["Sent by", "Received by"],
                   })}
                 />
@@ -394,6 +395,28 @@ function Sales({ storages, canEdit }: { storages: Storages; canEdit: boolean }) 
                   .map((l) => `${l.product_name} ${l.quantity} ${l.base_unit}${l.lot_code ? ` from ${l.lot_code}` : ""}${l.deducted < l.quantity ? ` (${l.quantity - l.deducted} short)` : ""}`)
                   .join(", ")}
               </p>
+              <div className="pt-1">
+                <PrintButton
+                  doc={() => ({
+                    title: "Sales record",
+                    reference: s.reference,
+                    badges: s.lines.some((l) => l.deducted < l.quantity) ? ["Sold more than in stock"] : ["Taken off stock"],
+                    details: [
+                      ["Sold from", s.storage],
+                      ["Sale date", s.sale_date],
+                      ["Source", s.source],
+                    ],
+                    columns: ["Product", "Sold", "Taken off stock", "Lot"],
+                    rows: s.lines.map((l) => [
+                      l.product_code ? [l.product_name, l.product_code] : l.product_name,
+                      `${l.quantity} ${l.base_unit}`,
+                      `${l.deducted} ${l.base_unit}`,
+                      l.lot_code ?? "Earliest expiry",
+                    ]),
+                    history: `Recorded by ${s.recorded_by} on ${when(s.created_at)}`,
+                  })}
+                />
+              </div>
             </article>
           ))
         )}

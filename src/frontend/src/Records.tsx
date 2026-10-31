@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Camera, ChevronDown, ClipboardCopy, Download, Search, SlidersHorizontal, Truck, X } from "lucide-react";
 import { api } from "./api";
-import DeliveryLines from "./DeliveryLines";
+import DeliveryLines, { deliveryDoc } from "./DeliveryLines";
+import { PrintButton } from "./Print";
 import DeliveryPhotos from "./DeliveryPhotos";
 import { DeliveryTags } from "./Tags";
 import { CountCalendar, dayTitle, keyOf } from "./StocktakeHistory";
@@ -387,6 +388,7 @@ export default function Records() {
                                 <button type="button" className={secondaryButton} onClick={() => void copyComplaint(d)}>
                                   <ClipboardCopy aria-hidden className="h-4 w-4" /> Copy complaint for supplier
                                 </button>
+                                <PrintButton doc={() => deliveryDoc(d)} />
                                 {copied === d.id && <span className="text-sm font-semibold text-emerald-700" role="status">Copied. Paste it into your message and attach the photos.</span>}
                               </div>
                             </div>
