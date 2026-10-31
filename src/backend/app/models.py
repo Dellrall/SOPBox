@@ -412,7 +412,20 @@ class SectionAccess(_In):
     approvals: AccessLevel = "none"
     activity: AccessLevel = "none"
     stocktake: AccessLevel = "view"
+    transfers: AccessLevel = "view"
+    sales: AccessLevel = "view"
 
+    @model_validator(mode="before")
+    @classmethod
+    def _split_from_stocktake(cls, data):
+        # Transfers and sales were part of stock count; accounts saved before keep that level.
+        if isinstance(data, dict) and "stocktake" in data:
+            data = {**{k: data["stocktake"] for k in SPLIT_FROM_STOCKTAKE}, **data}
+        return data
+
+
+# Sections that once came with stock count access.
+SPLIT_FROM_STOCKTAKE = ("transfers", "sales")
 
 MAX_SAFE_COUNT = 9_007_199_254_740_991
 

@@ -119,6 +119,26 @@ def test_staff_who_can_only_view_stock_cannot_transfer(client, catalogue_ids, ma
     assert staff.post("/api/outlets", json={"name": "Sneaky"}).status_code == 403
 
 
+def test_transfers_and_sales_have_their_own_access(client, catalogue_ids, make_user):
+    storages = _second_outlet(client)
+    staff = make_user()
+    user_id = staff.get("/api/auth/me").json()["id"]
+    transfer = {"from_storage_id": storages["Main outlet / Store"], "to_storage_id": storages["Outlet KL / Store"],
+                "lines": [{"product_id": catalogue_ids["fries"], "quantity": 1}]}
+
+    # Saved before the split: transfers and sales follow the stock count level.
+    old = client.patch(f"/api/users/{user_id}", json={"section_access": {"stocktake": "none"}}).json()
+    assert (old["section_access"]["transfers"], old["section_access"]["sales"]) == ("none", "none")
+    assert staff.get("/api/sales").status_code == 403
+
+    client.patch(f"/api/users/{user_id}", json={"section_access": {"stocktake": "none", "transfers": "edit", "sales": "view"}})
+    assert staff.get("/api/stocktakes").status_code == 403
+    assert staff.get(f"/api/storages/{storages['Main outlet / Store']}/stock").status_code == 200
+    assert staff.post("/api/transfers", json=transfer).status_code != 403
+    assert staff.get("/api/sales").status_code == 200
+    assert staff.post("/api/sales/confirm", json={}).status_code == 403
+
+
 def test_a_storage_area_holding_stock_or_with_history_is_not_deleted(client, catalogue_ids):
     storages = _second_outlet(client)
     store, kl = storages["Main outlet / Store"], storages["Outlet KL / Store"]
