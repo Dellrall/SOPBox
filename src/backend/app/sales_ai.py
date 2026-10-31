@@ -25,7 +25,7 @@ import httpx
 import psycopg
 from pydantic import ValidationError
 
-from app import extraction, locations, sales, stocktakes
+from app import extraction, locations, plans, sales, stocktakes
 from app.auditlog import audit
 from app.config import get_settings
 from app.errors import ExtractionError, InvalidRequestError, NotFoundError, RateLimitError
@@ -184,7 +184,7 @@ def _from_sheet(rows: list[tuple[int, list]]) -> list[SoldItem] | None:
     return None
 
 
-def _read_items(data: SalesReadIn) -> tuple[list[SoldItem], date | None, bool]:
+def _read_items(conn: psycopg.Connection, ws: int, data: SalesReadIn) -> tuple[list[SoldItem], date | None, bool]:
     """The sold items in the upload, the sale date if the AI found one, and whether the AI read it."""
     suffix = data.filename.rsplit(".", 1)[-1].lower() if "." in data.filename else ""
     content: str | list
@@ -215,7 +215,7 @@ def _read_items(data: SalesReadIn) -> tuple[list[SoldItem], date | None, bool]:
         content = f"{READ_PROMPT}\n\nThe report as pasted:\n{data.text.strip()}"
     else:
         raise InvalidRequestError("add a file or paste the sales")
-    reply = _chat(content, "You read sales reports into JSON, exactly and honestly.")
+    reply = plans.metered(conn, ws, "sales", lambda: _chat(content, "You read sales reports into JSON, exactly and honestly."))
     sale_date = None
     try:
         sale_date = date.fromisoformat(str(reply.get("sale_date"))[:10])
@@ -287,7 +287,9 @@ def _match(conn: psycopg.Connection, ws: int, items: list[SoldItem], products: d
     return lines
 
 
-def _suggest(lines: list[SalesDraftLine], products: dict[int, dict], answers: dict[str, str]) -> list[SalesDraftLine]:
+def _suggest(
+    conn: psycopg.Connection, ws: int, lines: list[SalesDraftLine], products: dict[int, dict], answers: dict[str, str]
+) -> list[SalesDraftLine]:
     """Ask the AI about the lines nothing matched. Every id and amount in its reply is checked."""
     todo = [i for i, line in enumerate(lines) if line.status == "question"]
     if not todo:
@@ -299,11 +301,11 @@ def _suggest(lines: list[SalesDraftLine], products: dict[int, dict], answers: di
         f"{i} | {lines[i].name} | {lines[i].code or '-'} | {lines[i].quantity:g} | {lines[i].unit or '-'} | {answers.get(lines[i].name, '-')}"
         for i in todo
     )
-    reply = _chat(
+    reply = plans.metered(conn, ws, "sales", lambda: _chat(
         f"{MATCH_PROMPT}\n\nProducts (id | name | code | base unit | packs):\n{catalogue}\n\n"
         f"Sold items (i | name | code | quantity | unit | answer from staff):\n{sold}",
         "You match sold items to stock products for a food and beverage outlet. You are careful and ask when unsure.",
-    )
+    ))
     out = list(lines)
     for row in reply.get("lines") or []:
         if not isinstance(row, dict) or row.get("i") not in todo:
@@ -366,11 +368,11 @@ def read(conn: psycopg.Connection, ws: int, data: SalesReadIn) -> SalesDraft:
         draft = _draft_row(conn, ws, data.draft_id)
         items, sale_date = [SoldItem(**i) for i in json.loads(draft["items"])], draft["sale_date"]
     else:
-        items, sale_date, ai_used = _read_items(data)
+        items, sale_date, ai_used = _read_items(conn, ws, data)
     products = _catalogue(conn, ws, storage_id)
     lines = _match(conn, ws, items, products)
     if available() and any(line.status == "question" for line in lines):
-        lines = _suggest(lines, products, data.answers)
+        lines = _suggest(conn, ws, lines, products, data.answers)
         ai_used = True
     return SalesDraft(
         sale_date=sale_date, lines=lines, totals=_totals(lines, products), ai_used=ai_used,

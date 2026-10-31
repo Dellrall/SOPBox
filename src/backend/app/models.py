@@ -1528,6 +1528,8 @@ class PlanOut(BaseModel):
     # Pay for what is used: outlets with work recorded this calendar month, and what Pro would bill for it.
     active_outlets: int = 0
     bill_sen: int | None = None  # None: not billed by use (Free, Enterprise, or no price set)
+    ai_used: int = 0  # AI uses this calendar month
+    ai_allowed: int | None = None  # None: no monthly limit
 
 
 class PlanCodeIn(BaseModel):

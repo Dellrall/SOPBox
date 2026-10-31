@@ -595,6 +595,14 @@ CREATE TABLE IF NOT EXISTS sale_mappings (
     updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sale_mappings_key_idx ON sale_mappings (workspace_id, sold_key);
+-- Each paid AI call that worked, to hold each plan to its monthly allowance (plans.AI_MONTH).
+CREATE TABLE IF NOT EXISTS ai_uses (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    feature TEXT NOT NULL,
+    at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ai_uses_month_idx ON ai_uses (workspace_id, at);
 -- Sales a till sent by item name that could not all be matched: kept for a person to finish.
 CREATE TABLE IF NOT EXISTS sale_drafts (
     id {_ID},
@@ -645,6 +653,7 @@ RLS_TABLES = {
     "stock_disposals": f"workspace_id = {_WS}",
     "sale_mappings": f"workspace_id = {_WS}",
     "sale_drafts": f"workspace_id = {_WS}",
+    "ai_uses": f"workspace_id = {_WS}",
     "deliveries": f"workspace_id = {_WS}",
     "audit_log": f"workspace_id = {_WS}",
     "stocktakes": f"workspace_id = {_WS}",

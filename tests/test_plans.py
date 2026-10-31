@@ -144,3 +144,33 @@ def test_pro_bills_only_outlets_with_work_this_month(client, catalogue_ids):
         json={"supplier": "S", "lines": [{"product_id": catalogue_ids["fries"], "name": "Fries", "quantity": 1, "unit": "pcs"}]},
     )
     assert client.get("/api/plan").json()["active_outlets"] == max(before, 1)
+
+
+def test_ai_has_a_monthly_allowance_and_free_reads_sales_a_few_times(client, catalogue_ids, _database, monkeypatch):
+    from app import main, sales_ai
+
+    ws = _free(_database, client)
+    monkeypatch.setattr(main, "extract_lines", lambda image: [])
+    assert client.post("/api/extract", json={"image_b64": "aW1n"}).status_code == 200
+    plan = client.get("/api/plan").json()
+    assert (plan["ai_used"], plan["ai_allowed"]) == (1, 30)
+
+    # Sales: 10 a month on Free, within the 30.
+    monkeypatch.setattr(sales_ai, "available", lambda: True)
+    monkeypatch.setattr(sales_ai, "_chat", lambda content, system, max_tokens=8000: {"items": [{"name": "Tea", "quantity": 1}]})
+    store = client.get("/api/outlets").json()[0]["storages"][0]["id"]
+    with psycopg.connect(_database, autocommit=True) as conn:
+        conn.execute("INSERT INTO ai_uses (workspace_id, feature) SELECT %s, 'sales' FROM generate_series(1, 10)", (ws,))
+    sales = client.post("/api/sales/read", json={"storage_id": store, "text": "Tea 1"})
+    assert sales.status_code == 403 and "10 times a month" in sales.json()["detail"]
+
+    # The whole allowance used up: refused, and a failed call is never counted.
+    with psycopg.connect(_database, autocommit=True) as conn:
+        conn.execute("INSERT INTO ai_uses (workspace_id, feature) SELECT %s, 'delivery' FROM generate_series(1, 19)", (ws,))
+    refused = client.post("/api/extract", json={"image_b64": "aW1n"})
+    assert refused.status_code == 403 and "30 AI uses are used up" in refused.json()["detail"]
+    assert client.get("/api/plan").json()["ai_used"] == 30
+    # Last month's uses do not count.
+    with psycopg.connect(_database, autocommit=True) as conn:
+        conn.execute("UPDATE ai_uses SET at = now() - interval '40 days' WHERE workspace_id = %s", (ws,))
+    assert client.post("/api/extract", json={"image_b64": "aW1n"}).status_code == 200

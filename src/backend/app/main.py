@@ -883,7 +883,7 @@ def read_product_sheet(body: ExtractRequest, user: ProductEditor, conn: Conn):
             category_id=categories.get((s.category or "").lower()),
             exists=s.name.lower() in names,
         )
-        for s in extract_products(body.image_b64)
+        for s in plans.metered(conn, user.workspace_id, "products", lambda: extract_products(body.image_b64))
     ]
 
 
@@ -902,7 +902,7 @@ def draft_sop(body: SopDraftIn, user: ProductEditor, conn: Conn):
         "counted_in": body.base_unit,
         "pack_sizes": [f"1 {p.unit} = {p.base_qty} {body.base_unit}" for p in body.pack_units],
     }
-    return write_sop(facts, body.notes)
+    return plans.metered(conn, user.workspace_id, "sop", lambda: write_sop(facts, body.notes))
 
 
 @app.patch("/api/products/{product_id}", response_model=Product)
@@ -1013,7 +1013,7 @@ def extract(body: ExtractRequest, user: ReceivingEditor, conn: Conn):
     products = catalogue.list_products(conn, user.workspace_id, active_only=True)
     return [
         ExtractedLineOut(**line.model_dump(), product_id=catalogue.match_product(line.name, products))
-        for line in extract_lines(body.image_b64)
+        for line in plans.metered(conn, user.workspace_id, "delivery", lambda: extract_lines(body.image_b64))
     ]
 
 
@@ -1183,13 +1183,13 @@ def explain_stocktake(stocktake_id: int, user: StocktakeReader, conn: Conn):
     found = insights.count_insights(conn, user.workspace_id, stocktake_id)
     if not found.gaps:
         raise InvalidRequestError("nothing to explain: every product matched")
-    return explain_gaps({
+    return plans.metered(conn, user.workspace_id, "explain", lambda: explain_gaps({
         "sales_recorded": found.sales_recorded,
         "products": [
             g.model_dump(include={"product_name", "base_unit", "expected_stock", "counted_stock", "difference", "earlier", "pattern"})
             for g in found.gaps[:15]
         ],
-    })
+    }))
 
 
 # ---- outlets, storage areas, transfers and sales -------------------------------------------------
