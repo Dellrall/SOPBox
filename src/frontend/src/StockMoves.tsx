@@ -29,13 +29,15 @@ const localDate = () => {
 };
 
 /** Stock in each storage area, moving it between them, and taking uploaded sales off it. */
-export default function StockMoves({ canEdit }: { canEdit: boolean }) {
+type Parts = { transfer: boolean; sales: boolean };
+
+export default function StockMoves({ show, canEdit }: { show: Parts; canEdit: Parts }) {
   const [tab, setTab] = useState<Tab>("levels");
   const storages = useStorages();
   const tabs: { id: Tab; label: string }[] = [
     { id: "levels", label: "Stock by storage" },
-    { id: "transfer", label: "Transfers" },
-    { id: "sales", label: "Sales" },
+    ...(show.transfer ? [{ id: "transfer" as const, label: "Transfers" }] : []),
+    ...(show.sales ? [{ id: "sales" as const, label: "Sales" }] : []),
   ];
   return (
     <div className="space-y-6">
@@ -57,8 +59,8 @@ export default function StockMoves({ canEdit }: { canEdit: boolean }) {
         ))}
       </div>
       {tab === "levels" && <Levels storages={storages} />}
-      {tab === "transfer" && <Transfers storages={storages} canEdit={canEdit} />}
-      {tab === "sales" && <Sales storages={storages} canEdit={canEdit} />}
+      {tab === "transfer" && <Transfers storages={storages} canEdit={canEdit.transfer} />}
+      {tab === "sales" && <Sales storages={storages} canEdit={canEdit.sales} />}
     </div>
   );
 }

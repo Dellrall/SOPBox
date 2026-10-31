@@ -128,7 +128,7 @@ export type PageId =
   | "help"
   | "settings";
 
-const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?: SectionKey }[] = [
+const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?: SectionKey | SectionKey[] }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "manager", "staff"], access: "dashboard" },
   { id: "receive", label: "Receiving check", icon: ScanLine, roles: ["owner", "manager", "staff"], access: "receive" },
   { id: "records", label: "Order records", icon: Truck, roles: ["owner", "manager", "staff"], access: "records" },
@@ -139,7 +139,7 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
   { id: "tasks", label: "Tasks", icon: ListChecks, roles: ["owner", "manager", "staff"] },
   { id: "activity", label: "Activity log", icon: History, roles: ["owner", "manager", "staff"], access: "activity" },
   { id: "stocktake", label: "Stock Count", icon: ClipboardList, roles: ["owner", "manager", "staff"], access: "stocktake" },
-  { id: "stock", label: "Stock & sales", icon: ArrowLeftRight, roles: ["owner", "manager", "staff"], access: "stocktake" },
+  { id: "stock", label: "Stock & sales", icon: ArrowLeftRight, roles: ["owner", "manager", "staff"], access: ["stocktake", "transfers", "sales"] },
   { id: "expiry", label: "Expiry dates", icon: CalendarClock, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "reports", label: "Reports", icon: BarChart3, roles: ["owner", "manager"] },
   { id: "team", label: "Team", icon: Users, roles: ["owner", "manager"] },
@@ -179,13 +179,18 @@ const TABS: { id: PageId; label: string }[] = [
 
 function sectionAllowed(me: Me, section: SectionKey, edit = false): boolean {
   if (me.role !== "staff") return true;
-  const access = me.section_access[section] ?? "none";
+  // Transfers and sales were part of stock count; accounts saved before keep that level.
+  const access = me.section_access[section] ?? (section === "transfers" || section === "sales" ? me.section_access.stocktake : undefined) ?? "none";
   return edit ? access === "edit" : access === "view" || access === "edit";
+}
+
+function anyAllowed(me: Me, sections: SectionKey | SectionKey[]): boolean {
+  return (Array.isArray(sections) ? sections : [sections]).some((s) => sectionAllowed(me, s));
 }
 
 function firstPage(me: Me): PageId {
   return (
-    NAV.find((item) => item.roles.includes(me.role) && (!item.access || sectionAllowed(me, item.access)))?.id ??
+    NAV.find((item) => item.roles.includes(me.role) && (!item.access || anyAllowed(me, item.access)))?.id ??
     "settings"
   );
 }
@@ -505,7 +510,7 @@ function Shell({
       NAV.filter(
         (n) =>
           n.roles.includes(me.role) &&
-          (!n.access || sectionAllowed(me, n.access)) &&
+          (!n.access || anyAllowed(me, n.access)) &&
           // Managers look after the team of the outlet they work at.
           (n.id !== "team" || me.role === "owner" || me.outlet_id != null),
       ),
@@ -751,7 +756,13 @@ function Shell({
         {page === "activity" && <Activity key={visit} />}
         {page === "tasks" && <Tasks key={visit} canEdit={me.role !== "staff"} meId={me.id} go={go} />}
         {page === "stocktake" && <Stocktake key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
-        {page === "stock" && <StockMoves key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
+        {page === "stock" && (
+          <StockMoves
+            key={visit}
+            show={{ transfer: sectionAllowed(me, "transfers"), sales: sectionAllowed(me, "sales") }}
+            canEdit={{ transfer: sectionAllowed(me, "transfers", true), sales: sectionAllowed(me, "sales", true) }}
+          />
+        )}
         {page === "expiry" && <Expiry key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "reports" && <Reports key={visit} />}
         {page === "team" && <Team key={visit} me={me} />}

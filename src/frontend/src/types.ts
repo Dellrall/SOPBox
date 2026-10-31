@@ -10,7 +10,9 @@ export type SectionKey =
   | "purchasing"
   | "approvals"
   | "activity"
-  | "stocktake";
+  | "stocktake"
+  | "transfers"
+  | "sales";
 export type SectionAccess = Record<SectionKey, AccessLevel>;
 
 export const SECTION_ACCESS_AREAS: { key: SectionKey; label: string }[] = [
@@ -22,6 +24,8 @@ export const SECTION_ACCESS_AREAS: { key: SectionKey; label: string }[] = [
   { key: "approvals", label: "Approvals" },
   { key: "activity", label: "Activity log" },
   { key: "stocktake", label: "Stock Count" },
+  { key: "transfers", label: "Transfers" },
+  { key: "sales", label: "Sales" },
 ];
 
 export const DEFAULT_STAFF_ACCESS: SectionAccess = {
@@ -33,6 +37,8 @@ export const DEFAULT_STAFF_ACCESS: SectionAccess = {
   approvals: "none",
   activity: "none",
   stocktake: "view",
+  transfers: "view",
+  sales: "view",
 };
 
 export type SignIn = { id: number; at: string; method: string; device: string };

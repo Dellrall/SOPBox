@@ -24,7 +24,7 @@ from app import inbox
 from app.config import get_settings
 from app.db import get_db, scope_to_user, scope_to_workspace
 from app.errors import AuthError, ForbiddenError, MfaRequiredError, RateLimitError
-from app.models import SignIn
+from app.models import SPLIT_FROM_STOCKTAKE, SignIn
 
 COOKIE = "sopbox_session"
 SESSION_DAYS = 7
@@ -451,7 +451,10 @@ def require_roles(*allowed: Role):
 def can_access_section(user: CurrentUser, section: str, *, edit: bool = False) -> bool:
     if user.role in ("owner", "manager"):
         return True
-    level = user.section_access.get(section, "none")
+    access = user.section_access
+    if section in SPLIT_FROM_STOCKTAKE:
+        access = {section: access.get("stocktake", "none"), **access}
+    level = access.get(section, "none")
     return level == "edit" or (not edit and level == "view")
 
 

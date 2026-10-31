@@ -194,6 +194,12 @@ StocktakeReader = Annotated[CurrentUser, Depends(auth.require_any_section("stock
 StocktakeEditor = Annotated[
     CurrentUser, Depends(auth.require_any_section("stocktake", edit=True))
 ]
+TransfersReader = Annotated[CurrentUser, Depends(auth.require_any_section("transfers"))]
+TransfersEditor = Annotated[CurrentUser, Depends(auth.require_any_section("transfers", edit=True))]
+SalesReader = Annotated[CurrentUser, Depends(auth.require_any_section("sales"))]
+SalesEditor = Annotated[CurrentUser, Depends(auth.require_any_section("sales", edit=True))]
+# Stock levels by storage show on the stock count, transfer and sales pages.
+StockReader = Annotated[CurrentUser, Depends(auth.require_any_section("stocktake", "transfers", "sales"))]
 DashboardReader = Annotated[CurrentUser, Depends(auth.require_any_section("dashboard"))]
 
 
@@ -1312,12 +1318,12 @@ def delete_storage(storage_id: int, user: ManagerUp, conn: Conn):
 
 
 @app.get("/api/storages/{storage_id}/stock", response_model=list[StockLevelOut])
-def stock_in_storage(storage_id: int, user: StocktakeReader, conn: Conn):
+def stock_in_storage(storage_id: int, user: StockReader, conn: Conn):
     return locations.stock_in(conn, user.workspace_id, storage_id)
 
 
 @app.get("/api/transfers", response_model=list[TransferOut])
-def list_transfers(user: StocktakeReader, conn: Conn):
+def list_transfers(user: TransfersReader, conn: Conn):
     return locations.list_transfers(conn, user.workspace_id)
 
 
@@ -1342,12 +1348,12 @@ def list_disposals(user: StocktakeReader, conn: Conn):
 
 
 @app.post("/api/transfers", response_model=TransferOut, status_code=201)
-def create_transfer(body: TransferIn, user: StocktakeEditor, conn: Conn):
+def create_transfer(body: TransferIn, user: TransfersEditor, conn: Conn):
     return locations.create_transfer(conn, user.workspace_id, user.display_name, body)
 
 
 @app.get("/api/sales/template.csv")
-def download_sales_template(user: StocktakeReader, conn: Conn):
+def download_sales_template(user: SalesReader, conn: Conn):
     return Response(
         content=sales.template_csv(conn, user.workspace_id),
         media_type="text/csv",
@@ -1356,7 +1362,7 @@ def download_sales_template(user: StocktakeReader, conn: Conn):
 
 
 @app.get("/api/sales/template.xlsx")
-def download_sales_sheet(user: StocktakeReader, conn: Conn, storage_id: Annotated[int | None, Query()] = None):
+def download_sales_sheet(user: SalesReader, conn: Conn, storage_id: Annotated[int | None, Query()] = None):
     return Response(
         content=sales.build_template(conn, user.workspace_id, storage_id),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1368,7 +1374,7 @@ def download_sales_sheet(user: StocktakeReader, conn: Conn, storage_id: Annotate
 async def preview_sales(
     file: Annotated[UploadFile, File()],
     storage_id: Annotated[int, Query()],
-    user: StocktakeEditor,
+    user: SalesEditor,
     conn: Conn,
 ):
     content = await file.read(stocktakes.MAX_UPLOAD_BYTES + 1)
@@ -1376,7 +1382,7 @@ async def preview_sales(
 
 
 @app.post("/api/sales/read", response_model=SalesDraft)
-def read_sales(body: SalesReadIn, user: StocktakeEditor, conn: Conn):
+def read_sales(body: SalesReadIn, user: SalesEditor, conn: Conn):
     """Read sales from a file, pasted text or a kept till sale, and match them to products. Saves nothing."""
     if (body.items is None and body.draft_id is None) or body.answers:
         auth.limit("sales-read", str(user.workspace_id), 60, 3600)  # each may call the paid AI
@@ -1384,23 +1390,23 @@ def read_sales(body: SalesReadIn, user: StocktakeEditor, conn: Conn):
 
 
 @app.post("/api/sales/confirm", response_model=SaleOut, status_code=201)
-def confirm_sales(body: SalesConfirmIn, user: StocktakeEditor, conn: Conn):
+def confirm_sales(body: SalesConfirmIn, user: SalesEditor, conn: Conn):
     return sales_ai.confirm(conn, user.workspace_id, user.display_name, body)
 
 
 @app.get("/api/sales/drafts", response_model=list[SaleDraftOut])
-def list_sale_drafts(user: StocktakeReader, conn: Conn):
+def list_sale_drafts(user: SalesReader, conn: Conn):
     """Till sales with items nothing matched yet, waiting for a person."""
     return sales_ai.list_drafts(conn, user.workspace_id)
 
 
 @app.get("/api/sales", response_model=list[SaleOut])
-def list_sales(user: StocktakeReader, conn: Conn):
+def list_sales(user: SalesReader, conn: Conn):
     return sales.list_sales(conn, user.workspace_id)
 
 
 @app.post("/api/sales", dependencies=[dangerous("recorded uploaded sales")], response_model=SaleOut, status_code=201)
-def create_sale(body: SaleIn, user: StocktakeEditor, conn: Conn):
+def create_sale(body: SaleIn, user: SalesEditor, conn: Conn):
     return sales.create_sale(conn, user.workspace_id, user.display_name, body)
 
 
