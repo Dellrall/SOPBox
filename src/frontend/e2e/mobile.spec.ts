@@ -308,7 +308,7 @@ test.describe("phone layout", () => {
     expect(saved.ok()).toBe(true);
 
     await openPage(page, "Receiving check");
-    await page.getByRole("button", { name: "Add a line" }).tap();
+    await page.getByRole("button", { name: "Add goods" }).tap();
     const picker = page.locator("main").getByLabel("Product", { exact: true }).last();
     await expect(page.locator("main").getByRole("button", { name: "Scan barcode" }).first()).toBeVisible();
     await expectFitsScreen(page);
@@ -745,10 +745,12 @@ test.describe("jobs", () => {
     await openPage(page, "Receiving check");
     await page.getByRole("combobox", { name: /Purchase order/ }).tap();
     await page.getByRole("option", { name: new RegExp(order.reference) }).tap();
-    const line = page.getByRole("group", { name: "Line 1" });
+    const line = page.getByRole("group", { name: "Goods 1" });
     await expect(line).toContainText("Ordered: 10 L");
     await line.getByLabel("Received").fill("8");
     await expect(line).toContainText("2 L short");
+    await page.getByRole("button", { name: "Add goods" }).tap(); // the order's goods fold into a bubble
+    await expect(line.getByLabel("Received")).toBeHidden();
     await expectFitsScreen(page);
     await context.close();
   });

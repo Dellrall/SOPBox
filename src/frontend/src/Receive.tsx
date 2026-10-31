@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMascot, type Scene } from "./Mascot";
-import { Camera, Loader2, X } from "lucide-react";
+import { Camera, ChevronDown, Loader2, X } from "lucide-react";
 import { PhotoPicker } from "./PhotoPicker";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
@@ -106,6 +106,8 @@ export default function Receive({
   const [loaded, setLoaded] = useState(false);
   const [supplier, setSupplier] = useState("");
   const [lines, setLines] = useState<Draft[]>([blankLine()]);
+  // The goods open for editing; the rest fold into a bubble. -1: all folded; a key no longer there: the first.
+  const [open, setOpen] = useState(0);
   const [busy, setBusy] = useState<"" | "reading" | "submitting">("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -158,7 +160,7 @@ export default function Receive({
     // Lines already read from a photo keep their quantities.
     const read = lines.filter((l) => !l.ordered && (l.quantity !== "" || l.productId !== null));
     setLines(mergeRead(fromOrder, read));
-    setNotice(`Lines from ${order.reference} are marked. Enter what actually arrived, or photograph the delivery order, and add each temperature.`);
+    setNotice(`Goods from ${order.reference} are marked in blue. Enter what actually arrived, or photograph the delivery order, and add each temperature.`);
   }
 
   useEffect(() => {
@@ -187,7 +189,7 @@ export default function Receive({
     try {
       const extracted = await api.extract(await imageToJpegBase64(file));
       if (extracted.length === 0) {
-        setNotice("No lines were found on the photo. Add them by hand.");
+        setNotice("No goods were found on the photo. Add them by hand.");
         return;
       }
       const read: Draft[] = extracted.map((l) => {
@@ -212,11 +214,11 @@ export default function Receive({
       const flagged = extracted.filter((l) => l.warning || l.quantity === null || l.unit === null).length;
       setNotice(
         flagged
-          ? `Read from the photo. ${flagged} ${flagged === 1 ? "line needs" : "lines need"} your attention (marked below). Check every line before you submit.`
-          : "Read from the photo. Check every line before you submit.",
+          ? `Read from the photo. ${flagged} ${flagged === 1 ? "item needs" : "items need"} your attention (marked Check). Check all the goods before you submit.`
+          : "Read from the photo. Check all the goods before you submit.",
       );
     } catch (e) {
-      setError(`${(e as Error).message}. Add the lines by hand.`);
+      setError(`${(e as Error).message}. Add the goods by hand.`);
     } finally {
       setBusy("");
     }
@@ -241,23 +243,27 @@ export default function Receive({
 
     const payload = [];
     for (const [i, l] of lines.entries()) {
+      const fail = (message: string) => {
+        setOpen(l.key); // show the goods that need fixing
+        setError(`Goods ${i + 1}: ${message}`);
+      };
       const product = products.find((p) => p.id === l.productId);
       const name = l.name.trim() || product?.name || "";
       const quantity = Number(l.quantity);
       const temp = optionalNumber(l.temp);
       const expected = optionalNumber(l.expected);
       const price = optionalNumber(l.price.replace(/^\s*RM\s*/i, "").replace(/,/g, ""));
-      if (!name) return setError(`Line ${i + 1}: choose a product or type its name.`);
+      if (!name) return fail("choose a product or type its name.");
       if (!Number.isInteger(quantity) || quantity <= 0)
-        return setError(`Line ${i + 1}: quantity must be a whole number above 0.`);
-      if (!l.unit.trim()) return setError(`Line ${i + 1}: choose a unit.`);
-      if (temp !== null && Number.isNaN(temp)) return setError(`Line ${i + 1}: temperature must be a number.`);
+        return fail("quantity must be a whole number above 0.");
+      if (!l.unit.trim()) return fail("choose a unit.");
+      if (temp !== null && Number.isNaN(temp)) return fail("temperature must be a number.");
       if (expected !== null && (!Number.isInteger(expected) || expected <= 0))
-        return setError(`Line ${i + 1}: expected quantity must be a whole number above 0.`);
+        return fail("expected quantity must be a whole number above 0.");
       if (price !== null && (Number.isNaN(price) || price < 0))
-        return setError(`Line ${i + 1}: price must be an amount in RM, like 12.50.`);
+        return fail("price must be an amount in RM, like 12.50.");
       if (product?.track_expiry && !l.expiry && !l.expiryLater)
-        return setError(`Line ${i + 1}: add the expiry date on the pack, or tick "Can't see it yet".`);
+        return fail(`add the expiry date on the pack, or tick "Can't see it yet".`);
       payload.push({
         product_id: l.productId,
         name,
@@ -307,13 +313,13 @@ export default function Receive({
     busy === "reading"
       ? { who: "fish", action: "read", text: "Reading the delivery order… (up to a few minutes if the AI was asleep)" }
       : busy === "submitting"
-        ? { who: "carrot", action: "probe", text: `Checking ${lines.length} ${lines.length === 1 ? "line" : "lines"}: temperature, quantity, pack size…` }
+        ? { who: "carrot", action: "probe", text: `Checking ${lines.length} ${lines.length === 1 ? "item" : "items"}: temperature, quantity, pack size…` }
         : result
           ? result.status === "accepted"
             ? { who: "crew", action: "cheer", text: `Delivery #${result.id} passed every check. Stock updated!` }
-            : { who: "carrot", action: "worry", text: `${held} ${held === 1 ? "line needs" : "lines need"} a manager. I've told them.` }
+            : { who: "carrot", action: "worry", text: `${held} ${held === 1 ? "item needs" : "items need"} a manager. I've told them.` }
           : filled > 0
-            ? { who: "cabbage", action: "carry", text: `${filled} of ${lines.length} ${lines.length === 1 ? "line" : "lines"} ready. Probe the cold items before you submit.`, progress: filled / lines.length }
+            ? { who: "cabbage", action: "carry", text: `${filled} of ${lines.length} ${lines.length === 1 ? "item" : "items"} ready. Probe the cold items before you submit.`, progress: filled / lines.length }
             : null;
   // This page stays mounted (hidden) to keep unsaved work, so it only speaks while it is shown.
   useMascot(active ? scene : null);
@@ -433,8 +439,8 @@ export default function Receive({
             <Camera aria-hidden className="h-6 w-6" />
           </span>
           <p className="mx-auto max-w-sm text-sm text-slate-700 sm:mt-3">
-            <span className="sm:hidden">Photograph the delivery order to fill the lines, or type them below.</span>
-            <span className="hidden sm:inline">Take a photo of the delivery order and the lines fill in for you to confirm. You can also type them below.</span>
+            <span className="sm:hidden">Photograph the delivery order to fill in the goods, or type them below.</span>
+            <span className="hidden sm:inline">Take a photo of the delivery order and the goods fill in for you to confirm. You can also type them below.</span>
           </p>
           <div className="mt-2 sm:mt-4">
             <PhotoPicker
@@ -460,28 +466,46 @@ export default function Receive({
           const product = products.find((p) => p.id === line.productId);
           const units = unitsFor(product);
           const hint = rangeHint(product);
+          const isOpen = open === -1 ? false : lines.some((l) => l.key === open) ? line.key === open : i === 0;
+          const got = baseQty(product, line.quantity, line.unit);
+          const want = Number(line.expected);
+          const match = !line.ordered || got === null ? null : got === want ? "Matches" : got < want ? `${want - got} ${product?.base_unit} short` : `${got - want} ${product?.base_unit} extra`;
+          const amount = line.quantity.trim() ? `${line.quantity} ${line.unit}`.trim() : line.ordered ? "Enter what arrived" : "No amount yet";
           return (
-            <fieldset key={line.key} className={`${cardClass} space-y-3 ${line.ordered ? "!border-sky-300 ring-2 ring-sky-300" : ""}`}>
-              <legend className="px-1 text-sm font-semibold text-slate-700">Line {i + 1}</legend>
-              {line.ordered && (() => {
-                const got = baseQty(product, line.quantity, line.unit);
-                const want = Number(line.expected);
-                return (
-                  <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-xl bg-sky-100 px-3 py-2 text-sm text-sky-950">
-                    <span>
-                      <strong>Ordered:</strong> {line.ordered}
-                    </span>
-                    {got !== null && (
-                      <span className={`font-semibold ${got === want ? "text-emerald-800" : "text-amber-800"}`}>
-                        {got === want ? "Matches the order" : got < want ? `${want - got} ${product?.base_unit} short` : `${got - want} ${product?.base_unit} extra`}
-                      </span>
-                    )}
-                  </p>
-                );
-              })()}
+            <fieldset
+              key={line.key}
+              onFocusCapture={() => setOpen(line.key)}
+              className={`rounded-2xl border bg-white p-3 shadow-xs transition ${line.ordered ? "border-sky-300 ring-2 ring-sky-200" : "border-slate-200"} ${isOpen ? "shadow-md" : ""}`}
+            >
+              <legend className="sr-only">Goods {i + 1}</legend>
+              <button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? -1 : line.key)} className="flex w-full items-center gap-3 text-left">
+                <span aria-hidden className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-semibold ${line.ordered ? "bg-sky-100 text-sky-900" : "bg-brand-100 text-brand-800"}`}>
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-slate-900">{product?.name || line.name.trim() || `Goods ${i + 1}`}</span>
+                  <span className="block truncate text-sm text-muted">
+                    {[amount, line.temp.trim() && `${line.temp}°C`, line.ordered && `ordered ${line.ordered}`].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                {line.note && <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">Check</span>}
+                {match && (
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${match === "Matches" ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>
+                    {match}
+                  </span>
+                )}
+                <ChevronDown aria-hidden className={`h-5 w-5 shrink-0 text-slate-500 transition ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isOpen && (
+              <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+              {line.ordered && (
+                <p className="rounded-xl bg-sky-100 px-3 py-2 text-sm text-sky-950">
+                  <strong>Ordered:</strong> {line.ordered}
+                </p>
+              )}
               {line.note && (
                 <p role="note" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  <strong>Check this line:</strong> {line.note}
+                  <strong>Check these goods:</strong> {line.note}
                 </p>
               )}
               <div>
@@ -546,13 +570,15 @@ export default function Receive({
                   <TempInput id={`temp-${line.key}`} className={`${inputClass} placeholder:text-sm`} placeholder="Leave empty if product is damaged" value={line.temp} onChange={(temp) => update(line.key, { temp })} />
                   {hint && <p className="mt-1 text-xs text-slate-600">{hint}</p>}
                 </div>
-                <div>
-                  <label className={labelClass} htmlFor={`expected-${line.key}`}>
-                    Ordered (base units)
-                  </label>
-                  <input id={`expected-${line.key}`} className={inputClass} inputMode="numeric" value={line.expected} onChange={(e) => update(line.key, { expected: e.target.value })} />
-                  {product && <p className="mt-1 text-xs text-slate-600">Counted in {product.base_unit}</p>}
-                </div>
+                {!line.ordered && (
+                  <div>
+                    <label className={labelClass} htmlFor={`expected-${line.key}`}>
+                      Ordered (base units)
+                    </label>
+                    <input id={`expected-${line.key}`} className={inputClass} inputMode="numeric" value={line.expected} onChange={(e) => update(line.key, { expected: e.target.value })} />
+                    {product && <p className="mt-1 text-xs text-slate-600">Counted in {product.base_unit}</p>}
+                  </div>
+                )}
                 <div>
                   <label className={labelClass} htmlFor={`price-${line.key}`}>
                     Price per {line.unit.trim() || "unit"} (RM)
@@ -589,15 +615,16 @@ export default function Receive({
                       <button
                         type="button"
                         className="text-brand-700 underline"
-                        onClick={() =>
+                        onClick={() => {
+                          const copy = { ...blankLine(), productId: line.productId, name: line.name, unit: line.unit, temp: line.temp };
                           setLines((all) => {
                             const at = all.findIndex((l) => l.key === line.key);
-                            const copy = { ...blankLine(), productId: line.productId, name: line.name, unit: line.unit, temp: line.temp };
                             return [...all.slice(0, at + 1), copy, ...all.slice(at + 1)];
-                          })
-                        }
+                          });
+                          setOpen(copy.key);
+                        }}
                       >
-                        Two dates? Split this line
+                        Two dates? Split these goods
                       </button>
                     </div>
                   </div>
@@ -605,15 +632,22 @@ export default function Receive({
               </div>
               {lines.length > 1 && (
                 <button type="button" className="text-sm text-red-800 underline" onClick={() => setLines((all) => all.filter((l) => l.key !== line.key))}>
-                  Remove line {i + 1}
+                  Remove goods {i + 1}
                 </button>
+              )}
+              </div>
               )}
             </fieldset>
           );
         })}
 
-        <button type="button" className={secondaryButton} onClick={() => setLines((all) => [...all, blankLine()])}>
-          Add a line
+        <button type="button" className={secondaryButton} onClick={() => {
+            const added = blankLine();
+            setLines((all) => [...all, added]);
+            setOpen(added.key);
+          }}
+        >
+          Add goods
         </button>
 
         <fieldset className={`${cardClass} space-y-3`}>

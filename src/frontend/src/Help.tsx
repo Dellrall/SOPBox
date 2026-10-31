@@ -62,13 +62,13 @@ export const GUIDES: Guide[] = [
     icon: ScanLine,
     what: "Check a delivery as it arrives, against each product's rules.",
     how: [
-      "Photograph the supplier's delivery order: the lines are read for you. Or type them in.",
+      "Photograph the supplier's delivery order: the goods are read for you. Or type them in. Each item folds into a bubble; tap one to open it.",
       "To pick a product fast, tap the barcode button next to it and point the camera at the pack.",
       "Pick the storage area the stock goes to.",
-      "Enter the temperature and quantity of each line, and add photos of anything wrong.",
+      "Enter the temperature and quantity of each item, and add photos of anything wrong.",
       "Add the price per unit from the invoice if you have it: SOPBox flags a price rise of 10% or more.",
-      "Type the expiry date printed on the pack. Two dates in one delivery? Tap Split this line. Can't see it in a sealed box? Tick Can't see it yet and fill it in later on Expiry dates.",
-      "Lines that pass are accepted and added to stock. Anything that fails goes to Approvals.",
+      "Type the expiry date printed on the pack. Two dates in one delivery? Tap Split these goods. Can't see it in a sealed box? Tick Can't see it yet and fill it in later on Expiry dates.",
+      "Goods that pass are accepted and added to stock. Anything that fails goes to Approvals.",
     ],
   },
   {
