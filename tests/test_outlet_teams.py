@@ -87,3 +87,26 @@ def test_the_outlet_manager_makes_assistant_managers_who_hire_but_do_not_fire(cl
     assert client.patch(f"/api/users/{amy['id']}", json={"assistant": False}).json()["assistant"] is False
     staff = {"username": "zoe", "display_name": "Zoe", "role": "staff", "assistant": True, "password": PASSWORD}
     assert client.post("/api/users", json=staff).status_code == 422
+
+
+def test_someone_tied_to_an_outlet_sees_and_uses_only_its_storage_areas(client, _database, catalogue_ids):
+    _pro(_database, client)
+    home = client.get("/api/outlets").json()[0]
+    kl = client.post("/api/outlets", json={"name": "Outlet KL"}).json()[-1]
+    home_store, kl_store = home["storages"][0]["id"], kl["storages"][0]["id"]
+    _person(client, "kim", "staff", kl["id"])
+    kim = sign_in("kim")
+    assert [o["id"] for o in kim.get("/api/outlets").json()] == [kl["id"]]
+    assert [o["id"] for o in client.get("/api/outlets").json()] == sorted([home["id"], kl["id"]], key=lambda i: i != home["id"])
+    # The owner counts at both outlets; Kim sees only her outlet's count, and cannot count elsewhere.
+    for store in (home_store, kl_store):
+        made = client.post("/api/stocktakes", json={"storage_id": store, "count_date": "2026-10-31", "lines": [
+            {"product_id": catalogue_ids["fries"], "expected_stock": 0, "counted_stock": 0}]})
+        assert made.status_code == 201, made.text
+    client.patch(f"/api/users/{kim.get('/api/auth/me').json()['id']}", json={"section_access": {"stocktake": "edit"}})
+    assert [s["storage"] for s in kim.get("/api/stocktakes").json()] == ["Outlet KL / Store"]
+    assert kim.get(f"/api/storages/{home_store}/stock").status_code == 403
+    assert kim.get(f"/api/storages/{kl_store}/stock").status_code == 200
+    other = kim.post("/api/stocktakes", json={"storage_id": home_store, "count_date": "2026-10-31", "lines": [
+        {"product_id": catalogue_ids["fries"], "expected_stock": 0, "counted_stock": 0}]})
+    assert other.status_code == 403

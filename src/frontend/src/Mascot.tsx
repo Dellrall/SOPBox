@@ -470,15 +470,16 @@ export function MascotDock({ fallback, go, page }: { fallback: Scene; go: (page:
 
   useEffect(() => {
     // `input` fires for every edit in any field, including phone keyboards that send no key codes.
+    // Bubble phase, after React's own handler: reacting first wiped what was typed into the Ask box on phones.
     const onInput = () => {
       setPaw((p) => 1 - p);
       setTyping(true);
       clearTimeout(typingTimer.current);
       typingTimer.current = window.setTimeout(() => setTyping(false), 700);
     };
-    document.addEventListener("input", onInput, true);
+    document.addEventListener("input", onInput);
     return () => {
-      document.removeEventListener("input", onInput, true);
+      document.removeEventListener("input", onInput);
       clearTimeout(typingTimer.current);
       clearTimeout(petTimer.current);
     };

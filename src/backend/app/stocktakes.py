@@ -288,7 +288,7 @@ LEFT JOIN stocktake_lines l ON l.stocktake_id = s.id
 def list_stocktakes(conn: psycopg.Connection, workspace_id: int) -> list[StocktakeOut]:
     rows = conn.execute(
         _SUMMARY_SQL
-        + " WHERE s.workspace_id = %s GROUP BY s.id "
+        + f" WHERE s.workspace_id = %s AND {locations.mine('s.storage_id')} GROUP BY s.id "
         "ORDER BY s.count_date DESC, s.id DESC LIMIT 200",
         (workspace_id,),
     ).fetchall()

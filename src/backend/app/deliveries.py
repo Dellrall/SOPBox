@@ -349,18 +349,22 @@ def get_delivery(conn: psycopg.Connection, ws: int, delivery_id: int) -> Deliver
     return _delivery(conn, row)
 
 
+# Deliveries from before storage areas existed have none; everyone still sees those.
+_OWN = f"(storage_id IS NULL OR {locations.mine('storage_id')})"
+
+
 def list_deliveries(
     conn: psycopg.Connection, ws: int, status: DeliveryStatus | None = None, limit: int = 50
 ) -> list[Delivery]:
     if status:
         rows = conn.execute(
-            "SELECT * FROM deliveries WHERE workspace_id = %s AND status = %s "
+            f"SELECT * FROM deliveries WHERE workspace_id = %s AND status = %s AND {_OWN} "
             "ORDER BY id DESC LIMIT %s",
             (ws, status, limit),
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT * FROM deliveries WHERE workspace_id = %s ORDER BY id DESC LIMIT %s", (ws, limit)
+            f"SELECT * FROM deliveries WHERE workspace_id = %s AND {_OWN} ORDER BY id DESC LIMIT %s", (ws, limit)
         ).fetchall()
     return [_delivery(conn, r) for r in rows]
 

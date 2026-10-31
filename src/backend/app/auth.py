@@ -415,8 +415,9 @@ def refuse_if_closed(conn: psycopg.Connection, *workspace_ids: int) -> None:
 
 
 def act_as(conn: psycopg.Connection, user: CurrentUser) -> None:
-    """Point the connection at this proven user's workspace, and log their actions as theirs."""
-    scope_to_user(conn, user.workspace_id, user.id)
+    """Point the connection at this proven user's workspace, and log their actions as theirs.
+    Anyone but the owner who is tied to an outlet (Team) works only in that outlet's storage areas."""
+    scope_to_user(conn, user.workspace_id, user.id, None if user.role == "owner" else user.outlet_id)
 
 
 User = Annotated[CurrentUser, Depends(current_user)]

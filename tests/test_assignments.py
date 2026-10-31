@@ -6,6 +6,8 @@ from test_purchasing import issued_order, supplier_id  # noqa: F401 - fixture
 
 TODAY = date.today()
 
+from tests.test_deliveries_api import receive, sausage_line
+
 
 def _jobs(c, day=TODAY):
     resp = c.get("/api/jobs", params={"day": day.isoformat()})
@@ -75,13 +77,17 @@ def test_only_managers_assign_others_and_staff_only_leave_themselves(client, cat
 def test_a_planned_count_is_a_job_until_that_storage_area_is_counted(client, catalogue_ids, make_user):
     sam = make_user("staff", "sam", "Sam Staff")
     sam_id = next(u["id"] for u in client.get("/api/users").json() if u["username"] == "sam")
+    storage = client.get("/api/outlets").json()[0]["storages"][0]["id"]
+    plan = {"storage_id": storage, "due_date": TODAY.isoformat(), "user_id": sam_id}
+    # Staff count only with edit access to Stock count, and without it never see counts as jobs.
+    assert client.post("/api/count-plans", json=plan).status_code == 403
+    assert not [j for j in _jobs(sam).values() if j["kind"] == "count"]
+    client.patch(f"/api/users/{sam_id}", json={"section_access": {"stocktake": "edit"}})
     count = client.post("/api/stocktakes", json={
         "count_date": TODAY.isoformat(),
         "lines": [{"product_id": catalogue_ids["fries"], "expected_stock": 0, "counted_stock": 0}],
     })
     assert count.status_code == 201, count.text
-    storage = client.get("/api/outlets").json()[0]["storages"][0]["id"]
-    plan = {"storage_id": storage, "due_date": TODAY.isoformat(), "user_id": sam_id}
     assert client.post("/api/count-plans", json=plan).status_code == 204
     job = next(j for j in _jobs(sam).values() if j["kind"] == "count")
     assert (job["when"], [p["name"] for p in job["pics"]]) == ("Count it today", ["Sam Staff"])
@@ -121,3 +127,14 @@ def test_an_order_job_has_sop_steps_from_its_products_and_ticks_are_idempotent(c
     assert client.post(f"/api/jobs/po/{order['id']}/ticks", json={"step": "Dance", "done": True}).status_code == 422
     assert client.post(f"/api/jobs/po/{order['id']}/ticks", json={**step, "done": False}).status_code == 204
     assert _jobs(client)[("po", order["id"])]["ticks"] == []
+
+
+def test_held_deliveries_are_jobs_only_for_people_who_can_approve(client, catalogue_ids, make_user):
+    sam = make_user("staff", "sam")
+    sam_id = next(u["id"] for u in client.get("/api/users").json() if u["username"] == "sam")
+    delivery = receive(client, catalogue_ids, sausage_line(catalogue_ids, temp_c=-5))
+    assert delivery["status"] == "pending_approval"
+    held = ("delivery", delivery["id"])
+    assert held in _jobs(client) and held not in _jobs(sam)
+    body = {"kind": "delivery", "ref_id": held[1], "user_id": sam_id}
+    assert client.post("/api/assignments", json=body).status_code == 403

@@ -680,7 +680,7 @@ def get_db() -> Iterator[psycopg.Connection]:
         finally:
             # The pool reuses this connection: forget which workspace and user it served.
             if not conn.closed:
-                conn.execute("RESET app.workspace_id; RESET app.user_id")
+                conn.execute("RESET app.workspace_id; RESET app.user_id; RESET app.outlet_id")
 
 
 def scope_to_workspace(conn: psycopg.Connection, workspace_id: int) -> None:
@@ -688,10 +688,12 @@ def scope_to_workspace(conn: psycopg.Connection, workspace_id: int) -> None:
     conn.execute("SELECT set_config('app.workspace_id', %s, false)", (str(workspace_id),))
 
 
-def scope_to_user(conn: psycopg.Connection, workspace_id: int, user_id: int) -> None:
+def scope_to_user(conn: psycopg.Connection, workspace_id: int, user_id: int, outlet_id: int | None = None) -> None:
     """scope_to_workspace, and who is signed in so the audit log ties each action to their account.
-    One round trip for both, since every signed-in request does this."""
+    `outlet_id` limits someone tied to one outlet to its storage areas (locations.OWN_OUTLET).
+    One round trip for all, since every signed-in request does this."""
     conn.execute(
-        "SELECT set_config('app.workspace_id', %s, false), set_config('app.user_id', %s, false)",
-        (str(workspace_id), str(user_id)),
+        "SELECT set_config('app.workspace_id', %s, false), set_config('app.user_id', %s, false), "
+        "set_config('app.outlet_id', %s, false)",
+        (str(workspace_id), str(user_id), "" if outlet_id is None else str(outlet_id)),
     )
