@@ -50,7 +50,7 @@ export const GUIDES: Guide[] = [
     what: "What you ordered from each supplier and how much of it has arrived.",
     how: [
       "Create an order with the products and quantities, then issue it.",
-      "When the goods arrive, tap Receive on the order: the receiving check starts with its lines filled in.",
+      "When the goods arrive, tap Receive on the order: the receiving check starts with its lines marked in blue with what was ordered. Enter what actually arrived, or photograph the delivery order to fill it in.",
       "Part deliveries are tracked until everything has arrived.",
       "Open an order and tap Print or save as PDF for a signed paper copy for your records.",
       "Draft from low stock: pick a supplier and the amounts cover a week of recent use plus each minimum. With 3 weeks of uploaded sales, next week's sales are forecast from their trend. Tap a line to see why.",
