@@ -249,6 +249,7 @@ export function SiteFooter({ navigate }: { navigate: Navigate }) {
       </div>
       <div className="mx-auto max-w-6xl border-t border-line px-5 py-5 sm:px-8">
         <SdgFooter />
+        <p className="mt-4 text-xs text-muted">Built on the Orbyte template.</p>
       </div>
     </footer>
   );
