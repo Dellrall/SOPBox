@@ -3,7 +3,7 @@ import { ArrowLeft, Fingerprint, Send } from "lucide-react";
 import { api } from "./api";
 import type { KitchenScreen, Me, SignInMethods } from "./types";
 import { ErrorNote, inputClass, labelClass, primaryButton, secondaryButton } from "./ui";
-import { consumeTelegram, lastSignIn, lastSignInAt, passkeyError, passkeysSupported, signInWithPasskey, takeAuthReturn, telegramLoginUrl, type ShownMethod } from "./signin";
+import { consumeTelegram, lastSignIn, passkeyError, passkeysSupported, signInWithPasskey, takeAuthReturn, telegramLoginUrl, type ShownMethod } from "./signin";
 
 // Side by side on phones (icon over a short word) so they take one row; full width from sm up.
 const optionButton = `${secondaryButton} relative min-w-0 flex-1 flex-col justify-center gap-1 px-1 py-2.5 text-xs sm:w-full sm:flex-row sm:gap-2 sm:py-3 sm:text-base`;
@@ -11,10 +11,9 @@ const optionButton = `${secondaryButton} relative min-w-0 flex-1 flex-col justif
 /** The small "Last used" tag on the matching sign-in button (the button needs `relative`). */
 export function LastUsed({ method, on }: { method: ShownMethod; on: ShownMethod | null }) {
   if (method !== on) return null;
-  const at = lastSignInAt();
   return (
     <span aria-hidden data-testid="last-used" className="absolute -top-2.5 right-3 rounded-full bg-leaf px-2 py-0.5 text-[11px] font-semibold text-brand-950 shadow-sm ring-2 ring-white">
-      Last used{at && ` · ${at}`}
+      Last used
     </span>
   );
 }
