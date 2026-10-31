@@ -123,6 +123,12 @@ def test_free_holds_up_to_fifty_products(client, catalogue_ids, _database):
         assert client.post("/api/products", json={"name": f"Item {i}", "category_id": category, "base_unit": "pcs"}).status_code == 201
     refused = client.post("/api/products", json={"name": "One too many", "category_id": category, "base_unit": "pcs"})
     assert refused.status_code == 403 and "up to 50 products" in refused.json()["detail"]
+    # Archiving one makes room; bringing it back once the room is used is refused too.
+    first = catalogue_ids["fries"]
+    assert client.patch(f"/api/products/{first}", json={"archived": True}).status_code == 200
+    assert client.post("/api/products", json={"name": "Replacement", "category_id": category, "base_unit": "pcs"}).status_code == 201
+    back = client.patch(f"/api/products/{first}", json={"archived": False})
+    assert back.status_code == 403 and "up to 50 products" in back.json()["detail"]
     assert client.get("/api/pricing").json()["prices"]["free_products"] == 50
 
 

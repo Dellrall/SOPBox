@@ -229,6 +229,10 @@ def update_product(conn: psycopg.Connection, ws: int, product_id: int, data: Pro
 
 
 def set_archived(conn: psycopg.Connection, ws: int, product_id: int, archived: bool) -> Product:
+    if not archived and conn.execute(
+        "SELECT archived FROM products WHERE id = %s AND workspace_id = %s", (product_id, ws)
+    ).fetchone() == {"archived": True}:
+        plans.require(conn, ws, "product")  # bringing one back counts towards the Free limit
     cur = conn.execute(
         "UPDATE products SET archived = %s WHERE id = %s AND workspace_id = %s",
         (archived, product_id, ws),
