@@ -468,7 +468,11 @@ export default function Receive({
           const units = unitsFor(product);
           const hint = rangeHint(product);
           const isOpen = open === -1 ? false : lines.some((l) => l.key === open) ? line.key === open : i === 0;
-          const got = baseQty(product, line.quantity, line.unit);
+          // Goods split over two expiry dates count together against the order.
+          const got =
+            baseQty(product, line.quantity, line.unit) === null
+              ? null
+              : lines.filter((l) => l.key === line.key || (l.productId !== null && l.productId === line.productId)).reduce((sum, l) => sum + (baseQty(product, l.quantity, l.unit) ?? 0), 0);
           const want = Number(line.expected);
           const match = !line.ordered || got === null ? null : got === want ? "Matches" : got < want ? `${want - got} ${product?.base_unit} short` : `${got - want} ${product?.base_unit} extra`;
           const amount = line.quantity.trim() ? `${line.quantity} ${line.unit}`.trim() : line.ordered ? "Enter what arrived" : "No amount yet";
