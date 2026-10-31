@@ -62,6 +62,20 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 
 All features: [docs/FEATURES.md](docs/FEATURES.md).
 
+### 💰 Pricing
+
+Launch prices for early customers, held for their first 12 months (list price after that in brackets). Shown live at [sopbox.replit.app/pricing](https://sopbox.replit.app/pricing); the numbers live at the top of `src/backend/app/plans.py`.
+
+| Plan | Price | Includes |
+| ---- | ----- | -------- |
+| **Free** | RM0 | One outlet (any number of storage areas), up to 50 products, the whole team, 30 AI uses a month (10 of them for sales reading) |
+| **Pro** | RM49 a month for the first outlet (RM89) + RM29 for each further outlet (RM49), paid yearly | Charged by use: a month with no work recorded costs nothing. More outlets, HQ branch links, till API keys, 150 AI uses a month per outlet |
+| **Pro lifetime** | RM2,990 once per outlet, approved by the team | Then only AI reading is charged, RM0.30 a read |
+| **Enterprise** | By quote | Everything, terms agreed with us |
+| Add-ons | Priority support RM190 a year (free in the first year); custom work quoted per task, from RM100 | |
+
+One AI use costs us roughly RM0.10–0.30, so each allowance stays well within what the plan brings in. Payments are not taken in the app yet: plans are turned on by the team or with a plan code.
+
 ### 🛠️ Tech Stack
 
 | Layer         | Technology                   |
