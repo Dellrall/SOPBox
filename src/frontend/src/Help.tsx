@@ -105,7 +105,7 @@ export const GUIDES: Guide[] = [
     what: "What each outlet and storage area holds, transfers between them, and sales.",
     how: [
       "Move stock between storage areas or outlets with a transfer. Tap Print / PDF on a transfer for a paper copy.",
-      "Upload your till's sales so the next count shows only real losses.",
+      "Sales: fill in what was sold, like a stock count, or tap Sales sheet, fill it in and upload it. Pick the lot label each sale came from; left blank, the earliest expiry is used. Then tap Take off stock, so the next count shows only real losses.",
       "Sales by menu item: tap Read a report and pick a photo, PDF or sheet from any till, or paste the text. Products are matched by code or name; the AI suggests the rest or asks you a question. Check each line, answer, then Take off stock. Matches are remembered, so next time needs no AI.",
       "A till connected by API key that sends an unknown item waits under Till sales waiting for you: tap Finish.",
     ],
@@ -180,6 +180,7 @@ export const GUIDES: Guide[] = [
       "The week strip shows how many jobs fall on each day, and how many are yours. Tap a day to see only that day.",
       "Tap Take it when a job has no PIC (person in charge), or a big order has only one. Otherwise ask to take over, and a manager approves. A message confirms each change, with Undo.",
       "Each job has its own steps, written from the order: call the supplier, clear space, the temperature check for each category, packs and expiry. Tick them as you go.",
+      "Only need the checklists? Tap Jobs to fold it away; it stays folded on this phone. Tap Checklists at the top to jump straight to them.",
       "Open Tasks and tick each step as you do it. Your name shows next to it, and the list starts fresh each day.",
       "Every day lists open by themselves; lists under Only when needed (a busy day, a new starter) open with a tap.",
       "Managers: assign any job to anyone, plan a stock count for a day, and add lists or start from a ready-made one.",

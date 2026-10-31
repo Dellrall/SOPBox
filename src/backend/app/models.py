@@ -1373,15 +1373,21 @@ class ApiSoldItemsIn(_In):
     items: list[SoldItem] = Field(min_length=1, max_length=500)
 
 
+class SaleLineIn(_ProductQuantity):
+    lot_id: int | None = Field(default=None, gt=0)  # the labelled lot it came from, for expiry tracking
+
+
 class SaleIn(_In):
     storage_id: int
     sale_date: date
     source: str = Field(default="", max_length=200)  # the uploaded file's name
-    lines: list[_ProductQuantity] = Field(min_length=1, max_length=5000)
+    lines: list[SaleLineIn] = Field(min_length=1, max_length=5000)
 
     @model_validator(mode="after")
     def _check(self) -> "SaleIn":
-        _unique_products(self.lines)
+        keys = [(line.product_id, line.lot_id) for line in self.lines]
+        if len(keys) != len(set(keys)):
+            raise ValueError("each product and lot can only be listed once")
         return self
 
 
@@ -1392,6 +1398,8 @@ class SalePreviewLine(BaseModel):
     base_unit: str
     quantity: int
     in_stock: int  # in the chosen storage area
+    lot_id: int | None = None
+    lot_code: str | None = None
 
 
 class SalePreview(BaseModel):
@@ -1406,6 +1414,7 @@ class SaleLineOut(BaseModel):
     base_unit: str
     quantity: int
     deducted: int
+    lot_code: str | None = None
 
 
 class SaleOut(BaseModel):

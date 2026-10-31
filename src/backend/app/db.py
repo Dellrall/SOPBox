@@ -575,11 +575,13 @@ CREATE TABLE IF NOT EXISTS stock_lots (
     from_lot_id BIGINT REFERENCES stock_lots(id) ON DELETE SET NULL,  -- moved here by a transfer
     expiry_on DATE,  -- NULL: still to be filled in
     quantity BIGINT NOT NULL CHECK (quantity > 0),
-    used BIGINT NOT NULL DEFAULT 0 CHECK (used >= 0),  -- disposed of or moved away
+    used BIGINT NOT NULL DEFAULT 0 CHECK (used >= 0),  -- disposed of, moved away or sold from this lot by name
     created_at TEXT NOT NULL,
     alerted TEXT,  -- the last alert sent: 'soon' or 'expired'
     UNIQUE (workspace_id, number)
 );
+-- The labelled lot a sold line came from, when the person named one.
+ALTER TABLE sale_lines ADD COLUMN IF NOT EXISTS lot_id BIGINT REFERENCES stock_lots(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS stock_lots_place_idx ON stock_lots (product_id, storage_id);
 -- What a sold item takes off stock, learnt once from a person (or the AI, confirmed by a person):
 -- "Hot dog set" = 1 pcs Hot dog bun + 1 pcs Beef sausage. A row with no product: not stock (a service

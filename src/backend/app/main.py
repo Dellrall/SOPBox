@@ -1346,6 +1346,15 @@ def download_sales_template(user: StocktakeReader, conn: Conn):
     )
 
 
+@app.get("/api/sales/template.xlsx")
+def download_sales_sheet(user: StocktakeReader, conn: Conn, storage_id: Annotated[int | None, Query()] = None):
+    return Response(
+        content=sales.build_template(conn, user.workspace_id, storage_id),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="sales-sheet.xlsx"'},
+    )
+
+
 @app.post("/api/sales/preview", response_model=SalePreview)
 async def preview_sales(
     file: Annotated[UploadFile, File()],
