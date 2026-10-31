@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Plus } from "lucide-react";
 import { api } from "./api";
 import type { PageId } from "./App";
@@ -87,15 +87,35 @@ export default function Tasks({ canEdit, meId, go }: { canEdit: boolean; meId: n
     }
   }
 
+  const errorRef = useRef<HTMLDivElement>(null);
   async function remove(list: TaskList) {
     if (!window.confirm(`Remove the task list “${list.name}”?`)) return;
     try {
       await api.deleteTaskList(list.id);
       setLists((all) => all?.filter((l) => l.id !== list.id) ?? null);
     } catch (e) {
-      setError((e as Error).message);
+      setError(`Could not remove “${list.name}”: ${(e as Error).message}`);
+      // The lists sit far below the message: bring it into view.
+      requestAnimationFrame(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
     }
   }
+  // Editing opens in place of the list's card, so nobody has to scroll up to the form.
+  const form = editing && (
+    <ListForm
+      list={editing === "new" ? null : editing}
+      onCancel={() => setEditing(null)}
+      onSaved={(saved) => {
+        setLists((all) => (editing === "new" ? [...(all ?? []), saved] : all?.map((l) => (l.id === saved.id ? saved : l)) ?? null));
+        setEditing(null);
+      }}
+    />
+  );
+  const card = (l: TaskList, open?: boolean) =>
+    editing !== "new" && editing?.id === l.id ? (
+      <div key={l.id}>{form}</div>
+    ) : (
+      <ListCard key={l.id} list={l} open={open} onTick={tick} canEdit={canEdit} onEdit={() => setEditing(l)} onDelete={() => remove(l)} />
+    );
 
   const daily = lists?.filter((l) => l.kind === "daily") ?? [];
   const events = lists?.filter((l) => l.kind === "event") ?? [];
@@ -110,17 +130,8 @@ export default function Tasks({ canEdit, meId, go }: { canEdit: boolean; meId: n
           </button>
         )}
       </PageTitle>
-      {error && <ErrorNote message={error} />}
-      {editing && (
-        <ListForm
-          list={editing === "new" ? null : editing}
-          onCancel={() => setEditing(null)}
-          onSaved={(saved) => {
-            setLists((all) => (editing === "new" ? [...(all ?? []), saved] : all?.map((l) => (l.id === saved.id ? saved : l)) ?? null));
-            setEditing(null);
-          }}
-        />
-      )}
+      <div ref={errorRef}>{error && <ErrorNote message={error} />}</div>
+      {editing === "new" && form}
       <Jobs day={day} meId={meId} manager={canEdit} go={go} />
       {lists === null ? null : lists.length === 0 && !canEdit ? (
         <Empty>No task lists yet. Your manager adds them.</Empty>
@@ -130,14 +141,14 @@ export default function Tasks({ canEdit, meId, go }: { canEdit: boolean; meId: n
             <SectionTitle>Every day</SectionTitle>
             {daily.length === 0 && <p className="text-sm text-muted">No daily lists yet.</p>}
             {daily.map((l) => (
-              <ListCard key={l.id} list={l} open onTick={tick} canEdit={canEdit} onEdit={() => setEditing(l)} onDelete={() => remove(l)} />
+              card(l, true)
             ))}
           </section>
           <section className="space-y-3">
             <SectionTitle>Only when needed</SectionTitle>
             {events.length === 0 && <p className="text-sm text-muted">No lists for busy times or new starters yet.</p>}
             {events.map((l) => (
-              <ListCard key={l.id} list={l} onTick={tick} canEdit={canEdit} onEdit={() => setEditing(l)} onDelete={() => remove(l)} />
+              card(l)
             ))}
           </section>
           {canEdit && missing.length > 0 && (

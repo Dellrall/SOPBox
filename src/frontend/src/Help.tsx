@@ -42,6 +42,18 @@ export const GUIDES: Guide[] = [
     ],
   },
   {
+    page: "purchasing",
+    title: "Purchase orders",
+    icon: ShoppingCart,
+    what: "What you ordered from each supplier and how much of it has arrived.",
+    how: [
+      "Create an order with the products and quantities, then issue it.",
+      "When the goods arrive, tap Receive on the order: the receiving check starts with its lines filled in.",
+      "Part deliveries are tracked until everything has arrived.",
+      "Draft from low stock: pick a supplier and the amounts cover a week of recent use plus each minimum. With 3 weeks of uploaded sales, next week's sales are forecast from their trend. Tap a line to see why.",
+    ],
+  },
+  {
     page: "receive",
     title: "Receiving check",
     icon: ScanLine,
@@ -68,18 +80,6 @@ export const GUIDES: Guide[] = [
     icon: Truck,
     what: "Every delivery received, with its readings, photos and outcome.",
     how: ["Search by supplier, PO, delivery number, product or person.", "Open one to see exactly what was checked, by whom and when."],
-  },
-  {
-    page: "purchasing",
-    title: "Purchase orders",
-    icon: ShoppingCart,
-    what: "What you ordered from each supplier and how much of it has arrived.",
-    how: [
-      "Create an order with the products and quantities, then issue it.",
-      "When the goods arrive, tap Receive on the order: the receiving check starts with its lines filled in.",
-      "Part deliveries are tracked until everything has arrived.",
-      "Draft from low stock: pick a supplier and the amounts cover a week of recent use plus each minimum. With 3 weeks of uploaded sales, next week's sales are forecast from their trend. Tap a line to see why.",
-    ],
   },
   {
     page: "stocktake",

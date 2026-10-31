@@ -268,10 +268,14 @@ export default function Records() {
               <button
                 key={r.id}
                 type="button"
-                aria-pressed={range === r.id}
-                onClick={() => setRange(r.id)}
+                aria-pressed={range === r.id && !day}
+                // A day picked on the calendar overrides the range, so choosing a range lets go of it.
+                onClick={() => {
+                  setRange(r.id);
+                  setDay(null);
+                }}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                  range === r.id ? "bg-brand-50 text-brand-800 ring-1 ring-brand-300" : "text-slate-600 hover:bg-slate-100"
+                  range === r.id && !day ? "bg-brand-50 text-brand-800 ring-1 ring-brand-300" : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 {r.label}

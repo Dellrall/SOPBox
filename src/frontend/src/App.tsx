@@ -143,7 +143,7 @@ const MENU: (PageId | Group)[] = [
   "receive",
   "approvals",
   "tasks",
-  { label: "Deliveries", icon: Truck, items: ["records", "purchasing"] },
+  { label: "Deliveries", icon: Truck, items: ["purchasing", "records"] }, // order first, then what arrived
   { label: "Stock", icon: Boxes, items: ["stocktake", "stock"] },
   { label: "Catalogue", icon: PackageSearch, items: ["products", "categories"] },
   "team",
