@@ -109,10 +109,10 @@ function LotRow({ lot, canEdit, onChanged }: { lot: Lot; canEdit: boolean; onCha
           }}
         >
           <div>
-            <label className={labelClass} htmlFor={`exp-${lot.id}`}>
+            <label className={labelClass} htmlFor={`lot-exp-${lot.id}`}>
               Expiry date on the pack
             </label>
-            <input id={`exp-${lot.id}`} type="date" required className={inputClass} value={date} onChange={(e) => setDate(e.target.value)} />
+            <input id={`lot-exp-${lot.id}`} type="date" required className={inputClass} value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <button type="submit" className={primaryButton} disabled={busy}>
             Save
@@ -139,11 +139,11 @@ function LotRow({ lot, canEdit, onChanged }: { lot: Lot; canEdit: boolean; onCha
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             <div>
-              <label className={labelClass} htmlFor={`qty-${lot.id}`}>
+              <label className={labelClass} htmlFor={`lot-qty-${lot.id}`}>
                 How many {lot.base_unit}
               </label>
               <input
-                id={`qty-${lot.id}`}
+                id={`lot-qty-${lot.id}`}
                 type="number"
                 min={1}
                 max={lot.left}
@@ -154,17 +154,17 @@ function LotRow({ lot, canEdit, onChanged }: { lot: Lot; canEdit: boolean; onCha
               />
             </div>
             <div>
-              <label className={labelClass} htmlFor={`how-${lot.id}`}>
+              <label className={labelClass} htmlFor={`lot-how-${lot.id}`}>
                 How
               </label>
-              <Select id={`how-${lot.id}`} className={inputClass} value={method} choices={METHODS} onChange={(v) => setMethod(v as DisposalMethod)} />
+              <Select id={`lot-how-${lot.id}`} className={inputClass} value={method} choices={METHODS} onChange={(v) => setMethod(v as DisposalMethod)} />
             </div>
           </div>
           <div>
-            <label className={labelClass} htmlFor={`note-${lot.id}`}>
+            <label className={labelClass} htmlFor={`lot-note-${lot.id}`}>
               Note (optional)
             </label>
-            <input id={`note-${lot.id}`} maxLength={300} className={inputClass} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <input id={`lot-note-${lot.id}`} maxLength={300} className={inputClass} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="submit" className={dangerButton} disabled={busy}>
