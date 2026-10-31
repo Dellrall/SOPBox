@@ -572,6 +572,28 @@ export default function Receive({
                   <TempInput id={`temp-${line.key}`} className={`${inputClass} placeholder:text-sm`} placeholder="Leave empty if product is damaged" value={line.temp} onChange={(temp) => update(line.key, { temp })} />
                   {hint && <p className="mt-1 text-xs text-slate-600">{hint}</p>}
                 </div>
+                {product && (
+                  <div>
+                    <label className={labelClass} htmlFor={`expiry-${line.key}`}>
+                      Expiry{product.track_expiry ? "" : " (optional)"}
+                    </label>
+                    <input
+                      id={`expiry-${line.key}`}
+                      type="date"
+                      className={`${inputClass} !px-2`}
+                      value={line.expiry}
+                      onChange={(e) => update(line.key, { expiry: e.target.value, expiryLater: false })}
+                    />
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                      {product.track_expiry && !line.expiry && (
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={line.expiryLater} onChange={(e) => update(line.key, { expiryLater: e.target.checked })} />
+                          Can&apos;t see it yet
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {!line.ordered && (
                   <div>
                     <label className={labelClass} htmlFor={`expected-${line.key}`}>
@@ -593,30 +615,7 @@ export default function Receive({
                     value={line.price}
                     onChange={(e) => update(line.key, { price: e.target.value })}
                   />
-                  <p className="mt-1 text-xs text-slate-600">As on the invoice. Spots price rises.</p>
                 </div>
-                {product && (
-                  <div className="col-span-2">
-                    <label className={labelClass} htmlFor={`expiry-${line.key}`}>
-                      Expiry date on the pack{product.track_expiry ? "" : " (optional)"}
-                    </label>
-                    <input
-                      id={`expiry-${line.key}`}
-                      type="date"
-                      className={inputClass}
-                      value={line.expiry}
-                      onChange={(e) => update(line.key, { expiry: e.target.value, expiryLater: false })}
-                    />
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                      {product.track_expiry && !line.expiry && (
-                        <label className="flex items-center gap-2">
-                          <input type="checkbox" checked={line.expiryLater} onChange={(e) => update(line.key, { expiryLater: e.target.checked })} />
-                          Can&apos;t see it yet: open the box later
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
               {(product || lines.length > 1) && (
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
