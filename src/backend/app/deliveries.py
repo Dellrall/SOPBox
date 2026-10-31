@@ -349,8 +349,8 @@ def get_delivery(conn: psycopg.Connection, ws: int, delivery_id: int) -> Deliver
     return _delivery(conn, row)
 
 
-# Deliveries from before storage areas existed have none; everyone still sees those.
-_OWN = f"(storage_id IS NULL OR {locations.mine('storage_id')})"
+# Deliveries from before storage areas existed have none: they count as the first outlet's.
+_OWN = locations.mine("deliveries.storage_id")
 
 
 def list_deliveries(
@@ -374,7 +374,7 @@ def list_audit(
 ) -> list[AuditEntry]:
     rows = conn.execute(
         "SELECT * FROM audit_log WHERE workspace_id = %s AND (%s::bigint IS NULL OR actor_id = %s) "
-        "ORDER BY id DESC LIMIT %s",
+        f"AND ({locations.OWN_OUTLET} IS NULL OR outlet_id = {locations.OWN_OUTLET}) ORDER BY id DESC LIMIT %s",
         (ws, actor_id, actor_id, limit),
     ).fetchall()
     return [AuditEntry(**r) for r in rows]

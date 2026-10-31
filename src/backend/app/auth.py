@@ -395,7 +395,7 @@ def current_user(request: Request, conn: Conn) -> CurrentUser:
         if not branch.isdecimal() or len(branch) > 18:
             raise ForbiddenError("you cannot work in that workspace")
         user = in_branch(conn, user, int(branch))
-    act_as(conn, user)
+    act_as(conn, user, request.headers.get(OUTLET_HEADER, ""))
     if request.method not in ("GET", "HEAD") and not request.url.path.startswith(_OPEN_WHEN_CLOSED):
         refuse_if_closed(conn, home, user.workspace_id)
     return user
@@ -414,10 +414,24 @@ def refuse_if_closed(conn: psycopg.Connection, *workspace_ids: int) -> None:
         raise ForbiddenError("this business is closed, so nothing can be changed; its owner can reopen it in Settings")
 
 
-def act_as(conn: psycopg.Connection, user: CurrentUser) -> None:
+OUTLET_HEADER = "X-SOPBox-Outlet"
+
+
+def tied_outlet(user: CurrentUser) -> int | None:
+    """The outlet someone works only in: anyone but the owner whose Team entry names one."""
+    return None if user.role == "owner" else user.outlet_id
+
+
+def act_as(conn: psycopg.Connection, user: CurrentUser, view: str = "") -> None:
     """Point the connection at this proven user's workspace, and log their actions as theirs.
-    Anyone but the owner who is tied to an outlet (Team) works only in that outlet's storage areas."""
-    scope_to_user(conn, user.workspace_id, user.id, None if user.role == "owner" else user.outlet_id)
+    Someone tied to an outlet works only in it; anyone else in the outlet picked in the sidebar
+    (`view`, an id of this workspace's), or across all outlets."""
+    tied = tied_outlet(user)
+    scope_to_user(conn, user.workspace_id, user.id, tied)
+    if tied is None and view.isdecimal() and len(view) <= 18:
+        # Scoped first: row-level security only finds this workspace's outlets.
+        if conn.execute("SELECT 1 FROM outlets WHERE id = %s", (int(view),)).fetchone():
+            conn.execute("SELECT set_config('app.outlet_id', %s, false)", (view,))
 
 
 User = Annotated[CurrentUser, Depends(current_user)]

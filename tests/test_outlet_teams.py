@@ -110,3 +110,38 @@ def test_someone_tied_to_an_outlet_sees_and_uses_only_its_storage_areas(client, 
     other = kim.post("/api/stocktakes", json={"storage_id": home_store, "count_date": "2026-10-31", "lines": [
         {"product_id": catalogue_ids["fries"], "expected_stock": 0, "counted_stock": 0}]})
     assert other.status_code == 403
+
+
+def test_picking_an_outlet_shows_only_its_orders_counts_deliveries_tasks_and_activity(client, _database, catalogue_ids):
+    """The owner works in one outlet at a time, or in all of them; what each outlet has stays apart."""
+    _pro(_database, client)
+    home = client.get("/api/outlets").json()[0]
+    kl = client.post("/api/outlets", json={"name": "Outlet KL"}).json()[-1]
+    at = {o["id"]: {"X-SOPBox-Outlet": str(o["id"])} for o in (home, kl)}
+    supplier = client.post("/api/suppliers", json={"name": "Fresh Mart"}).json()["id"]
+    line = {"product_id": catalogue_ids["fries"], "quantity": 2, "unit": "bdl"}
+    for outlet in (home, kl):
+        h = at[outlet["id"]]
+        made = client.post("/api/purchase-orders", headers=h, json={"supplier_id": supplier, "order_date": "2026-10-31", "lines": [line]})
+        assert made.status_code == 201, made.text
+        assert client.post("/api/tasks", headers=h, json={"name": f"Open {outlet['name']}", "kind": "daily", "for_role": "staff", "steps": ["Lights on"]}).status_code == 201
+        count = client.post("/api/stocktakes", headers=h, json={"count_date": "2026-10-31", "lines": [
+            {"product_id": catalogue_ids["fries"], "expected_stock": 0, "counted_stock": 0}]})
+        assert count.status_code == 201, count.text
+        assert client.post("/api/deliveries", headers=h, json={"supplier": f"For {outlet['name']}", "lines": [
+            {"product_id": catalogue_ids["fries"], "name": "Fries tray", "quantity": 1, "unit": "bdl"}]}).status_code == 201
+
+    for outlet, other in ((home, kl), (kl, home)):
+        h = at[outlet["id"]]
+        assert len(client.get("/api/purchase-orders", headers=h).json()) == 1
+        assert [t["name"] for t in client.get("/api/tasks", headers=h, params={"day": "2026-10-31"}).json()] == [f"Open {outlet['name']}"]
+        assert {s["storage"].split(" / ")[0] for s in client.get("/api/stocktakes", headers=h).json()} == {outlet["name"]}
+        assert [d["supplier"] for d in client.get("/api/deliveries", headers=h).json()] == [f"For {outlet['name']}"]
+        details = " ".join(a["detail"] for a in client.get("/api/audit", headers=h).json())
+        assert f"For {other['name']}" not in details and f"Open {other['name']}" not in details
+
+    # All outlets: everything; an order cannot be added without picking where it is for.
+    assert len(client.get("/api/purchase-orders").json()) == 2
+    assert len(client.get("/api/deliveries").json()) == 2
+    nowhere = client.post("/api/purchase-orders", json={"supplier_id": supplier, "order_date": "2026-10-31", "lines": [line]})
+    assert nowhere.status_code == 422 and "pick an outlet" in nowhere.text

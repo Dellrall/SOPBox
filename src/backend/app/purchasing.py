@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 
 import psycopg
 
-from app import catalogue, insights, rules
+from app import catalogue, insights, locations, rules
 from app.auditlog import audit
 from app.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.models import (
@@ -177,7 +177,7 @@ def _order(conn: psycopg.Connection, row: dict) -> PurchaseOrder:
 
 _ORDER_SELECT = (
     "SELECT o.*, s.name AS supplier FROM purchase_orders o "
-    "JOIN suppliers s ON s.id = o.supplier_id WHERE o.workspace_id = %s"
+    f"JOIN suppliers s ON s.id = o.supplier_id WHERE {locations.at_outlet('o.outlet_id')} AND o.workspace_id = %s"
 )
 
 
@@ -244,6 +244,7 @@ def _insert_order(
     conn: psycopg.Connection, ws: int, actor: str, supplier_id: int, order_date: date,
     expected_date: date | None, notes: str, lines: list[tuple],
 ) -> int:
+    outlet = locations.current_outlet(conn, ws)  # the order is for the outlet worked in
     with conn.transaction():
         # One workspace's numbers are sequential. The lock makes two creates take turns.
         conn.execute("SELECT pg_advisory_xact_lock(7462, %s)", (ws,))
@@ -253,10 +254,10 @@ def _insert_order(
         ).fetchone()["n"]
         order_id = conn.execute(
             "INSERT INTO purchase_orders (workspace_id, number, supplier_id, status, order_date, "
-            "expected_date, notes, created_by, created_at) "
-            "VALUES (%s, %s, %s, 'draft', %s, %s, %s, %s, %s) RETURNING id",
+            "expected_date, notes, created_by, created_at, outlet_id) "
+            "VALUES (%s, %s, %s, 'draft', %s, %s, %s, %s, %s, %s) RETURNING id",
             (ws, number, supplier_id, order_date.isoformat(),
-             expected_date.isoformat() if expected_date else None, notes, actor, _now()),
+             expected_date.isoformat() if expected_date else None, notes, actor, _now(), outlet),
         ).fetchone()["id"]
         _write_lines(conn, order_id, lines)
         audit(conn, ws, actor, "po.created", None, f"{reference(number)}: {len(lines)} line(s)")

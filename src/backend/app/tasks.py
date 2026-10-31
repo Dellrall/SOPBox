@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 import psycopg
 from psycopg.types.json import Jsonb
 
+from app import locations
 from app.auditlog import audit
 from app.auth import CurrentUser
 from app.errors import InvalidRequestError, NotFoundError
@@ -29,7 +30,7 @@ def _check_day(day: date) -> None:
 def list_tasks(conn: psycopg.Connection, user: CurrentUser, day: date, only: int | None = None) -> list[TaskList]:
     rows = conn.execute(
         "SELECT * FROM task_lists WHERE workspace_id = %s AND for_role = ANY(%s) AND (%s::bigint IS NULL OR id = %s) "
-        "ORDER BY kind, lower(name)",
+        f"AND {locations.at_outlet('outlet_id')} ORDER BY kind, lower(name)",
         (user.workspace_id, list(_roles_seen(user)), only, only),
     ).fetchall()
     ticks: dict[int, list[TaskTick]] = {r["id"]: [] for r in rows}
@@ -56,10 +57,12 @@ def _one(conn: psycopg.Connection, user: CurrentUser, list_id: int, day: date) -
 
 
 def create_list(conn: psycopg.Connection, user: CurrentUser, data: TaskListIn) -> TaskList:
+    outlet = locations.current_outlet(conn, user.workspace_id)  # each outlet keeps its own lists
     with conn.transaction():
         row = conn.execute(
-            "INSERT INTO task_lists (workspace_id, name, kind, for_role, steps) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-            (user.workspace_id, data.name, data.kind, data.for_role, Jsonb(data.steps)),
+            "INSERT INTO task_lists (workspace_id, name, kind, for_role, steps, outlet_id) "
+            "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+            (user.workspace_id, data.name, data.kind, data.for_role, Jsonb(data.steps), outlet),
         ).fetchone()
         audit(conn, user.workspace_id, user.display_name, "task_list.created", None, data.name)
     return _one(conn, user, row["id"], datetime.now(timezone.utc).date())

@@ -20,13 +20,35 @@ DEFAULT_STORAGE = "Store"
 
 # A storage area as people read it: "Main outlet / Store".
 LABEL_SQL = "(o.name || ' / ' || s.name)"
-# The outlet the signed-in person is tied to (auth.act_as), or NULL for the owner and anyone free to work anywhere.
+# The outlet this request works in (auth.act_as): the one the person is tied to, else the one picked
+# in the sidebar, else NULL for all outlets.
 OWN_OUTLET = "NULLIF(current_setting('app.outlet_id', true), '')::bigint"
+# Rows from before outlets belong to the workspace's first outlet.
+FIRST_OUTLET = "(SELECT min(id) FROM outlets WHERE workspace_id = NULLIF(current_setting('app.workspace_id', true), '')::bigint)"
+
+
+def at_outlet(outlet_col: str) -> str:
+    """SQL: this row's outlet is the one worked in, or all outlets are shown."""
+    return f"({OWN_OUTLET} IS NULL OR COALESCE({outlet_col}, {FIRST_OUTLET}) = {OWN_OUTLET})"
 
 
 def mine(storage_col: str) -> str:
-    """SQL: this row's storage area is in the person's outlet, or they are not tied to one."""
-    return f"({OWN_OUTLET} IS NULL OR {storage_col} IN (SELECT id FROM storages WHERE outlet_id = {OWN_OUTLET}))"
+    """SQL: this row's storage area is in the outlet worked in, or all outlets are shown."""
+    return at_outlet(f"(SELECT st.outlet_id FROM storages st WHERE st.id = {storage_col})")
+
+
+def current_outlet(conn: psycopg.Connection, ws: int) -> int:
+    """The outlet a new order or task list belongs to: the one worked in, or the only one there is."""
+    row = conn.execute(
+        f"SELECT COALESCE({OWN_OUTLET}, (SELECT min(id) FROM outlets WHERE workspace_id = %s HAVING count(*) = 1)) AS id",
+        (ws,),
+    ).fetchone()
+    if row["id"] is None:
+        default_storage(conn, ws)  # a workspace without outlets gets its first one
+        row = conn.execute("SELECT min(id) AS id FROM outlets WHERE workspace_id = %s HAVING count(*) = 1", (ws,)).fetchone()
+        if row is None or row["id"] is None:
+            raise InvalidRequestError("pick an outlet at the top of the menu first, then add it there")
+    return row["id"]
 
 
 def _now() -> str:
@@ -83,7 +105,7 @@ def resolve(conn: psycopg.Connection, ws: int, storage_id: int | None) -> int:
         ).fetchone()
         return own["id"] if own else first
     storage_label(conn, ws, storage_id)
-    if not conn.execute(f"SELECT 1 FROM storages WHERE id = %s AND {mine('id')}", (storage_id,)).fetchone():
+    if not conn.execute(f"SELECT 1 FROM storages s WHERE s.id = %s AND {at_outlet('s.outlet_id')}", (storage_id,)).fetchone():
         raise ForbiddenError("you work at another outlet, so you cannot use that storage area")
     return storage_id
 
@@ -124,18 +146,18 @@ def adjust(conn: psycopg.Connection, ws: int, product_id: int, storage_id: int, 
 # ---- outlets and storage areas ------------------------------------------------------------------
 
 
-def list_outlets(conn: psycopg.Connection, ws: int) -> list[OutletOut]:
+def list_outlets(conn: psycopg.Connection, ws: int, only: int | None = None) -> list[OutletOut]:
+    """Every outlet, or `only` the one someone is tied to. Not narrowed by the sidebar's pick: it lists the choices."""
     default_storage(conn, ws)
     outlets = conn.execute(
-        f"SELECT id, name FROM outlets WHERE workspace_id = %s AND ({OWN_OUTLET} IS NULL OR id = {OWN_OUTLET}) "
-        "ORDER BY lower(name)",
-        (ws,),
+        "SELECT id, name FROM outlets WHERE workspace_id = %s AND (%s::bigint IS NULL OR id = %s) ORDER BY lower(name)",
+        (ws, only, only),
     ).fetchall()
     storages = conn.execute(
         f"SELECT s.id, s.name, s.outlet_id, o.name AS outlet, {LABEL_SQL} AS label "
-        f"FROM storages s JOIN outlets o ON o.id = s.outlet_id WHERE s.workspace_id = %s AND {mine('s.id')} "
+        "FROM storages s JOIN outlets o ON o.id = s.outlet_id WHERE s.workspace_id = %s AND (%s::bigint IS NULL OR o.id = %s) "
         "ORDER BY lower(s.name)",
-        (ws,),
+        (ws, only, only),
     ).fetchall()
     return [
         OutletOut(id=o["id"], name=o["name"], storages=[StorageOut(**s) for s in storages if s["outlet_id"] == o["id"]])

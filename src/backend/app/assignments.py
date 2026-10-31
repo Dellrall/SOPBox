@@ -107,7 +107,7 @@ def _open_work(conn: psycopg.Connection, ws: int) -> dict[tuple[str, int], dict]
         "SELECT d.id, d.supplier, COUNT(l.id) AS lines, COALESCE(SUM(l.unit_price_sen * l.quantity), 0) AS value "
         "FROM deliveries d LEFT JOIN delivery_lines l ON l.delivery_id = d.id "
         "WHERE d.workspace_id = %s AND d.status = 'pending_approval' "
-        f"AND (d.storage_id IS NULL OR {locations.mine('d.storage_id')}) GROUP BY d.id ORDER BY d.id",
+        f"AND {locations.mine('d.storage_id')} GROUP BY d.id ORDER BY d.id",
         (ws,),
     ).fetchall():
         work[("delivery", d["id"])] = {

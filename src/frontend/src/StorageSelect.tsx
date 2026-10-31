@@ -10,7 +10,8 @@ export function useStorages(): StorageArea[] {
   useEffect(() => {
     api
       .outlets()
-      .then((outlets) => setStorages(outlets.flatMap((o) => o.storages)))
+      // Only the picked outlet's areas: the server refuses the others while one outlet is picked.
+      .then((outlets) => setStorages(outlets.filter((o) => currentOutlet === null || o.id === currentOutlet).flatMap((o) => o.storages)))
       .catch(() => setStorages([]));
   }, []);
   return storages;
