@@ -151,13 +151,13 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
 type Group = { label: string; icon: LucideIcon; items: PageId[] };
 const MENU: (PageId | Group)[] = [
   "dashboard",
+  "tasks",
   { label: "Catalogue", icon: PackageSearch, items: ["products", "categories"] },
   { label: "Stock", icon: Boxes, items: ["stocktake", "stock", "expiry"] },
   // Order, receive it, then the record. Approvals stands alone below: it is checked often.
   { label: "Ordering", icon: Truck, items: ["purchasing", "receive", "records"] },
   // On their own below the three sections: approvals first, reports last.
   "approvals",
-  "tasks",
   "reports",
 ];
 /** Pages about the person and the business, in the menu under their picture. */
