@@ -67,7 +67,7 @@ export const GUIDES: Guide[] = [
       "Pick the storage area the stock goes to.",
       "Enter the temperature and quantity of each item, and add photos of anything wrong.",
       "Add the price per unit from the invoice if you have it: SOPBox flags a price rise of 10% or more.",
-      "Type the expiry date printed on the pack. Two dates in one delivery? Tap Split these goods. Can't see it in a sealed box? Tick Can't see it yet and fill it in later on Expiry dates.",
+      "Type the expiry date printed on the pack. Two dates in one delivery? Tap Two dates? Split. Can't see it in a sealed box? Tick Can't see it yet and fill it in later on Expiry dates.",
       "Goods that pass are accepted and added to stock. Anything that fails goes to Approvals.",
     ],
   },
