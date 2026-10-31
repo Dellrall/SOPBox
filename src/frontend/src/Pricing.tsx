@@ -22,7 +22,7 @@ export const FREE: Tier = {
   tagline: "One café, restaurant or kitchen",
   items: [
     "1 outlet, up to 50 products, any number of storage areas",
-    "Snap a delivery order: AI reads the lines for you",
+    "Snap a delivery order: AI reads the lines for you (30 AI reads a month, up to 10 of them for sales reports)",
     "Every delivery checked: temperature, quantity, pack size and expiry date",
     "Failed deliveries held for a manager to accept, return or reject",
     "Stock counts, transfers, sales upload and expiry alerts",
@@ -36,6 +36,8 @@ export const PRO: Tier = {
   items: [
     "Everything in Free, plus:",
     "Unlimited products",
+    "150 AI reads a month for each outlet: delivery orders, sales reports, SOPs",
+    "Read any sales report with AI: photo, PDF or sheet",
     "Add outlets: each keeps its own stock, staff, orders and records",
     "Switch between outlets, or see all of them together",
     "Staff and managers see only their own outlet",

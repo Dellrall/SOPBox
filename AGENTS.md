@@ -61,7 +61,7 @@ src/backend/app/        FastAPI app
   sales_ai.py           sales by menu item: read any report (AI), match by code, saved match, then AI suggestion or a question; a person confirms, code works out totals, matches are remembered
   ask.py                the in-app helper
   notifications.py, team_group.py, inbox.py   Telegram alerts, Telegram team group, in-app inbox
-  plans.py              plans and every price shown (None prints "TBC"); Free holds FREE_PRODUCTS; Pro bills only outlets with work that month (USAGE_ACTIONS); lifetime per outlet
+  plans.py              plans and every price shown (None prints "TBC"); Free holds FREE_PRODUCTS; Pro bills only outlets with work that month (USAGE_ACTIONS); lifetime per outlet; every paid AI call goes through `plans.metered` (monthly AI_MONTH allowance, counted in `ai_uses`)
   plan_codes.py, set_plan.py, reset_mfa.py, migrate.py, devdb.py   command-line tools (python -m app.<name>)
 src/frontend/src/       React + Vite + TypeScript + Tailwind v4
   App.tsx               signed-in shell: PageId, NAV, menu groups, phone bottom bar (TAB_ORDER)

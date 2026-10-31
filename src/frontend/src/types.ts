@@ -89,6 +89,8 @@ export type Plan = {
   priority_support: boolean;
   active_outlets: number; // outlets with work recorded this month
   bill_sen: number | null; // Pro by use, this month so far
+  ai_used: number; // AI uses this month
+  ai_allowed: number | null; // null: no monthly limit
 };
 
 export type Pricing = {
