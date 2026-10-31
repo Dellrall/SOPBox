@@ -352,7 +352,7 @@ _CONFLICTS = {
     "suppliers_name_key": "there is already a supplier with that name",
     "products_code_key": "another product already has that code",
     "products_barcode_key": "another product already has that barcode",
-    "task_lists_name_key": "there is already a task list with that name",
+    "task_lists_outlet_name_key": "this outlet already has a task list with that name",
     "outlets_name_key": "there is already an outlet with that name",
     "storages_name_key": "this outlet already has a storage area with that name",
     **dict.fromkeys(
