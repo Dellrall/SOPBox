@@ -305,7 +305,7 @@ export const api = {
   sales: () => get<Sale[]>("/sales"),
   previewSales: (file: File, storageId: number) => upload<SalePreview>(`/sales/preview?storage_id=${storageId}`, file),
   createSale: (body: SaleIn) => post<Sale>("/sales", body),
-  salesTemplate: () => download("/sales/template.csv"),
+  salesTemplate: (storageId: number) => download(`/sales/template.xlsx?storage_id=${storageId}`),
   readSales: (body: SalesReadIn) => post<SalesDraft>("/sales/read", body),
   confirmSales: (body: { storage_id: number; sale_date: string; source: string; lines: SalesConfirmLine[]; draft_id: number | null }) =>
     post<Sale>("/sales/confirm", body),

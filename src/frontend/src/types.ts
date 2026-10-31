@@ -571,7 +571,16 @@ export type Transfer = {
   lines: { product_id: number | null; product_name: string; base_unit: string; quantity: number }[];
 };
 export type SalePreview = {
-  lines: { product_id: number; code: string; product_name: string; base_unit: string; quantity: number; in_stock: number }[];
+  lines: {
+    product_id: number;
+    code: string;
+    product_name: string;
+    base_unit: string;
+    quantity: number;
+    in_stock: number;
+    lot_id: number | null;
+    lot_code: string | null;
+  }[];
   unknown_codes: string[];
 };
 export type SoldItem = { name: string; code?: string | null; quantity: number; unit?: string };
@@ -605,7 +614,12 @@ export type SalesReadIn = {
 };
 export type SalesConfirmLine = { name: string; code: string | null; quantity: number; not_stock: boolean; components: SaleComponent[]; remember: boolean };
 export type SaleDraftKept = { id: number; storage_id: number; storage: string; sale_date: string; source: string; items: SoldItem[]; created_at: string };
-export type SaleIn = { storage_id: number; sale_date: string; source: string; lines: ProductQuantity[] };
+export type SaleIn = {
+  storage_id: number;
+  sale_date: string;
+  source: string;
+  lines: (ProductQuantity & { lot_id?: number | null })[];
+};
 export type Sale = {
   id: number;
   reference: string;
@@ -614,7 +628,7 @@ export type Sale = {
   source: string;
   recorded_by: string;
   created_at: string;
-  lines: { product_id: number | null; product_code: string; product_name: string; base_unit: string; quantity: number; deducted: number }[];
+  lines: { product_id: number | null; product_code: string; product_name: string; base_unit: string; quantity: number; deducted: number; lot_code: string | null }[];
 };
 
 // ---- HQ and branches ----

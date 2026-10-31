@@ -3,6 +3,7 @@ import { ArrowRight, Download, FileUp, Plus, Trash2 } from "lucide-react";
 import { api } from "./api";
 import { PrintButton } from "./Print";
 import SalesReader from "./SalesReader";
+import SalesSheet from "./SalesSheet";
 import SearchSelect from "./SearchSelect";
 import { StorageSelect, firstStorageId, useStorages } from "./StorageSelect";
 import type { Sale, SalePreview, StockLevel, Transfer } from "./types";
@@ -339,102 +340,29 @@ function Sales({ storages, canEdit }: { storages: Storages; canEdit: boolean }) 
   const [picked, setPicked] = useState<number | null>(null);
   const storageId = picked ?? firstStorageId(storages);
   const [saleDate, setSaleDate] = useState(localDate());
-  const [file, setFile] = useState("");
-  const [preview, setPreview] = useState<SalePreview | null>(null);
   const [history, setHistory] = useState<Sale[]>([]);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
 
   const loadHistory = useCallback(() => {
     api.sales().then(setHistory).catch((e: Error) => setError(e.message));
   }, []);
   useEffect(loadHistory, [loadHistory]);
 
-  async function read(chosen: File) {
-    if (storageId === null) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      setPreview(await api.previewSales(chosen, storageId));
-      setFile(chosen.name);
-    } catch (e) {
-      setPreview(null);
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function save() {
-    if (!preview || storageId === null) return;
-    setBusy(true);
-    setError("");
-    try {
-      const saved = await api.createSale({
-        storage_id: storageId,
-        sale_date: saleDate,
-        source: file,
-        lines: preview.lines.map((l) => ({ product_id: l.product_id, quantity: l.quantity })),
-      });
-      const short = saved.lines.filter((l) => l.deducted < l.quantity).length;
-      setNotice(
-        `${saved.reference} saved: ${saved.lines.length} products taken off ${saved.storage}.` +
-          (short ? ` ${short} sold more than was in stock; count those soon.` : ""),
-      );
-      setPreview(null);
-      setFile("");
-      loadHistory();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function template() {
-    try {
-      const url = URL.createObjectURL(await api.salesTemplate());
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "sales-template.csv";
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-
   return (
     <div className="space-y-6">
+      {error && <ErrorNote message={error} />}
       {canEdit && (
         <section className={`${cardClass} space-y-4`}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <SectionTitle>Upload sales</SectionTitle>
-              <p className="mt-1 max-w-xl text-sm text-muted">
-                An .xlsx or .csv with a Product code column and a Quantity column, e.g. your POS export. Codes are set on each
-                product in Products &amp; SOP; quantities are in the product's base unit.
-              </p>
-            </div>
-            <button type="button" className={secondaryButton} onClick={() => void template()}>
-              <Download aria-hidden className="h-4 w-4" />
-              Sales template
-            </button>
+          <div>
+            <SectionTitle>Record sales</SectionTitle>
+            <p className="mt-1 max-w-xl text-sm text-muted">
+              Fill in what was sold, like a stock count, or download the sales sheet, fill it in and upload it. Pick the lot
+              label used so expiry dates stay right.
+            </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-56">
-              <StorageSelect
-                id="sales-storage"
-                label="Sold from"
-                storages={storages}
-                value={storageId}
-                onChange={(id) => {
-                  setPicked(id);
-                  setPreview(null);
-                }}
-              />
+              <StorageSelect id="sales-storage" label="Sold from" storages={storages} value={storageId} onChange={setPicked} />
             </div>
             <div>
               <label className={labelClass} htmlFor="sales-date">
@@ -442,52 +370,8 @@ function Sales({ storages, canEdit }: { storages: Storages; canEdit: boolean }) 
               </label>
               <input id="sales-date" type="date" className={inputClass} value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
             </div>
-            <label className={`${secondaryButton} cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""}`}>
-              <FileUp aria-hidden className="h-4 w-4" />
-              Choose sales sheet
-              <input
-                className="sr-only"
-                type="file"
-                accept=".xlsx,.csv"
-                onChange={(e) => {
-                  const chosen = e.target.files?.[0];
-                  e.target.value = "";
-                  if (chosen) void read(chosen);
-                }}
-              />
-            </label>
           </div>
-          {preview && (
-            <div className="space-y-3">
-              {preview.unknown_codes.length > 0 && (
-                <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  No product has {preview.unknown_codes.length === 1 ? "this code" : "these codes"}, so{" "}
-                  {preview.unknown_codes.length === 1 ? "it is" : "they are"} left out: {preview.unknown_codes.join(", ")}
-                </p>
-              )}
-              <ul className="divide-y divide-line rounded-lg border border-line text-sm">
-                {preview.lines.map((l) => (
-                  <li key={l.product_id} className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-2">
-                    <span>
-                      <span className="font-medium text-ink">{l.product_name}</span>
-                      <span className="ml-2 font-mono text-xs text-muted">{l.code}</span>
-                    </span>
-                    <span className={l.quantity > l.in_stock ? "font-semibold text-red-700" : "text-slate-700"}>
-                      sold {l.quantity} {l.base_unit} · in stock {l.in_stock}
-                      {l.quantity > l.in_stock && ` (${l.quantity - l.in_stock} short)`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {preview.lines.length > 0 && (
-                <button type="button" className={primaryButton} disabled={busy} onClick={() => void save()}>
-                  {busy ? "Saving…" : `Take ${preview.lines.length} products off stock`}
-                </button>
-              )}
-            </div>
-          )}
-          {error && <ErrorNote message={error} />}
-          {notice && <SuccessNote>{notice}</SuccessNote>}
+          <SalesSheet storageId={storageId} saleDate={saleDate} onSaved={loadHistory} />
           <SalesReader storageId={storageId} saleDate={saleDate} onDate={setSaleDate} onSaved={loadHistory} />
         </section>
       )}
@@ -507,7 +391,7 @@ function Sales({ storages, canEdit }: { storages: Storages; canEdit: boolean }) 
               </p>
               <p className="text-slate-700">
                 {s.lines
-                  .map((l) => `${l.product_name} ${l.quantity} ${l.base_unit}${l.deducted < l.quantity ? ` (${l.quantity - l.deducted} short)` : ""}`)
+                  .map((l) => `${l.product_name} ${l.quantity} ${l.base_unit}${l.lot_code ? ` from ${l.lot_code}` : ""}${l.deducted < l.quantity ? ` (${l.quantity - l.deducted} short)` : ""}`)
                   .join(", ")}
               </p>
             </article>

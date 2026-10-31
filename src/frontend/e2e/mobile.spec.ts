@@ -365,7 +365,7 @@ test.describe("phone layout", () => {
     await page.getByRole("option", { name: `${outlet} / Store` }).tap();
     await expect(page.getByRole("combobox", { name: "To" })).toHaveText(`${outlet} / Store`);
     await page.getByRole("tab", { name: "Sales" }).tap();
-    await expect(page.getByText("Choose sales sheet")).toBeVisible();
+    await expect(page.getByText("Upload sales sheet")).toBeVisible();
     await expectFitsScreen(page);
   });
 
