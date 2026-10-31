@@ -234,6 +234,20 @@ def test_a_short_delivery_waits_for_a_manager_and_the_rest_stays_outstanding(cli
     assert client.get(f"/api/purchase-orders/{order['id']}").json()["receiving_status"] == "fully_received"
 
 
+def test_goods_split_over_two_expiry_dates_count_together(client, catalogue_ids, supplier_id):
+    ids = catalogue_ids
+    order = issued_order(client, ids, supplier_id)
+    short = receive(client, order["id"], [fries(ids, 2), sausage(ids, 25), sausage(ids, 10)]).json()
+    assert short["status"] == "pending_approval"
+    assert "received 35 pcs over 2 expiry dates, expected 40" in " ".join(short["lines"][1]["issues"])
+    client.post(f"/api/deliveries/{short['id']}/decision", json={"decision": "reject", "reason": "recount"})
+
+    split = receive(client, order["id"], [fries(ids, 2), sausage(ids, 25), sausage(ids, 15)]).json()
+    assert split["status"] == "accepted", split
+    assert split["lines"][1]["expected_base_qty"] == 40
+    assert client.get(f"/api/purchase-orders/{order['id']}").json()["receiving_status"] == "fully_received"
+
+
 def test_a_rejected_delivery_does_not_count_against_the_order(client, catalogue_ids, supplier_id):
     ids = catalogue_ids
     order = issued_order(client, ids, supplier_id)

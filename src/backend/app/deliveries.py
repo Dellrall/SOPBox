@@ -137,12 +137,41 @@ def create_delivery(
                     # The order, not the person receiving, says how much is expected.
                     lines[i] = line.model_copy(update={"expected_base_qty": left})
 
+        # Goods split over two expiry dates are counted together: the total must match, not each part.
+        split: dict[int, list[int]] = {}
+        for i, line in enumerate(lines):
+            if line.product_id is not None:
+                split.setdefault(line.product_id, []).append(i)
+        split_expected: dict[int, int] = {}
+        for product_id, at in split.items():
+            wanted = [lines[i].expected_base_qty for i in at if lines[i].expected_base_qty is not None]
+            if len(at) < 2 or not wanted:
+                continue
+            # From the order every part carries the same amount left; typed by hand, the parts add up.
+            from_order = data.purchase_order_id is not None and not po_issues[at[0]]
+            split_expected[product_id] = wanted[0] if from_order else sum(wanted)
+            for i in at:
+                lines[i] = lines[i].model_copy(update={"expected_base_qty": None})
+
         checks = []
         for line, extra in zip(lines, po_issues):
             check = rules.check_line(products.get(line.product_id), line)
             if extra:
                 check = check.model_copy(update={"passed": False, "issues": [*check.issues, *extra]})
             checks.append(check)
+        for product_id, expected in split_expected.items():
+            product = products[product_id]
+            at = split[product_id]
+            try:
+                received = sum(rules.to_base_units(product, lines[i].quantity, lines[i].unit) for i in at)
+            except ValueError:
+                continue  # that part already failed on its unit
+            finally:
+                lines[at[0]] = lines[at[0]].model_copy(update={"expected_base_qty": expected})  # kept on the record
+            if received != expected:
+                first = checks[at[0]]
+                issue = f"received {received} {product.base_unit} over {len(at)} expiry dates, expected {expected}"
+                checks[at[0]] = first.model_copy(update={"passed": False, "issues": [*first.issues, issue]})
         failed = sum(1 for c in checks if not c.passed)
         status = ACCEPTED if failed == 0 else PENDING
 
