@@ -255,6 +255,10 @@ export function SupportCard() {
   return (
     <form onSubmit={(e) => void submit(e)} className={`${cardClass} space-y-3`}>
       <SectionTitle>Get help</SectionTitle>
+      <p className="text-sm text-muted">
+        This goes to the SOPBox team, not your manager. We reply to the email on your account. For help with your outlet's
+        work, ask your manager.
+      </p>
       <div>
         <label className={labelClass} htmlFor="support-message">
           What do you need help with?
