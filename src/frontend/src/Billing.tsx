@@ -88,6 +88,11 @@ export function PlanCard({ owner }: { owner: boolean }) {
         )}
         . An outlet with no deliveries, counts, orders or sales in a month is not charged.
       </p>
+      <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700" data-testid="ai-allowance">
+        AI this month: <b>{plan.ai_used}</b>
+        {plan.ai_allowed === null ? " uses" : ` of ${plan.ai_allowed} uses`} (reading orders and sales reports, writing SOPs). It
+        starts again on the 1st; once used up, type lines in by hand.
+      </p>
       {plan.lapsed && (
         <p className="text-sm font-semibold text-amber-800">
           Your yearly plan has run out, so the workspace works as Free until it is renewed. Nothing was deleted.

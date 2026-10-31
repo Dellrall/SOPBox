@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, ask, sales_ai, telegram_bot, closing, export, hq, inquiries, insights, locations, lots, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
+from app import apikeys, ask, reports, sales_ai, telegram_bot, closing, export, hq, inquiries, insights, locations, lots, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -34,6 +34,9 @@ from app.errors import (
 )
 from app.extraction import explain_gaps, extract_lines, extract_products, write_sop
 from app.models import (
+    ReportFilter,
+    ReportKind,
+    ReportOut,
     ApiSoldItemsIn,
     ApiSoldItemsOut,
     SaleDraftOut,
@@ -883,7 +886,7 @@ def read_product_sheet(body: ExtractRequest, user: ProductEditor, conn: Conn):
             category_id=categories.get((s.category or "").lower()),
             exists=s.name.lower() in names,
         )
-        for s in extract_products(body.image_b64)
+        for s in plans.metered(conn, user.workspace_id, "products", lambda: extract_products(body.image_b64))
     ]
 
 
@@ -902,7 +905,7 @@ def draft_sop(body: SopDraftIn, user: ProductEditor, conn: Conn):
         "counted_in": body.base_unit,
         "pack_sizes": [f"1 {p.unit} = {p.base_qty} {body.base_unit}" for p in body.pack_units],
     }
-    return write_sop(facts, body.notes)
+    return plans.metered(conn, user.workspace_id, "sop", lambda: write_sop(facts, body.notes))
 
 
 @app.patch("/api/products/{product_id}", response_model=Product)
@@ -1013,7 +1016,7 @@ def extract(body: ExtractRequest, user: ReceivingEditor, conn: Conn):
     products = catalogue.list_products(conn, user.workspace_id, active_only=True)
     return [
         ExtractedLineOut(**line.model_dump(), product_id=catalogue.match_product(line.name, products))
-        for line in extract_lines(body.image_b64)
+        for line in plans.metered(conn, user.workspace_id, "delivery", lambda: extract_lines(body.image_b64))
     ]
 
 
@@ -1183,13 +1186,13 @@ def explain_stocktake(stocktake_id: int, user: StocktakeReader, conn: Conn):
     found = insights.count_insights(conn, user.workspace_id, stocktake_id)
     if not found.gaps:
         raise InvalidRequestError("nothing to explain: every product matched")
-    return explain_gaps({
+    return plans.metered(conn, user.workspace_id, "explain", lambda: explain_gaps({
         "sales_recorded": found.sales_recorded,
         "products": [
             g.model_dump(include={"product_name", "base_unit", "expected_stock", "counted_stock", "difference", "earlier", "pattern"})
             for g in found.gaps[:15]
         ],
-    })
+    }))
 
 
 # ---- outlets, storage areas, transfers and sales -------------------------------------------------
@@ -1448,6 +1451,15 @@ def api_record_sale(body: ApiSaleIn, client: KeyClient, conn: Conn):
 def api_record_sold_items(body: ApiSoldItemsIn, client: KeyClient, conn: Conn):
     """Record a sale by item name. Items with no product or saved match wait for a person on Stock & sales."""
     return sales_ai.from_till(conn, client.workspace_id, client.storage_id, f"API key {client.name}", body)
+
+
+# ---- reports ----------------------------------------------------------------------------------
+
+
+@app.get("/api/reports/{kind}", response_model=ReportOut)
+def report(kind: ReportKind, user: ManagerUp, conn: Conn, f: Annotated[ReportFilter, Query()]):
+    """One report over the outlet worked in, filtered by period, product, supplier and storage area."""
+    return reports.build(conn, user.workspace_id, kind, f)
 
 
 # ---- exporting your data ----------------------------------------------------------------------

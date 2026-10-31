@@ -89,6 +89,8 @@ export type Plan = {
   priority_support: boolean;
   active_outlets: number; // outlets with work recorded this month
   bill_sen: number | null; // Pro by use, this month so far
+  ai_used: number; // AI uses this month
+  ai_allowed: number | null; // null: no monthly limit
 };
 
 export type Pricing = {
@@ -704,4 +706,28 @@ export type Disposal = {
   notes: string;
   disposed_by: string;
   created_at: string;
+};
+
+export type ReportKind =
+  | "deliveries"
+  | "spend"
+  | "suppliers"
+  | "orders"
+  | "sales"
+  | "sales_by_product"
+  | "counts"
+  | "transfers"
+  | "waste"
+  | "stock"
+  | "movement"
+  | "expiry";
+export type ReportFilter = { date_from?: string; date_to?: string; product_id?: number; supplier?: string; storage_id?: number };
+export type Report = {
+  kind: ReportKind;
+  title: string;
+  columns: { key: string; label: string; kind: "text" | "number" | "money" | "date" }[];
+  rows: Record<string, string | number | null>[];
+  totals: Record<string, number>;
+  truncated: boolean;
+  filters_used: { day: boolean; product: boolean; supplier: boolean; storage: boolean };
 };

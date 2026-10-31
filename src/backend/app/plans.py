@@ -13,7 +13,9 @@ Workspaces from before plans are pre-alpha users: what they already set up keeps
 adding more follows their plan. An annual plan that has run out counts as Free (nothing is deleted).
 """
 
+from collections.abc import Callable
 from datetime import date, timedelta
+from typing import TypeVar
 
 import psycopg
 
@@ -21,6 +23,8 @@ from app.auditlog import audit
 from app.auth import CurrentUser, token_digest
 from app.errors import ConflictError, ForbiddenError, InvalidRequestError
 from app.models import PlanOut, PricingOut
+
+T = TypeVar("T")
 
 CURRENCY = "RM"
 # Launch prices hold for an early customer's first 12 months; "_later" is the list price after that.
@@ -39,6 +43,11 @@ PRICES: dict[str, int | None] = {
     "enterprise_month_from": None,  # agreed with sales
 }
 FREE_PRODUCTS = 50  # products a Free workspace can hold (archived ones do not count)
+# AI uses a month: order and product-sheet photos, the SOP writer, count explanations, sales reading.
+# One use costs us roughly RM 0.10-0.30, so each allowance stays well under what the plan brings in.
+# Pro's is per outlet on the plan; lifetime plans pay per use (ai_read_sen) and Enterprise is agreed.
+AI_MONTH = {"free": 30, "pro": 150}
+FREE_SALES_AI = 10  # of Free's 30, sales reading (a try; Pro reads sales freely within its allowance)
 KOFI_URL = ""  # e.g. https://ko-fi.com/sopbox; the Donate button shows once set
 SALES_EMAIL = ""
 SALES_PHONE = ""
@@ -49,7 +58,10 @@ UPGRADE = "your plan does not include this: see Settings, Plan & billing"
 
 def pricing() -> PricingOut:
     return PricingOut(
-        currency=CURRENCY, prices={**PRICES, "free_products": FREE_PRODUCTS}, kofi_url=KOFI_URL,
+        currency=CURRENCY,
+        prices={**PRICES, "free_products": FREE_PRODUCTS, "free_ai_month": AI_MONTH["free"],
+                "pro_ai_month": AI_MONTH["pro"], "free_sales_ai": FREE_SALES_AI},
+        kofi_url=KOFI_URL,
         sales_email=SALES_EMAIL, sales_phone=SALES_PHONE,
     )
 
@@ -76,6 +88,37 @@ def active_outlets(conn: psycopg.Connection, ws: int, today: date | None = None)
     ).fetchone()["n"]
 
 
+def _ai_allowed(plan: str, billing: str | None, outlets_allowed: int | None) -> int | None:
+    if plan == "enterprise" or billing == "lifetime":
+        return None
+    return AI_MONTH[plan] * (outlets_allowed or 1)
+
+
+def _ai_used(conn: psycopg.Connection, ws: int, feature: str | None = None) -> int:
+    return conn.execute(
+        "SELECT count(*) AS n FROM ai_uses WHERE workspace_id = %s AND at >= date_trunc('month', now()) "
+        "AND (%s::text IS NULL OR feature = %s)",
+        (ws, feature, feature),
+    ).fetchone()["n"]
+
+
+def metered(conn: psycopg.Connection, ws: int, feature: str, call: Callable[[], T]) -> T:
+    """Run one paid AI call within the plan's monthly allowance. Only a call that worked is counted."""
+    plan = current(conn, ws)
+    if plan.ai_allowed is not None and plan.ai_used >= plan.ai_allowed:
+        raise ForbiddenError(
+            f"this month's {plan.ai_allowed} AI uses are used up: type it in by hand, or see Settings, Plan & billing"
+        )
+    if plan.plan == "free" and feature == "sales" and _ai_used(conn, ws, "sales") >= FREE_SALES_AI:
+        raise ForbiddenError(
+            f"the Free plan reads sales with AI {FREE_SALES_AI} times a month: match the lines by hand, "
+            "or see Settings, Plan & billing"
+        )
+    result = call()
+    conn.execute("INSERT INTO ai_uses (workspace_id, feature) VALUES (%s, %s)", (ws, feature))
+    return result
+
+
 def current(conn: psycopg.Connection, ws: int) -> PlanOut:
     row = conn.execute(
         "SELECT plan, plan_billing, plan_until, paid_outlets, customization, priority_support_until, pre_alpha, "
@@ -86,6 +129,7 @@ def current(conn: psycopg.Connection, ws: int) -> PlanOut:
     lapsed = row["plan_billing"] == "annual" and (row["plan_until"] is None or row["plan_until"] < today)
     plan = "free" if lapsed else row["plan"]
     paid = plan != "free"
+    outlets_allowed = None if plan == "enterprise" else 1 + (row["paid_outlets"] if paid else 0)
     return PlanOut(
         plan=plan,
         label=LABEL[plan],
@@ -93,7 +137,7 @@ def current(conn: psycopg.Connection, ws: int) -> PlanOut:
         billing=row["plan_billing"] if paid else None,
         until=row["plan_until"] if paid else None,
         lapsed=lapsed and row["plan"] != "free",
-        outlets_allowed=None if plan == "enterprise" else 1 + (row["paid_outlets"] if paid else 0),
+        outlets_allowed=outlets_allowed,
         outlets_used=row["outlets_used"],
         api_access=paid,
         hq_links=paid,
@@ -102,6 +146,8 @@ def current(conn: psycopg.Connection, ws: int) -> PlanOut:
         or (row["priority_support_until"] is not None and row["priority_support_until"] >= today),
         active_outlets=(active := active_outlets(conn, ws, today)),
         bill_sen=monthly_bill_sen(active) if plan == "pro" else None,
+        ai_used=_ai_used(conn, ws),
+        ai_allowed=_ai_allowed(plan, row["plan_billing"] if paid else None, outlets_allowed),
     )
 
 

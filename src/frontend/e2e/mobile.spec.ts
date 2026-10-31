@@ -192,6 +192,7 @@ for (const who of ["owner", "manager", "staff"] as const) {
     test.use({ storageState: stateFile(who) });
 
     test("each page in the menu fits a phone", async ({ page }, testInfo) => {
+      test.setTimeout(90_000); // one test walks every page in the menu
       await page.goto("/");
       await expect(page.getByRole("button", { name: "More", exact: true })).toBeVisible();
       const labels = await navLabels(page);
@@ -635,6 +636,37 @@ test.describe("sales by menu item", () => {
       data: { sale_date: "2026-10-31", items: [{ name: "burger", quantity: 1 }] },
     });
     expect((await again.json()).status).toBe("recorded");
+    await context.close();
+  });
+});
+
+test.describe("reports", () => {
+  test("a manager sees this month's spending by supplier and switches report", async ({ browser, baseURL }, testInfo) => {
+    const context = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const tag = `${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    expect((await context.request.post("/api/auth/register", {
+      data: { workspace_name: `Reports ${tag}`, display_name: "Rae Owner", email: `r${tag}@example.com`, username: `r${tag}`, password: PASSWORD },
+    })).ok()).toBe(true);
+    const category = await (await context.request.post("/api/categories", { data: { name: "Dry" } })).json();
+    const product = await (await context.request.post("/api/products", { data: { name: "Rice", category_id: category.id, base_unit: "kg" } })).json();
+    expect((await context.request.post("/api/deliveries", {
+      data: { supplier: "Grain Co", lines: [{ product_id: product.id, name: "Rice", quantity: 10, unit: "kg", unit_price_sen: 450 }] },
+    })).ok()).toBe(true);
+
+    const page = await context.newPage();
+    await page.goto("/");
+    await openPage(page, "Reports");
+    const report = page.getByTestId("report");
+    await expect(report).toContainText("Spending by supplier and product");
+    await expect(report).toContainText("Grain Co");
+    await expect(report).toContainText("RM 45.00");
+    await expect(report.getByRole("button", { name: "CSV" })).toBeVisible();
+    await expectFitsScreen(page);
+    await page.getByRole("combobox", { name: "Report" }).tap();
+    await page.getByRole("option", { name: "Stock movement" }).tap();
+    await expect(report).toContainText("Stock movement by product");
+    await expect(report).toContainText("Rice");
+    await expectFitsScreen(page);
     await context.close();
   });
 });

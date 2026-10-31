@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type
 import {
   ArrowLeftRight,
   CalendarClock,
+  BarChart3,
   BookOpen,
   Boxes,
   ChevronDown,
@@ -62,6 +63,7 @@ const LOADERS = {
   Categories: () => import("./Categories"),
   Tasks: () => import("./Tasks"),
   Expiry: () => import("./Expiry"),
+  Reports: () => import("./Reports"),
 };
 const Pricing = lazy(LOADERS.Pricing);
 const Privacy = lazy(LOADERS.Privacy);
@@ -80,6 +82,7 @@ const Stocktake = lazy(LOADERS.Stocktake);
 const StockMoves = lazy(LOADERS.StockMoves);
 const Team = lazy(LOADERS.Team);
 const Expiry = lazy(LOADERS.Expiry);
+const Reports = lazy(LOADERS.Reports);
 const Help = lazy(LOADERS.Help);
 const CategoriesAndStorage = lazy(() => LOADERS.Categories().then((m) => ({ default: m.CategoriesAndStorage })));
 
@@ -120,6 +123,7 @@ export type PageId =
   | "stocktake"
   | "stock"
   | "expiry"
+  | "reports"
   | "team"
   | "help"
   | "settings";
@@ -137,6 +141,7 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
   { id: "stocktake", label: "Stock Count", icon: ClipboardList, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "stock", label: "Stock & sales", icon: ArrowLeftRight, roles: ["owner", "manager", "staff"], access: "stocktake" },
   { id: "expiry", label: "Expiry dates", icon: CalendarClock, roles: ["owner", "manager", "staff"], access: "stocktake" },
+  { id: "reports", label: "Reports", icon: BarChart3, roles: ["owner", "manager"] },
   { id: "team", label: "Team", icon: Users, roles: ["owner", "manager"] },
   { id: "help", label: "Help & guides", icon: BookOpen, roles: ["owner", "manager", "staff"] },
   { id: "settings", label: "Settings", icon: SettingsIcon, roles: ["owner", "manager", "staff"] },
@@ -147,6 +152,7 @@ type Group = { label: string; icon: LucideIcon; items: PageId[] };
 const MENU: (PageId | Group)[] = [
   "dashboard",
   "tasks",
+  "reports",
   { label: "Catalogue", icon: PackageSearch, items: ["products", "categories"] },
   { label: "Stock", icon: Boxes, items: ["stocktake", "stock", "expiry"] },
   // Order, receive it, approve what failed, then the record.
@@ -358,6 +364,7 @@ const IDLE: Record<PageId, Scene> = {
   stocktake: { who: "cabbage", action: "count" },
   stock: { who: "carrot", action: "count" },
   expiry: { who: "fish", action: "read" },
+  reports: { who: "carrot", action: "read" },
   team: { who: "crew", action: "wave" },
   help: { who: "cabbage", action: "read", text: "Pick a page to read about, or tap Show me and I'll walk you through it." },
   settings: { who: "cabbage", action: "sleep" },
@@ -744,6 +751,7 @@ function Shell({
         {page === "stocktake" && <Stocktake key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "stock" && <StockMoves key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
         {page === "expiry" && <Expiry key={visit} canEdit={sectionAllowed(me, "stocktake", true)} />}
+        {page === "reports" && <Reports key={visit} />}
         {page === "team" && <Team key={visit} me={me} />}
         {page === "help" && <Help key={visit} me={me} go={go} canOpen={canOpen} />}
         {page === "settings" && <Settings key={visit} me={me} onMeChanged={onMeChanged} />}

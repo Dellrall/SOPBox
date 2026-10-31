@@ -1528,6 +1528,38 @@ class PlanOut(BaseModel):
     # Pay for what is used: outlets with work recorded this calendar month, and what Pro would bill for it.
     active_outlets: int = 0
     bill_sen: int | None = None  # None: not billed by use (Free, Enterprise, or no price set)
+    ai_used: int = 0  # AI uses this calendar month
+    ai_allowed: int | None = None  # None: no monthly limit
+
+
+ReportKind = Literal[
+    "deliveries", "spend", "suppliers", "orders", "sales", "sales_by_product", "counts", "transfers", "waste",
+    "stock", "movement", "expiry",
+]
+
+
+class ReportFilter(BaseModel):
+    date_from: date | None = None
+    date_to: date | None = None
+    product_id: int | None = None
+    supplier: str | None = Field(default=None, max_length=200)
+    storage_id: int | None = None
+
+
+class ReportColumn(BaseModel):
+    key: str
+    label: str
+    kind: Literal["text", "number", "money", "date"]  # money: sen
+
+
+class ReportOut(BaseModel):
+    kind: ReportKind
+    title: str
+    columns: list[ReportColumn]
+    rows: list[dict[str, Any]]
+    totals: dict[str, int | float]  # added up here, for the columns where a total means something
+    truncated: bool  # more than reports.MAX_ROWS rows: narrow the filters
+    filters_used: dict[str, bool]  # which filters this report applies
 
 
 class PlanCodeIn(BaseModel):

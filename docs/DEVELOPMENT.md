@@ -176,6 +176,7 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `GET/POST /api/sales`, `POST /api/sales/preview`, `GET /api/sales/template.csv` | stock count access | Upload till sales, which take stock out |
 | `POST /api/sales/read`, `POST /api/sales/confirm`, `GET /api/sales/drafts` | stock count access | Sales by menu item: read a photo, PDF, sheet or text (AI), match to products (code, saved matches, then AI suggestions or questions), confirm; totals are worked out in code and matches remembered |
 | `GET /api/lots`, `PUT /api/lots/{id}/expiry`, `POST /api/lots/{id}/dispose`, `GET /api/disposals` | stock count access | Expiry lots (earliest expiry first), fill in a date, record a disposal |
+| `GET /api/reports/{kind}?date_from&date_to&product_id&supplier&storage_id` | owner, manager | Reports over the outlet worked in: `deliveries`, `spend`, `suppliers`, `orders`, `sales`, `sales_by_product`, `counts`, `transfers`, `waste`, `stock`, `movement`, `expiry`. Totals and values worked out in code (`app/reports.py`) |
 | `GET /api/workspace/links`, `POST /api/workspace/link-codes`, `POST/DELETE /api/workspace/hq`, `DELETE /api/workspace/branches/{id}` | owner | Link branches to an HQ workspace |
 | `GET/POST /api/api-keys`, `DELETE /api/api-keys/{id}` | manager | API keys for a till or POS |
 | `GET /api/v1/stock`, `POST /api/v1/sales`, `POST /api/v1/sales/items` | API key | For the till: read stock, record a sale by product code, or by item name (unknown items wait for a person) |

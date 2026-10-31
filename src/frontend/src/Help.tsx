@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   ArrowRight,
   Building2,
+  BarChart3,
   CalendarClock,
   Check,
   ClipboardCheck,
@@ -120,6 +121,17 @@ export const GUIDES: Guide[] = [
       "Sales, counts and transfers use the earliest date first, so the list shows what should be left of each batch.",
       "Everyone at the outlet is told when a batch is about to expire and again when it has.",
       "Expired: take it off the shelf, tap Dispose and pick how. Food waste goes in its own bin; only best-before items still before their date can be donated.",
+    ],
+  },
+  {
+    page: "reports",
+    title: "Reports",
+    icon: BarChart3,
+    what: "Owners and managers: spending, deliveries, supplier checks, orders, sales, counts, waste, stock and expiry, for any period.",
+    how: [
+      "Pick a report, then a period: today, this week, this month, last month or your own dates.",
+      "Narrow it to one product, supplier or storage area. With an outlet picked in the menu, only that outlet is shown.",
+      "Totals are at the top. Tap CSV for a spreadsheet, or Print / PDF for a paper copy.",
     ],
   },
   {
