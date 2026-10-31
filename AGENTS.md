@@ -57,7 +57,7 @@ src/backend/app/        FastAPI app
   catalogue.py          categories, products, SOP cards
   purchasing.py         suppliers, purchase orders, reorder suggestions
   stocktakes.py, insights.py   stock counts, "what stands out", price rises
-  locations.py, sales.py, hq.py, apikeys.py   outlets and storage (`mine`, `at_outlet`: rows of the picked outlet only), till sales, HQ branch links, till API
+  locations.py, sales.py, hq.py, apikeys.py   outlets and storage (`mine`, `at_outlet`: rows of the picked outlet only), sales (sales sheet like the count sheet; a named lot is used instead of the earliest expiry), HQ branch links, till API
   sales_ai.py           sales by menu item: read any report (AI), match by code, saved match, then AI suggestion or a question; a person confirms, code works out totals, matches are remembered
   reports.py            reports: one SQL per kind over the outlet worked in, filters, totals in code
   ask.py                the in-app helper's fixed questions

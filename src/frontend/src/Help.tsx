@@ -76,14 +76,22 @@ export const GUIDES: Guide[] = [
     title: "Approvals",
     icon: ClipboardCheck,
     what: "Deliveries that failed a check, waiting for a manager. Stock only counts once a delivery is accepted.",
-    how: ["Open a delivery to see its readings and photos.", "Accept it, reject it, or return it to the supplier. Your name is recorded with the decision."],
+    how: [
+      "Open a delivery to see its readings and photos.",
+      "Accept it, reject it, or return it to the supplier. Your name is recorded with the decision.",
+      "Some lines passed and some failed? Keep the ones that passed and send the rest back: the order keeps waiting for them.",
+    ],
   },
   {
     page: "records",
     title: "Order records",
     icon: Truck,
     what: "Every delivery received, with its readings, photos and outcome.",
-    how: ["Search by supplier, PO, delivery number, product or person.", "Open one to see exactly what was checked, by whom and when."],
+    how: [
+      "Search by supplier, PO, delivery number, product or person.",
+      "The tabs: Waiting, Accepted, Partial (some lines sent back) and Rejected (rejected or returned).",
+      "Open one to see exactly what was checked, by whom and when. Tap Print / PDF for a delivery order copy with signature lines.",
+    ],
   },
   {
     page: "stocktake",
@@ -108,6 +116,7 @@ export const GUIDES: Guide[] = [
       "Sales: fill in what was sold, like a stock count, or tap Sales sheet, fill it in and upload it. Pick the lot label each sale came from; left blank, the earliest expiry is used. Then tap Take off stock, so the next count shows only real losses.",
       "Sales by menu item: tap Read a report and pick a photo, PDF or sheet from any till, or paste the text. Products are matched by code or name; the AI suggests the rest or asks you a question. Check each line, answer, then Take off stock. Matches are remembered, so next time needs no AI.",
       "A till connected by API key that sends an unknown item waits under Till sales waiting for you: tap Finish.",
+      "Tap Print / PDF on a recent sale for a copy with the lot of each line.",
     ],
   },
   {
@@ -118,9 +127,10 @@ export const GUIDES: Guide[] = [
     how: [
       "Turn on Track expiry for a product in Products & SOP: each delivery then needs its date, and too few days left goes to Approvals.",
       "Each batch gets a lot code. Write it and the date on the box, or tap Print labels. New stock goes behind; the earliest date goes in front.",
-      "Sales, counts and transfers use the earliest date first, so the list shows what should be left of each batch.",
+      "Counts and transfers use the earliest date first. Sales do too, unless the person picks the lot label the sale came from.",
       "Everyone at the outlet is told when a batch is about to expire and again when it has.",
       "Expired: take it off the shelf, tap Dispose and pick how. Food waste goes in its own bin; only best-before items still before their date can be donated.",
+      "Tap Print / PDF on a disposal for a signed record.",
     ],
   },
   {
