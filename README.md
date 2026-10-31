@@ -13,7 +13,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
 </p>
 
-> **SOPBox** is a phone-first receiving-control platform for small food and beverage outlets. A vision-language model on a serverless GPU reads every supplier delivery order, a deterministic rules engine decides pass or fail, and a human-in-the-loop approval flow puts a manager in charge of every exception, with a full audit trail and multi-tenant isolation enforced down to the database.
+> **SOPBox** is a phone-first receiving-control platform for small food and beverage outlets. A vision-language model on a serverless GPU reads every supplier delivery order, a deterministic rules engine decides pass or fail, and a human-in-the-loop approval flow puts a manager in charge of every exception. From there it follows the stock to the shelf: expiry lots, counts, sales, orders and reports, with an AI assistant that only suggests, a full audit trail, and multi-tenant isolation enforced down to the database.
 
 ---
 ## 👥 Team Information
@@ -52,9 +52,12 @@ SOPBox turns receiving into one guided check on a phone. Staff photograph the de
 ### ✨ Key Features
 
 - **Receiving check** — photograph the delivery order; the AI fills in the lines for staff to confirm.
-- **Rules and approvals** — temperature, pack and order checks in code; failed lines wait for a manager.
-- **Products, SOPs and task lists** — rules and step-by-step SOP cards per product; daily and peak-hour checklists.
-- **Stock and purchase orders** — stock per outlet, counts that explain gaps, orders drafted from low stock.
+- **Rules and approvals** — temperature, pack, expiry and order checks in code; failed lines wait for a manager, who can keep the good lines and send the rest back.
+- **Expiry lots** — each batch gets a lot label; earliest expiry used first, alerts before it expires, disposals recorded.
+- **Stock, sales and orders** — counts that explain gaps; a sales sheet laid out like the count sheet that records the lot used, or any till report read by AI; orders drafted from low stock.
+- **Reports and paper copies** — reports by period, product, supplier or storage area; a PDF of every order, delivery, count, transfer, sale and disposal.
+- **Assistant** — ask in English or Malay; it answers from your records through fixed tools, opens the right page, and only suggests actions that run when you tap.
+- **Products, SOPs and tasks** — SOP cards per product, daily checklists, and jobs with a person in charge.
 - **Built for phones** — tested on small phones and tablets; barcode scanning and kitchen tablet sign-in.
 
 All features: [docs/FEATURES.md](docs/FEATURES.md).
@@ -66,7 +69,7 @@ All features: [docs/FEATURES.md](docs/FEATURES.md).
 | Frontend      | React 18, TypeScript, Vite, Tailwind CSS, built on the Orbyte template |
 | Backend       | Python, FastAPI              |
 | Database      | PostgreSQL (Replit), with Row Level Security per workspace |
-| AI / Compute  | RunPod Serverless (GPU), vLLM, Qwen3-VL-8B-Instruct (FP8) |
+| AI / Compute  | RunPod Serverless (GPU), vLLM, Qwen3-VL-8B-Instruct (FP8) for delivery orders and SOPs; an OpenAI-compatible service (KrackedDev) for sales reports and the assistant |
 | Notifications | Telegram Bot API             |
 | Hosting / Dev | Replit (Deployments, Secrets, PostgreSQL) |
 
@@ -104,6 +107,7 @@ flowchart TB
   subgraph runpod["RunPod Serverless"]
     model["vLLM + Qwen3-VL-8B<br/>reads the photo"]
   end
+  llm["AI service (KrackedDev)<br/>sales reports, assistant"]
   tg["Telegram<br/>alerts"]
 
   phone -->|HTTPS| api
@@ -111,10 +115,12 @@ flowchart TB
   api --> db
   api -->|photo| model
   model -->|"JSON, checked"| api
+  api -->|"report or question,<br/>records as data"| llm
+  llm -->|"words and tool calls, checked"| api
   api --> tg
 ```
 
-The model's reply is treated as untrusted input: parsed, validated, and confirmed line by line by staff before anything is saved. The pass/fail verdict comes from the rules engine, never from the model.
+Every model reply is treated as untrusted input: parsed, validated, and confirmed by a person before anything is saved. The pass/fail verdict comes from the rules engine, never from a model. The assistant can only call fixed read-only tools with the asker's own access; its actions are buttons the person taps, which go through the same checked routes as the app. Every AI use counts against the plan's monthly allowance.
 
 ---
 
@@ -126,12 +132,14 @@ The model's reply is treated as untrusted input: parsed, validated, and confirme
 2. Create a PostgreSQL database (**Tools → Database**). Replit sets `DATABASE_URL`.
 3. Open the **Secrets** tab (🔒) and add the variables in `src/backend/.env.example`:
    - `RUNPOD_API_KEY`, `RUNPOD_ENDPOINT_ID` — photo reading and the SOP writer
+   - `AI_API_KEY` — optional, for reading sales reports and the assistant (`AI_BASE_URL`, `AI_MODEL` optional)
+   - `MFA_ENCRYPTION_KEY` — keeps authenticator two-step sign-in secrets encrypted
    - `TELEGRAM_BOT_TOKEN` — optional, for alerts and Telegram sign-in
    - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — optional, for Google sign-in
-4. Click **Run**. The `.replit` file builds the frontend and starts the app on port 8000.
+4. Click **Run**. The `.replit` file builds the frontend and starts the app on port 8000. Tables are created or updated at start-up (`python -m app.migrate` does it on its own).
 5. Open the app and choose **Create a workspace**. You become its owner.
 
-Without the RunPod secrets, everything works except photo reading: staff type the lines by hand.
+Without the RunPod secrets, everything works except photo reading: staff type the lines by hand. Without `AI_API_KEY`, sales lines are matched by hand and the assistant gives its fixed answers.
 
 ### Option 2 — Run Locally
 
@@ -181,10 +189,10 @@ cursor .        # Cursor
 ### 🧪 Run Tests
 
 ```bash
-python -m pytest                       # 396 backend tests, from the repository root (runs in CI)
+python -m pytest                       # 418 backend tests, from the repository root (runs in CI)
 
 cd src/frontend && npm ci && npx playwright install chromium
-npm run test:ui                        # 92 UI test runs on small phones and tablets
+npm run test:ui                        # 98 UI test runs on small phones and tablets
 ```
 
 ---
@@ -194,13 +202,13 @@ npm run test:ui                        # 92 UI test runs on small phones and tab
 - **Development:** the team imports this GitHub repository into a shared Repl and runs it with **Run**.
 - **Hosting:** the app is published with **Replit Deployments (Autoscale)** at https://sopbox.replit.app. One FastAPI process serves the built React app and the API.
 - **Database:** **Replit PostgreSQL** stores every workspace's data. Row Level Security keeps each business's data separate inside the database.
-- **Secrets:** the RunPod, Telegram and Google keys are kept in **Replit Secrets**, never in the code.
+- **Secrets:** the RunPod, AI service, Telegram and Google keys are kept in **Replit Secrets**, never in the code.
 
 📄 Proof of use: [`submission/SDC2026_Hack into Google, No Mistake_Replit_POU.pdf`](submission/SDC2026_Hack%20into%20Google%2C%20No%20Mistake_Replit_POU.pdf)
 
 ## 🟣 How We Use RunPod *(Required)*
 
-- **Workload:** all AI runs on a RunPod GPU: reading delivery-order photos, reading supplier sheets, and writing and checking SOPs.
+- **Workload:** the core AI runs on a RunPod GPU: reading delivery-order photos, reading supplier sheets, writing and checking SOPs, explaining count gaps and the Telegram bot's plain sentences. (Sales reports and the assistant use a second, OpenAI-compatible service.)
 - **Setup:** a **RunPod Serverless endpoint** (`sriet0cftztbik`) runs RunPod's official vLLM worker with **Qwen3-VL-8B-Instruct (FP8)** on a 24 GB GPU. It scales to zero, so it costs nothing when idle. Settings are in [`runpod/README.md`](runpod/README.md).
 - **Integration:** the Replit app sends jobs with `RUNPOD_API_KEY` and `RUNPOD_ENDPOINT_ID` (`/run`, then polls `/status`), treats the reply as untrusted input, validates it, and has staff confirm every line. An hourly cap bounds GPU spend.
 
@@ -240,6 +248,9 @@ We build these one phase at a time; each phase is its own pull request.
 | 4 | Payments inside the app (upgrades are requests today) | Needs a payment provider |
 | 5 | Light LoRA fine-tune on synthetic delivery orders, behind the same endpoint name | Needs GPU budget |
 | — | Telegram fixes: bot replies, PIC commands with @tags, tags and PIC changes sent on Telegram | ✅ Done |
+| — | Expiry lots, sales sheet with the lot used, sales read from any till report, reports, monthly AI allowance | ✅ Done |
+| — | Assistant with function calling (read-only tools, tap-to-run actions, prompt-injection guards) and a PDF of every record | ✅ Done |
+| 6 | More assistant actions, each one a tap on a checked route (plan a count, start a transfer) | Planned |
 
 ## 🤝 Team
 

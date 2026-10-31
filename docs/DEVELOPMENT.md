@@ -65,7 +65,7 @@ Replit is mandatory for the challenge. The deployed filesystem is not persistent
 |---|---|---|
 | `DATABASE_URL` | Yes | Set by the Replit database. Do not copy it into the repo |
 | `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` | For photo reading | The endpoint id (for example `sriet0cftztbik`) and an API key from your RunPod account (see [`runpod/README.md`](../runpod/README.md)). Without them staff type lines by hand |
-| `AI_API_KEY` | For reading sales reports | An OpenAI-compatible key (KrackedDev). Optional: `AI_BASE_URL` (default `https://litellm.rapidscreen.io/v1`), `AI_MODEL` (default `gpt-5.4-mini`). Without it, sales lines are matched by hand |
+| `AI_API_KEY` | For reading sales reports and the assistant | An OpenAI-compatible key (KrackedDev). Optional: `AI_BASE_URL` (default `https://litellm.rapidscreen.io/v1`), `AI_MODEL` (default `gpt-5.4-mini`). Without it, sales lines are matched by hand and the assistant gives the fixed answers |
 | `TELEGRAM_BOT_TOKEN` | For alerts and Telegram sign-in | From @BotFather in Telegram. For sign-in, also send @BotFather `/setdomain` with the app's domain (e.g. `sopbox.replit.app`) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | For Google sign-in | Google Cloud console, APIs & Services, Credentials, OAuth client ID (Web application). Authorised redirect URI: `https://<your domain>/api/auth/google/callback`, one per domain you use |
 
@@ -98,7 +98,7 @@ The backend reads environment variables (Replit Secrets in production). See `src
 | `DATABASE_URL` | PostgreSQL connection string. Required | none |
 | `COOKIE_SECURE` | `0` allows the session cookie over plain http, for local runs only | `1` |
 | `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` | RunPod endpoint id and API key. Without both, photo reading is off | none |
-| `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` | OpenAI-compatible service that reads sales reports and matches menu items (`app/sales_ai.py`). Locally, `AI_` lines in `src/backend/.env` are loaded. Without a key, people match lines by hand | none, `https://litellm.rapidscreen.io/v1`, `gpt-5.4-mini` |
+| `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` | OpenAI-compatible service that reads sales reports and matches menu items (`app/sales_ai.py`), and runs the assistant (`app/assistant.py`). Locally, `AI_` lines in `src/backend/.env` are loaded. Without a key, people match lines by hand | none, `https://litellm.rapidscreen.io/v1`, `gpt-5.4-mini` |
 | `TELEGRAM_BOT_TOKEN` | Bot token. Each workspace owner sets chat ids under Settings. With no token or chat id, alerts are skipped. Also enables "Continue with Telegram" (set the bot's domain with @BotFather `/setdomain`) | none |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth web client. With both, "Continue with Google" appears | none |
 | `MFA_ENCRYPTION_KEY` | 32 random bytes, base64. Encrypts authenticator secrets. Without it, two-step sign-in can't be turned on. Losing it stops authenticator codes; backup codes still work | none |
@@ -174,7 +174,7 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `POST /api/assistant` | any signed in | The assistant chat (`AI_*` service): answers from the records with the asker's access through fixed tools, offers page buttons and tap-to-run suggestions (draft a low-stock order); changes nothing itself. One AI use per question; without `AI_API_KEY` the fixed questions answer |
 | `GET/POST /api/outlets`, `PUT/DELETE /api/outlets/{id}`, `POST /api/storages`, `PUT/DELETE /api/storages/{id}` | any; manager | Outlets and storage areas |
 | `GET /api/storages/{id}/stock`, `GET/POST /api/transfers` | stock count access | Stock per storage area; move stock between them |
-| `GET/POST /api/sales`, `POST /api/sales/preview`, `GET /api/sales/template.csv` | stock count access | Upload till sales, which take stock out |
+| `GET/POST /api/sales`, `POST /api/sales/preview`, `GET /api/sales/template.xlsx?storage_id`, `GET /api/sales/template.csv` | stock count access | Record sales, which take stock out. The .xlsx sales sheet is laid out like the count sheet (bundles and loose sold, a Lot Used list per product); preview reads it or a POS export of codes and quantities. A line may name its `lot_id`: that lot is used instead of the earliest expiry |
 | `POST /api/sales/read`, `POST /api/sales/confirm`, `GET /api/sales/drafts` | stock count access | Sales by menu item: read a photo, PDF, sheet or text (AI), match to products (code, saved matches, then AI suggestions or questions), confirm; totals are worked out in code and matches remembered |
 | `GET /api/lots`, `PUT /api/lots/{id}/expiry`, `POST /api/lots/{id}/dispose`, `GET /api/disposals` | stock count access | Expiry lots (earliest expiry first), fill in a date, record a disposal |
 | `GET /api/reports/{kind}?date_from&date_to&product_id&supplier&storage_id` | owner, manager | Reports over the outlet worked in: `deliveries`, `spend`, `suppliers`, `orders`, `sales`, `sales_by_product`, `counts`, `transfers`, `waste`, `stock`, `movement`, `expiry`. Totals and values worked out in code (`app/reports.py`) |
@@ -197,7 +197,7 @@ pip install -r src/backend/requirements-dev.txt
 python -m pytest          # from the repository root
 ```
 
-The suite starts an embedded PostgreSQL, so it needs no install, network, GPU or Telegram account. The app connects as an ordinary database role, so Row Level Security applies to every test. It covers sign-up, sign-in, roles, workspace isolation (including a direct database check), the rules, catalogue and delivery flows, decisions that cannot be made twice, the model-reply parser, the hourly cap on model calls, alerts that never break a delivery, purchase orders and reorder suggestions, stock counts and their insights, price-rise checks, the Ask helper, outlets, sales upload, API keys, two-step sign-in, and the security headers.
+The suite starts an embedded PostgreSQL, so it needs no install, network, GPU or Telegram account. The app connects as an ordinary database role, so Row Level Security applies to every test. It covers sign-up, sign-in, roles, workspace isolation (including a direct database check), the rules, catalogue and delivery flows, decisions that cannot be made twice, the model-reply parser, the hourly cap on model calls, alerts that never break a delivery, purchase orders and reorder suggestions, stock counts and their insights, price-rise checks, the Ask helper and the assistant (with a fake model: tools, access, tap-to-run actions, prompt injection), outlets, sales upload and the sales sheet with lots, reports, AI allowances, API keys, two-step sign-in, and the security headers.
 
 ### Phone and tablet UI tests
 

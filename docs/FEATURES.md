@@ -1,7 +1,8 @@
 # SOPBox features
 
 - **Receiving check** — take or choose a photo of the delivery order; the AI fills in the lines (with the unit price) for staff to confirm, with probe temperatures, stock photos and teammate tagging. Scan a pack's barcode to pick the product.
-- **Rules and approvals** — failed lines hold the delivery for a manager, who is notified in the app inbox and on Telegram.
+- **Rules and approvals** — failed lines hold the delivery for a manager, who is notified in the app inbox and on Telegram. A manager can keep the lines that passed and send the rest back; the order keeps waiting for them.
+- **Expiry lots** — products can track expiry: each delivery line becomes a lot with a label (e.g. `L2610-0012`) and its date. Earliest expiry is used first, everyone at the outlet is alerted before and when a lot expires, and disposals (food waste, donated, returned) are recorded with their value. Print lot labels for the boxes.
 - **Telegram bot** — message the bot or tag it in the team group: `/jobs`, `/take PO-0003`, `/drop`, `/pic PO-0003 @sam`, `/unpic`, or a plain sentence that the model reads into one of those (code checks the job and people, and the app's PIC rules apply). Tags, PIC changes and take-over requests reach people on Telegram too.
 - **Products & SOP cards** — temperature ranges, pack sizes and step-by-step SOPs per product. An **AI SOP writer** drafts steps from a manager's notes, and a second pass checks them.
 - **Import from a supplier sheet** — photograph a product or SOP sheet; the AI suggests products and SOPs for a manager to correct and add.
@@ -11,10 +12,15 @@
 - **Purchase orders** — deliveries are checked against what is still due; **draft from low stock** sizes each line to a week of recent use plus the minimum, and says why. With 3 or more weeks of sales, next week's sales are forecast from the trend of the last 8 weeks (a straight line, kept between half and double the recent average), so rising sales order more.
 - **Stock counts that explain themselves** — after a count, **What stands out** separates repeat shortfalls from one-offs, shows each gap's value in RM, and **Explain with AI** suggests what to check.
 - **Delivered prices** — each delivery records the unit price; the dashboard flags products whose price rose 10% or more.
-- **Ask the helper** — ask in English or Malay ("what went missing this week?", "what should we order?"); answers come from your own data and link to the page.
-- **Outlets and storage areas** — stock per outlet and storage area, transfers between them, sales upload by product code, head-office links to branches, and API keys for a till.
+- **Assistant** — ask in English or Malay ("what should we order?", "what expires soon?"). It calls fixed, read-only tools with your own access (answers from the records, stock, expiring lots, reports for managers), gives buttons to the right page, and can offer to draft a low-stock order, which runs only when you tap it. Record text is treated as data, never as instructions. Without the AI service, the fixed questions still answer.
+- **Outlets and storage areas** — stock per outlet and storage area, transfers between them, head-office links to branches, and API keys for a till.
+- **Sales off stock** — fill in sales like a stock count (bundles and loose, by category), or download the sales sheet (.xlsx laid out like the count sheet, with a Lot Used list) and upload it. Pick the lot each sale came from, so expiry stays right. Or read any till report (photo, PDF, sheet or text) with AI: products are matched by code, name or a saved match, and a person confirms.
+- **Reports** — deliveries, spend, suppliers, orders, sales, counts, transfers, waste, stock, movement and expiry, for any period, product, supplier or storage area, with totals worked out in code; CSV and Print / PDF.
+- **Paper copies** — Print / PDF on every record (purchase order, delivery order, stock count, transfer, sale, disposal), laid out like the purchase order screen with status, details, lines, who did what and signature lines.
+- **AI allowance** — each plan has a monthly number of AI uses; only calls that worked are counted, and Settings shows what is left.
 - **Activity log and roles** — owner, manager and staff each see only what their role needs; every action is recorded.
 - **Easy sign-in** — password, passkey, Google, Telegram, or a PIN on a shared kitchen tablet; two-step sign-in with an authenticator.
-- **Built for phones** — a bottom bar with Receive in the middle, folded filters and short pages; tested on small phones and tablets.
+- **Order records** — every delivery with its photos and results, in tabs: Waiting, Accepted, Partial and Rejected.
+- **Built for phones** — a bottom bar with Receive in the middle, folded filters and short pages; Jobs folds away on Tasks; tested on small phones and tablets.
 
 Back to the [README](../README.md).
