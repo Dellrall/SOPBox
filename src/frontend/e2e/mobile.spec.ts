@@ -635,7 +635,7 @@ test.describe("closing the business", () => {
     expect((await context.request.post("/api/categories", { data: { name: "Dairy" } })).status()).toBe(403);
     await expectFitsScreen(page);
     await page.getByRole("button", { name: "Reopen the business" }).tap();
-    await expect(page.getByRole("heading", { name: "Danger zone" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Danger Zone" })).toBeVisible();
     expect((await context.request.post("/api/categories", { data: { name: "Dairy" } })).status()).toBe(201);
     await context.close();
   });
@@ -683,7 +683,7 @@ test.describe("sign-in page", () => {
     // Signing out of this browser only: other tests share the staff session cookie file, not this one.
     await page.request.post("/api/auth/logout");
     await page.goto("/signin");
-    await expect(page.getByRole("button", { name: "Sign in", exact: true }).getByTestId("last-used")).toHaveText("Last used");
+    await expect(page.getByRole("button", { name: "Sign in", exact: true }).getByTestId("last-used")).toHaveText(/^Last used · /);
     await expect(page.getByTestId("last-used")).toHaveCount(1);
   });
 });

@@ -26,6 +26,7 @@ export function rememberSignIn(method: string | null | undefined) {
   if (!method || !["password", "passkey", "google", "telegram"].includes(method)) return;
   try {
     localStorage.setItem(LAST, method);
+    localStorage.setItem(`${LAST}-at`, new Date().toISOString());
   } catch {
     // Private windows may refuse storage; the badge is only a convenience.
   }
@@ -36,6 +37,17 @@ export function lastSignIn(): ShownMethod | null {
     return localStorage.getItem(LAST) as ShownMethod | null;
   } catch {
     return null;
+  }
+}
+
+/** When this device last signed in, as "31 Oct, 14:05", or "" before this was remembered. */
+export function lastSignInAt(): string {
+  try {
+    const at = new Date(localStorage.getItem(`${LAST}-at`) ?? "");
+    if (isNaN(at.getTime())) return "";
+    return at.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+  } catch {
+    return "";
   }
 }
 

@@ -79,7 +79,7 @@ export function CloseBusiness({ me, onChanged }: { me: Me; onChanged: () => void
   return (
     <section aria-labelledby="danger-zone" className="space-y-3">
       <h3 id="danger-zone" className="text-lg font-bold text-red-700">
-        Danger zone
+        Danger Zone
       </h3>
       <div className="flex flex-wrap items-center gap-4 rounded-2xl border-2 border-red-200 bg-white p-5">
         <div className="min-w-0 flex-1 basis-64">

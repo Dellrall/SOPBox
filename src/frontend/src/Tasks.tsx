@@ -134,7 +134,7 @@ export default function Tasks({ canEdit, meId, go }: { canEdit: boolean; meId: n
             ))}
           </section>
           <section className="space-y-3">
-            <SectionTitle>When it happens</SectionTitle>
+            <SectionTitle>Only when needed</SectionTitle>
             {events.length === 0 && <p className="text-sm text-muted">No lists for busy times or new starters yet.</p>}
             {events.map((l) => (
               <ListCard key={l.id} list={l} onTick={tick} canEdit={canEdit} onEdit={() => setEditing(l)} onDelete={() => remove(l)} />
@@ -268,7 +268,7 @@ function ListForm({ list, onCancel, onSaved }: { list: TaskList | null; onCancel
             onChange={(v) => setKind(v as TaskKind)}
             choices={[
               { value: "daily", label: "Every day" },
-              { value: "event", label: "When it happens" },
+              { value: "event", label: "Only when needed (busy day, new starter)" },
             ]}
           />
         </div>

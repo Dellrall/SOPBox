@@ -150,7 +150,7 @@ export const GUIDES: Guide[] = [
       "Tap Take it when a job has no PIC (person in charge), or a big order has only one. Otherwise ask to take over, and a manager approves. A message confirms each change, with Undo.",
       "Each job has its own steps, written from the order: call the supplier, clear space, the temperature check for each category, packs and expiry. Tick them as you go.",
       "Open Tasks and tick each step as you do it. Your name shows next to it, and the list starts fresh each day.",
-      "Every day lists open by themselves; lists under When it happens open with a tap.",
+      "Every day lists open by themselves; lists under Only when needed (a busy day, a new starter) open with a tap.",
       "Managers: assign any job to anyone, plan a stock count for a day, and add lists or start from a ready-made one.",
     ],
   },

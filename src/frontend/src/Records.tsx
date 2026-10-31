@@ -67,11 +67,15 @@ function complaintText(d: Delivery): string {
 /** The filtered deliveries as a spreadsheet: one row per line. */
 function downloadCsv(rows: Delivery[]) {
   const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const out = [["Delivery", "Date", "Supplier", "Purchase order", "Status", "Received by", "Product", "Quantity", "Unit", "Temp °C", "Passed", "Problems", "Decided by", "Reason", "Photos"]];
+  // Local date and 24-hour time in their own columns, so Excel reads them as they look on screen.
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const day = (t: Date) => `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+  const clock = (t: Date) => `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  const out = [["Delivery", "Date", "Time", "Supplier", "Purchase order", "Status", "Received by", "Product", "Quantity", "Unit", "Temp °C", "Passed", "Problems", "Decided by", "Reason", "Photos"]];
   for (const d of rows)
     for (const l of d.lines)
       out.push([
-        `#${d.id}`, d.created_at, supplierOf(d), d.purchase_order ?? "", d.status, d.received_by,
+        `#${d.id}`, day(new Date(d.created_at)), clock(new Date(d.created_at)), supplierOf(d), d.purchase_order ?? "", d.status, d.received_by,
         l.name, String(l.quantity), l.unit, l.temp_c === null ? "" : String(l.temp_c), l.passed ? "yes" : "no",
         l.issues.join("; "), d.decided_by ?? "", d.decision_reason ?? "",
         d.photos.map((p, i) => `${i + 1}. ${p.caption || "no description"}`).join("; "),

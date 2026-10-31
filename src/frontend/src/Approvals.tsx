@@ -67,7 +67,7 @@ function PendingCard({ delivery: initial, canDecide, onDone }: { delivery: Deliv
           <input id={`reason-${delivery.id}`} className={inputClass} value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
       ) : (
-        <p className="rounded-xl bg-surface px-3 py-2 text-sm text-muted">View-only access. You cannot make an approval decision.</p>
+        <p className="rounded-xl bg-surface px-3 py-2 text-sm text-muted">You can look but not decide: only someone with Approvals set to "Edit + add" in Team can accept or return.</p>
       )}
       <ErrorNote message={error} />
       {canDecide && (
@@ -77,7 +77,7 @@ function PendingCard({ delivery: initial, canDecide, onDone }: { delivery: Deliv
           </button>
           {mixed && (
             <button className={primaryButton} disabled={busy} onClick={() => void decide("accept_passed")}>
-              Accept {passed} good {passed === 1 ? "line" : "lines"}, return {failed}
+              Keep {passed} that passed, send back {failed} that failed
             </button>
           )}
           <button className={secondaryButton} disabled={busy} onClick={() => void decide("return")}>

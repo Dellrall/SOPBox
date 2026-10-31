@@ -255,10 +255,11 @@ export function SiteFooter({ navigate }: { navigate: Navigate }) {
 }
 
 /** Pricing, docs and privacy for pages outside the public site: sign in, and the app itself. */
-export function PolicyLinks({ className = "" }: { className?: string }) {
+/** The public site's pages; `privacyOnly` for staff in the app, who have Help and no need for pricing or sales. */
+export function PolicyLinks({ className = "", privacyOnly = false }: { className?: string; privacyOnly?: boolean }) {
   return (
     <p className={`flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted print:hidden ${className}`}>
-      {PAGES.map((p) => (
+      {PAGES.filter((p) => !privacyOnly || p.to === "/privacy").map((p) => (
         <a key={p.to} href={p.to} className="hover:text-brand-700 hover:underline">
           {p.label}
         </a>

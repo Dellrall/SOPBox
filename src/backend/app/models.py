@@ -4,16 +4,16 @@ import unicodedata
 from datetime import date
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 DeliveryStatus = Literal["accepted", "pending_approval", "rejected", "returned"]
 
 
 def _check_range(low: float | None, high: float | None) -> None:
     if (low is None) != (high is None):
-        raise ValueError("set both temp_min_c and temp_max_c, or neither")
+        raise ValueError("give both the lowest and the highest temperature, or leave both empty")
     if low is not None and high is not None and low > high:
-        raise ValueError("temp_min_c must not be above temp_max_c")
+        raise ValueError("the lowest temperature must not be above the highest")
 
 
 # Characters that are never wanted in stored text: control characters (a NUL byte would make the
@@ -611,8 +611,30 @@ def _username(value: str) -> str:
     return value
 
 
+def _phone(value: str) -> str:
+    """Empty, or a phone number: 7 to 15 digits, with only +, spaces, dashes and brackets between."""
+    value = value.strip()
+    if value and (not re.fullmatch(r"\+?[\d\s()-]+", value) or not 7 <= sum(c.isdigit() for c in value) <= 15):
+        raise ValueError("enter a phone number with 7 to 15 digits, for example +60 12-345 6789")
+    return value
+
+
+Phone = Annotated[str, Field(max_length=40), AfterValidator(_phone)]
 Username = Annotated[str, Field(min_length=3, max_length=32)]
-Password = Annotated[str, Field(min_length=8, max_length=128)]
+# Matched by the strength bar in AuthPage.tsx (easyPassword).
+_COMMON_PASSWORDS = {"password", "password1", "password123", "passw0rd", "iloveyou", "sopbox123", "welcome1", "abcd1234", "qwerty123"}
+_RUNS = ("01234567890", "09876543210", "abcdefghijklmnopqrstuvwxyz", "qwertyuiopasdfghjklzxcvbnm")
+
+
+def _password(value: str) -> str:
+    """Refuse a new password anyone could guess: one or a few repeated characters, a run, or a common one."""
+    low = value.lower()
+    if len(set(low)) < 4 or low in _COMMON_PASSWORDS or any(low in run for run in _RUNS):
+        raise ValueError("this password is too easy to guess; use a few words, or mix letters and numbers")
+    return value
+
+
+Password = Annotated[str, Field(min_length=8, max_length=128), AfterValidator(_password)]
 
 
 class RegisterIn(_In):
@@ -856,7 +878,7 @@ class WorkspaceUpdateIn(_In):
 class SupplierIn(_In):
     name: str = Field(min_length=1, max_length=120)
     contact: str = Field(default="", max_length=120)
-    phone: str = Field(default="", max_length=40)
+    phone: Phone = ""
     email: str = Field(default="", max_length=254)
     # The products this supplier sells. Left out on an update, the current list is kept.
     product_ids: list[int] | None = Field(default=None, max_length=1000)
@@ -1351,7 +1373,7 @@ class SalesInquiryIn(_In):
     name: str = Field(min_length=1, max_length=120)
     company: str = Field(default="", max_length=120)
     email: str = Field(min_length=3, max_length=254)
-    phone: str = Field(default="", max_length=40)
+    phone: Phone = ""
     outlets: int | None = Field(default=None, ge=1, le=100_000)
     message: str = Field(default="", max_length=4000)
 
@@ -1370,7 +1392,7 @@ class UpgradeRequestIn(_In):
     outlets: int = Field(ge=1, le=10_000)  # how many outlets in total
     customization: bool = False
     priority_support: bool = False
-    phone: str = Field(default="", max_length=40)
+    phone: Phone = ""
     message: str = Field(default="", max_length=4000)
 
 
