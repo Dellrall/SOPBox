@@ -752,6 +752,10 @@ test.describe("jobs", () => {
     await page.getByRole("button", { name: "Add goods" }).tap(); // the order's goods fold into a bubble
     await expect(line.getByLabel("Received")).toBeHidden();
     await expectFitsScreen(page);
+    await line.getByRole("button", { name: /Milk/ }).tap(); // tapping a folded bubble opens it
+    await expect(line.getByLabel("Received")).toHaveValue("8");
+    await expect(line.getByRole("button", { name: "Remove goods 1" })).toBeVisible();
+    if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT, fullPage: true });
     await context.close();
   });
 });

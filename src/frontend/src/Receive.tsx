@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMascot, type Scene } from "./Mascot";
-import { Camera, ChevronDown, Loader2, X } from "lucide-react";
+import { Camera, ChevronDown, Loader2, Scissors, Trash2, X } from "lucide-react";
 import { PhotoPicker } from "./PhotoPicker";
 import { api } from "./api";
 import DeliveryLines from "./DeliveryLines";
@@ -19,6 +19,7 @@ import {
   cardClass,
   inputClass,
   labelClass,
+  dangerButton,
   primaryButton,
   secondaryButton,
   TempInput,
@@ -474,11 +475,12 @@ export default function Receive({
           return (
             <fieldset
               key={line.key}
-              onFocusCapture={() => setOpen(line.key)}
+              // Focus inside opens it (keyboard, scanner); the header's own tap toggles it, so its focus is skipped.
+              onFocusCapture={(e) => (e.target as HTMLElement).dataset.toggle === undefined && setOpen(line.key)}
               className={`rounded-2xl border bg-white p-3 shadow-xs transition ${line.ordered ? "border-sky-300 ring-2 ring-sky-200" : "border-slate-200"} ${isOpen ? "shadow-md" : ""}`}
             >
               <legend className="sr-only">Goods {i + 1}</legend>
-              <button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? -1 : line.key)} className="flex w-full items-center gap-3 text-left">
+              <button type="button" data-toggle aria-expanded={isOpen} onClick={() => setOpen(isOpen ? -1 : line.key)} className="flex w-full items-center gap-3 text-left">
                 <span aria-hidden className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-semibold ${line.ordered ? "bg-sky-100 text-sky-900" : "bg-brand-100 text-brand-800"}`}>
                   {i + 1}
                 </span>
@@ -612,28 +614,41 @@ export default function Receive({
                           Can&apos;t see it yet: open the box later
                         </label>
                       )}
-                      <button
-                        type="button"
-                        className="text-brand-700 underline"
-                        onClick={() => {
-                          const copy = { ...blankLine(), productId: line.productId, name: line.name, unit: line.unit, temp: line.temp };
-                          setLines((all) => {
-                            const at = all.findIndex((l) => l.key === line.key);
-                            return [...all.slice(0, at + 1), copy, ...all.slice(at + 1)];
-                          });
-                          setOpen(copy.key);
-                        }}
-                      >
-                        Two dates? Split these goods
-                      </button>
                     </div>
                   </div>
                 )}
               </div>
-              {lines.length > 1 && (
-                <button type="button" className="text-sm text-red-800 underline" onClick={() => setLines((all) => all.filter((l) => l.key !== line.key))}>
-                  Remove goods {i + 1}
-                </button>
+              {(product || lines.length > 1) && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                  {product ? (
+                    <button
+                      type="button"
+                      className={`${secondaryButton} !px-3 !py-1.5`}
+                      onClick={() => {
+                        const copy = { ...blankLine(), productId: line.productId, name: line.name, unit: line.unit, temp: line.temp };
+                        setLines((all) => {
+                          const at = all.findIndex((l) => l.key === line.key);
+                          return [...all.slice(0, at + 1), copy, ...all.slice(at + 1)];
+                        });
+                        setOpen(copy.key);
+                      }}
+                    >
+                      <Scissors aria-hidden className="h-4 w-4" /> Two dates? Split
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  {lines.length > 1 && (
+                    <button
+                      type="button"
+                      aria-label={`Remove goods ${i + 1}`}
+                      className={`${dangerButton} !px-3 !py-1.5`}
+                      onClick={() => setLines((all) => all.filter((l) => l.key !== line.key))}
+                    >
+                      <Trash2 aria-hidden className="h-4 w-4" /> Remove
+                    </button>
+                  )}
+                </div>
               )}
               </div>
               )}
