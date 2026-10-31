@@ -59,6 +59,7 @@ src/backend/app/        FastAPI app
   stocktakes.py, insights.py   stock counts, "what stands out", price rises
   locations.py, sales.py, hq.py, apikeys.py   outlets and storage (`mine`, `at_outlet`: rows of the picked outlet only), till sales, HQ branch links, till API
   sales_ai.py           sales by menu item: read any report (AI), match by code, saved match, then AI suggestion or a question; a person confirms, code works out totals, matches are remembered
+  reports.py            reports: one SQL per kind over the outlet worked in, filters, totals in code
   ask.py                the in-app helper
   notifications.py, team_group.py, inbox.py   Telegram alerts, Telegram team group, in-app inbox
   plans.py              plans and every price shown (None prints "TBC"); Free holds FREE_PRODUCTS; Pro bills only outlets with work that month (USAGE_ACTIONS); lifetime per outlet; every paid AI call goes through `plans.metered` (monthly AI_MONTH allowance, counted in `ai_uses`)
