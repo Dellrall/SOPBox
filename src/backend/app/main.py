@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, ask, reports, sales_ai, telegram_bot, closing, export, hq, inquiries, insights, locations, lots, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
+from app import apikeys, ask, assistant, reports, sales_ai, telegram_bot, closing, export, hq, inquiries, insights, locations, lots, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -55,6 +55,8 @@ from app.models import (
     TaskListIn,
     TickIn,
     AskAnswer,
+    AssistantIn,
+    AssistantOut,
     AskIn,
     PriceChange,
     CountInsights,
@@ -1172,6 +1174,13 @@ def price_changes(user: PurchasingReader, conn: Conn):
 def ask_helper(body: AskIn, user: User, conn: Conn):
     """A question to the helper, answered from the records the asker can see."""
     return ask.answer(conn, user, body.question)
+
+
+@app.post("/api/assistant", response_model=AssistantOut)
+def assistant_chat(body: AssistantIn, user: User, conn: Conn):
+    """The assistant: answers from the records the asker can see, and buttons to the page for the next step."""
+    auth.limit("assistant", str(user.workspace_id), 120, 3600)  # each question may call the paid AI
+    return assistant.chat(conn, user, body)
 
 
 @app.get("/api/stocktakes/{stocktake_id}/insights", response_model=CountInsights)

@@ -499,6 +499,33 @@ class AskIn(_In):
     question: str = Field(min_length=1, max_length=300)
 
 
+class AssistantMessage(_In):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=1500)
+
+
+class AssistantIn(_In):
+    """The chat so far, newest last; only the last few turns are kept, to keep each question cheap."""
+
+    messages: list[AssistantMessage] = Field(min_length=1, max_length=12)
+
+    @model_validator(mode="after")
+    def _check(self) -> "AssistantIn":
+        if self.messages[-1].role != "user":
+            raise ValueError("the last message must be the question")
+        return self
+
+
+class PageLink(BaseModel):
+    page: str
+    label: str
+
+
+class AssistantOut(BaseModel):
+    text: str
+    links: list[PageLink] = []
+
+
 class AskAnswer(BaseModel):
     """An answer worked out from the records. `to` is the page with the details."""
 
