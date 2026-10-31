@@ -39,6 +39,7 @@ type Draft = {
   note: string; // what the AI flagged on this line, for staff to check
   expiry: string; // YYYY-MM-DD from the pack, optional unless the product tracks expiry
   expiryLater: boolean; // the date cannot be seen yet
+  ordered: string; // what the purchase order says, e.g. "10 pkt (= 100 pcs)"; "" when not from an order
 };
 
 let nextKey = 1;
@@ -54,12 +55,33 @@ const blankLine = (): Draft => ({
   note: "",
   expiry: "",
   expiryLater: false,
+  ordered: "",
 });
 
 const unitsFor = (p?: Product): string[] => (p ? [p.base_unit, ...p.pack_units.map((u) => u.unit)] : []);
 const matchUnit = (p: Product | undefined, unit: string): string =>
   unitsFor(p).find((u) => u.toLowerCase() === unit.trim().toLowerCase()) ?? "";
 const optionalNumber = (text: string): number | null => (text.trim() === "" ? null : Number(text));
+/** Base units in a typed quantity, or null when it cannot be worked out. */
+function baseQty(p: Product | undefined, quantity: string, unit: string): number | null {
+  const n = Number(quantity);
+  if (!p || quantity.trim() === "" || !Number.isInteger(n) || n < 0) return null;
+  if (unit === p.base_unit) return n;
+  const pack = p.pack_units.find((u) => u.unit === unit);
+  return pack ? n * pack.base_qty : null;
+}
+
+/** Lines read from the photo go into the order's lines for the same product; the rest are added. */
+function mergeRead(current: Draft[], read: Draft[]): Draft[] {
+  const out = current.map((l) => ({ ...l }));
+  const extra: Draft[] = [];
+  for (const r of read) {
+    const at = out.findIndex((l) => l.ordered && l.productId !== null && l.productId === r.productId && l.quantity === "");
+    if (at === -1) extra.push(r);
+    else out[at] = { ...out[at], quantity: r.quantity, unit: r.unit || out[at].unit, price: r.price || out[at].price, note: r.note };
+  }
+  return [...out, ...extra];
+}
 const rangeHint = (p?: Product): string =>
   p && p.effective_temp_min_c !== null
     ? `Required: ${p.effective_temp_min_c} to ${p.effective_temp_max_c} °C`
@@ -119,21 +141,24 @@ export default function Receive({
     if (!order) return;
     setSupplier(order.supplier);
     const toCome = order.lines.filter((l) => l.outstanding_base_qty > 0);
-    setLines(
-      toCome.map((l) => {
-        const perUnit = l.ordered_base_qty / l.quantity;
-        const inOrderedUnit = l.outstanding_base_qty % perUnit === 0;
-        return {
-          ...blankLine(),
-          productId: l.product_id,
-          name: l.product_name,
-          quantity: String(inOrderedUnit ? l.outstanding_base_qty / perUnit : l.outstanding_base_qty),
-          unit: inOrderedUnit ? l.unit : l.base_unit,
-          expected: String(l.outstanding_base_qty),
-        };
-      }),
-    );
-    setNotice(`Filled from ${order.reference}. Change the quantities to what actually arrived, and add each temperature.`);
+    // Quantity is left for what actually arrived: typed, or read from the delivery order's photo.
+    const fromOrder = toCome.map((l) => {
+      const perUnit = l.ordered_base_qty / l.quantity;
+      const inOrderedUnit = l.outstanding_base_qty % perUnit === 0;
+      const amount = inOrderedUnit ? `${l.outstanding_base_qty / perUnit} ${l.unit}` : `${l.outstanding_base_qty} ${l.base_unit}`;
+      return {
+        ...blankLine(),
+        productId: l.product_id,
+        name: l.product_name,
+        unit: inOrderedUnit ? l.unit : l.base_unit,
+        expected: String(l.outstanding_base_qty),
+        ordered: inOrderedUnit && l.unit !== l.base_unit ? `${amount} (= ${l.outstanding_base_qty} ${l.base_unit})` : amount,
+      };
+    });
+    // Lines already read from a photo keep their quantities.
+    const read = lines.filter((l) => !l.ordered && (l.quantity !== "" || l.productId !== null));
+    setLines(mergeRead(fromOrder, read));
+    setNotice(`Lines from ${order.reference} are marked. Enter what actually arrived, or photograph the delivery order, and add each temperature.`);
   }
 
   useEffect(() => {
@@ -165,8 +190,7 @@ export default function Receive({
         setNotice("No lines were found on the photo. Add them by hand.");
         return;
       }
-      setLines(
-        extracted.map((l) => {
+      const read: Draft[] = extracted.map((l) => {
           const product = products.find((p) => p.id === l.product_id);
           return {
             ...blankLine(),
@@ -182,8 +206,9 @@ export default function Receive({
                 .filter(Boolean)
                 .join("; "),
           };
-        }),
-      );
+        });
+      // With an order picked, what arrived fills its lines; anything else is added below them.
+      setLines((current) => (current.some((l) => l.ordered) ? mergeRead(current.filter((l) => l.ordered || l.quantity !== ""), read) : read));
       const flagged = extracted.filter((l) => l.warning || l.quantity === null || l.unit === null).length;
       setNotice(
         flagged
@@ -436,8 +461,24 @@ export default function Receive({
           const units = unitsFor(product);
           const hint = rangeHint(product);
           return (
-            <fieldset key={line.key} className={`${cardClass} space-y-3`}>
+            <fieldset key={line.key} className={`${cardClass} space-y-3 ${line.ordered ? "!border-sky-300 ring-2 ring-sky-300" : ""}`}>
               <legend className="px-1 text-sm font-semibold text-slate-700">Line {i + 1}</legend>
+              {line.ordered && (() => {
+                const got = baseQty(product, line.quantity, line.unit);
+                const want = Number(line.expected);
+                return (
+                  <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-xl bg-sky-100 px-3 py-2 text-sm text-sky-950">
+                    <span>
+                      <strong>Ordered:</strong> {line.ordered}
+                    </span>
+                    {got !== null && (
+                      <span className={`font-semibold ${got === want ? "text-emerald-800" : "text-amber-800"}`}>
+                        {got === want ? "Matches the order" : got < want ? `${want - got} ${product?.base_unit} short` : `${got - want} ${product?.base_unit} extra`}
+                      </span>
+                    )}
+                  </p>
+                );
+              })()}
               {line.note && (
                 <p role="note" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                   <strong>Check this line:</strong> {line.note}
@@ -470,9 +511,16 @@ export default function Receive({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass} htmlFor={`qty-${line.key}`}>
-                    Quantity
+                    {line.ordered ? "Received" : "Quantity"}
                   </label>
-                  <input id={`qty-${line.key}`} className={inputClass} inputMode="numeric" value={line.quantity} onChange={(e) => update(line.key, { quantity: e.target.value })} />
+                  <input
+                    id={`qty-${line.key}`}
+                    className={inputClass}
+                    inputMode="numeric"
+                    placeholder={line.ordered ? "What arrived" : undefined}
+                    value={line.quantity}
+                    onChange={(e) => update(line.key, { quantity: e.target.value })}
+                  />
                 </div>
                 <div>
                   <label className={labelClass} htmlFor={`unit-${line.key}`}>

@@ -740,6 +740,16 @@ test.describe("jobs", () => {
     await expect(sheet).toContainText("Ordered by: name, signature and date");
     await expect(page.locator("#root")).toBeHidden();
     await page.emulateMedia({ media: "screen" });
+
+    // Receiving against the order: its line is marked with what was ordered; staff enter what arrived.
+    await openPage(page, "Receiving check");
+    await page.getByRole("combobox", { name: /Purchase order/ }).tap();
+    await page.getByRole("option", { name: new RegExp(order.reference) }).tap();
+    const line = page.getByRole("group", { name: "Line 1" });
+    await expect(line).toContainText("Ordered: 10 L");
+    await line.getByLabel("Received").fill("8");
+    await expect(line).toContainText("2 L short");
+    await expectFitsScreen(page);
     await context.close();
   });
 });
