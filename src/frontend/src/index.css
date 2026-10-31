@@ -23,6 +23,9 @@
   --color-line: #e3eadf;
   --color-ink: #17261d;
   --color-muted: #5b6b60;
+  /* Orbyte blue, kept from the template for the page you are on in the menu. */
+  --color-orbyte: #0864e8;
+  --color-orbyte-50: #e7f0ff;
 }
 
 @layer base {
