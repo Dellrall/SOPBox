@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState, type KeyboardEvent as KeyEvent } from "react";
-import { Check, ChevronsUpDown, Settings2 } from "lucide-react";
-import { api } from "./api";
+import { Check, ChevronsUpDown, Layers, Settings2 } from "lucide-react";
+import { api, setOutletView } from "./api";
 import { setCurrentOutlet } from "./StorageSelect";
 import type { Me, Outlet } from "./types";
 
 /** The outlet this person last picked in this workspace, per account, so a shared tablet starts each person at their own. */
 const remembered = (me: Me) => `sopbox-outlet-${me.id}-${me.workspace.id}`;
+const ALL = "all";
 
 /**
- * The outlet under the workspace name: pages start on its storage areas. It starts at the outlet the
- * person works at (Team), or the one they picked last on this device. Shown once there is more than one;
+ * The outlet under the workspace name: orders, deliveries, counts, task lists and activity show only its
+ * own, or every outlet's under All outlets. It starts at the outlet the person works at (Team), or the
+ * one they picked last on this device. Shown once there is more than one;
  * someone tied to an outlet (Team) gets only theirs from the server, and sees its name.
  */
 export function OutletSwitch({ me, onChange, onManage }: { me: Me; onChange: () => void; onManage?: () => void }) {
@@ -22,17 +24,22 @@ export function OutletSwitch({ me, onChange, onManage }: { me: Me; onChange: () 
     api
       .outlets()
       .then((list) => {
-        let saved: number | null = null;
+        let saved: string | null = null;
         try {
-          saved = Number(localStorage.getItem(remembered(me))) || null;
+          saved = localStorage.getItem(remembered(me));
         } catch {
           // private window: start at their own outlet
         }
         const has = (id: number | null | undefined) => list.some((o) => o.id === id);
-        const start = has(saved) ? saved : has(me.outlet_id) ? me.outlet_id! : (list[0]?.id ?? null);
+        // Their saved pick, else their own outlet, else all outlets (one outlet: just that one).
+        const start =
+          list.length === 1 ? list[0].id : saved === ALL ? null : has(Number(saved)) ? Number(saved) : has(me.outlet_id) ? me.outlet_id! : null;
         setOutlets(list);
         setCurrent(start);
-        setCurrentOutlet(start);
+        // One outlet: nothing to narrow, so an outlet added later shows up straight away.
+        setCurrentOutlet(list.length > 1 ? start : null);
+        setOutletView(list.length > 1 ? start : null);
+        if (list.length > 1 && start !== null) onChange(); // pages loaded before the pick: load them again for it
       })
       .catch(() => setOutlets([]));
   }, [me]);
@@ -58,20 +65,21 @@ export function OutletSwitch({ me, onChange, onManage }: { me: Me; onChange: () 
     items[(at + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
   };
 
-  const pick = (id: number) => {
+  const pick = (id: number | null) => {
     setOpen(false);
     if (id === current) return;
     setCurrent(id);
     setCurrentOutlet(id);
+    setOutletView(id);
     try {
-      localStorage.setItem(remembered(me), String(id));
+      localStorage.setItem(remembered(me), id === null ? ALL : String(id));
     } catch {
       // private window: the choice lasts until the page is closed
     }
     onChange();
   };
 
-  const name = outlets.find((o) => o.id === current)?.name ?? "";
+  const name = current === null ? "All outlets" : (outlets.find((o) => o.id === current)?.name ?? "");
   // Someone tied to an outlet sees only theirs: name it, with nothing to switch to.
   if (outlets.length === 1 && me.outlet_id != null)
     return (
@@ -105,6 +113,20 @@ export function OutletSwitch({ me, onChange, onManage }: { me: Me; onChange: () 
         >
           <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/50">Switch outlet</p>
           <ul aria-label="Outlets">
+            <li>
+              <button
+                type="button"
+                aria-current={current === null}
+                onClick={() => pick(null)}
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-leaf ${
+                  current === null ? "bg-white/10 font-semibold text-white" : "text-white/80 hover:bg-white/[0.07] hover:text-white"
+                }`}
+              >
+                <Layers aria-hidden className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">All outlets</span>
+                {current === null && <Check aria-hidden className="h-4 w-4 shrink-0 text-leaf" />}
+              </button>
+            </li>
             {outlets.map((o) => {
               const here = o.id === current;
               return (

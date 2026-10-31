@@ -1252,7 +1252,7 @@ def unplan_count(plan_id: int, user: ManagerUp, conn: Conn) -> None:
 @app.get("/api/outlets", response_model=list[OutletOut])
 def list_outlets(user: User, conn: Conn):
     """Everyone picks storage areas (receiving, counting), so everyone may list them."""
-    return locations.list_outlets(conn, user.workspace_id)
+    return locations.list_outlets(conn, user.workspace_id, auth.tied_outlet(user))
 
 
 @app.post("/api/outlets", response_model=list[OutletOut], status_code=201)

@@ -101,7 +101,17 @@ export const setBranch = (id: number | null) => {
   branchId = id;
   recent.clear();
 };
-const branchHeader = (): Record<string, string> => (branchId === null ? {} : { "X-SOPBox-Workspace": String(branchId) });
+// The outlet picked in the sidebar (null: all outlets). The server shows only its orders, deliveries,
+// counts, task lists and activity; someone tied to an outlet gets theirs whatever is sent.
+let outletId: number | null = null;
+export const setOutletView = (id: number | null) => {
+  outletId = id;
+  recent.clear();
+};
+const branchHeader = (): Record<string, string> => ({
+  ...(branchId === null ? {} : { "X-SOPBox-Workspace": String(branchId) }),
+  ...(outletId === null ? {} : { "X-SOPBox-Outlet": String(outletId) }),
+});
 
 // Asked when the server wants a fresh authenticator code (HTTP 428): shows the code box and
 // resolves true once a code was accepted, so the request is sent again once.

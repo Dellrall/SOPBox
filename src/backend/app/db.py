@@ -548,6 +548,12 @@ CREATE TABLE IF NOT EXISTS job_ticks (
 ALTER TABLE stocktakes ADD COLUMN IF NOT EXISTS counted_by_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS assignment_requests_pending_key ON assignment_requests (kind, ref_id, user_id)
     WHERE status = 'pending';
+
+-- Outlet segmentation: each order and task list belongs to one outlet (NULL: the workspace's first,
+-- from before outlets); each activity entry to the outlet it happened in (NULL: the whole workspace).
+ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
+ALTER TABLE task_lists ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
 """
 
 # Tables whose rows belong to one workspace, and the SQL condition that proves it. A row is visible
