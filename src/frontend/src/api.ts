@@ -29,6 +29,8 @@ import type {
   ReorderSuggestion,
   PriceChange,
   AskAnswer,
+  AssistantMessage,
+  AssistantReply,
   Me,
   Product,
   ProductIn,
@@ -358,6 +360,7 @@ export const api = {
   reorderSuggestions: () => get<ReorderSuggestion[]>("/purchase-orders/reorder-suggestions"),
   priceChanges: () => get<PriceChange[]>("/insights/price-changes"),
   ask: (question: string) => post<AskAnswer>("/ask", { question }),
+  assistant: (messages: AssistantMessage[]) => post<AssistantReply>("/assistant", { messages }),
   lowStockDraft: (supplier_id: number, order_date: string) =>
     post<PurchaseOrder>("/purchase-orders/low-stock-draft", { supplier_id, order_date }),
   // task lists; `day` is the phone's own date

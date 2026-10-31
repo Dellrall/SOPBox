@@ -521,9 +521,19 @@ class PageLink(BaseModel):
     label: str
 
 
+class AssistantAction(BaseModel):
+    """A step the assistant suggests. Nothing happens until the person taps it; the app then calls the
+    usual route, which checks their access again."""
+
+    kind: Literal["draft_order"]
+    label: str
+    supplier_id: int
+
+
 class AssistantOut(BaseModel):
     text: str
     links: list[PageLink] = []
+    actions: list[AssistantAction] = []
 
 
 class AskAnswer(BaseModel):

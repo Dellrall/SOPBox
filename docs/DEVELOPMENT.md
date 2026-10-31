@@ -171,6 +171,7 @@ Every route except `/api/health` and the sign-in routes needs a signed-in sessio
 | `GET/POST /api/stocktakes`, `GET /api/stocktakes/{id}`, `GET .../products`, `POST .../preview`, `GET .../template.xlsx` | stock count access | Stock counts: list, read, start from the app or an uploaded sheet |
 | `GET /api/stocktakes/{id}/insights`, `POST /api/stocktakes/{id}/explain` | stock count access | "What stands out" (computed); a plain-words explanation by the AI, which never changes the numbers |
 | `POST /api/ask` | any signed in | Ask the helper how to use the app (English or Malay) |
+| `POST /api/assistant` | any signed in | The assistant chat (`AI_*` service): answers from the records with the asker's access through fixed tools, offers page buttons and tap-to-run suggestions (draft a low-stock order); changes nothing itself. One AI use per question; without `AI_API_KEY` the fixed questions answer |
 | `GET/POST /api/outlets`, `PUT/DELETE /api/outlets/{id}`, `POST /api/storages`, `PUT/DELETE /api/storages/{id}` | any; manager | Outlets and storage areas |
 | `GET /api/storages/{id}/stock`, `GET/POST /api/transfers` | stock count access | Stock per storage area; move stock between them |
 | `GET/POST /api/sales`, `POST /api/sales/preview`, `GET /api/sales/template.csv` | stock count access | Upload till sales, which take stock out |
