@@ -141,3 +141,10 @@
 @media (prefers-reduced-motion: reduce) {
   .guide-spot { animation: none }
 }
+
+/* Print.tsx: while a record is printed, it is the only thing on the page. */
+@media print {
+  body.printing-doc > :not(#print-doc) {
+    display: none !important;
+  }
+}

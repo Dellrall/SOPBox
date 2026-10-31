@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList, RefreshCw, X } from "lucide-react";
 import type { Stocktake, StocktakeDetail } from "./types";
+import { PrintButton } from "./Print";
 import { Empty, SectionTitle, cardClass, panelClass, secondaryButton } from "./ui";
 
 const PAGE = 10;
@@ -215,6 +216,29 @@ export default function StocktakeHistory({
                             <div className="space-y-2 border-t border-line p-4">
                               {selected.notes && <p className="text-sm text-ink">{selected.notes}</p>}
                               {children}
+                              <PrintButton
+                                doc={() => ({
+                                  title: "Stock count",
+                                  reference: selected.reference,
+                                  details: [
+                                    ["Storage area", selected.storage ?? ""],
+                                    ["Count date", selected.count_date],
+                                    ["Counted by", selected.counted_by],
+                                    ["Saved at", selected.created_at.slice(0, 16).replace("T", " ")],
+                                    ["Products", String(selected.line_count)],
+                                    ["Changed", String(selected.changed_count)],
+                                  ],
+                                  columns: ["Product", "Expected", "Counted", "Difference"],
+                                  rows: selected.lines.map((l) => [
+                                    l.product_name,
+                                    `${l.expected_stock} ${l.base_unit}`,
+                                    `${l.counted_stock} ${l.base_unit}`,
+                                    `${l.difference > 0 ? "+" : ""}${l.difference} ${l.base_unit}`,
+                                  ]),
+                                  notes: selected.notes,
+                                  sign: ["Counted by", "Checked by"],
+                                })}
+                              />
                             </div>
                           )}
                         </div>

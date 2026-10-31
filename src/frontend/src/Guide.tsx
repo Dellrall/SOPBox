@@ -27,13 +27,13 @@ export const SETUP_STEPS: Step[] = [
   {
     id: "outlet",
     title: "Name your outlet",
-    why: "Give Main outlet the real name of your shop or kitchen.",
+    why: "“Main outlet” is only a starting name. Change it to your shop's real name, e.g. Kopi Corner Setapak.",
     page: "settings",
     tab: "workspace",
     spot: "section:has(#outlet-new)",
     lines: [
-      "This is Settings, Workspace. Your outlets live here.",
-      "Tap the pencil next to Main outlet and type the name your team calls it.",
+      "This is Settings, Workspace. Your outlets (shops or kitchens) are listed here.",
+      "1. Find Main outlet. 2. Tap the pencil beside it. 3. Type your shop's name and tap OK. That's it.",
       "Running more than one shop? Pro adds an outlet for each, and you see them all from one place.",
     ],
   },

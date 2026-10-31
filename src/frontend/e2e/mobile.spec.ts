@@ -620,6 +620,16 @@ test.describe("jobs", () => {
     await expect(page.getByRole("button", { name: "Take it" })).toBeVisible();
     await page.getByRole("button", { name: "Open order" }).tap();
     await expect(page.getByText(order.reference).first()).toBeVisible();
+    // The audit copy: a sheet of its own, the only thing on paper.
+    await page.evaluate(() => (window.print = () => undefined));
+    await page.getByRole("button", { name: "Print or save as PDF" }).tap();
+    await page.emulateMedia({ media: "print" });
+    const sheet = page.locator("#print-doc");
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText(order.reference);
+    await expect(sheet).toContainText("Ordered by: name, signature and date");
+    await expect(page.locator("#root")).toBeHidden();
+    await page.emulateMedia({ media: "screen" });
     await context.close();
   });
 });

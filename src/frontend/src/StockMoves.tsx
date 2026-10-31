@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Download, FileUp, Plus, Trash2 } from "lucide-react";
 import { api } from "./api";
+import { PrintButton } from "./Print";
 import SearchSelect from "./SearchSelect";
 import { StorageSelect, firstStorageId, useStorages } from "./StorageSelect";
 import type { Sale, SalePreview, StockLevel, Transfer } from "./types";
@@ -296,7 +297,35 @@ function Transfers({ storages, canEdit }: { storages: Storages; canEdit: boolean
                 {when(t.created_at)} by {t.moved_by}
                 {t.notes && ` · ${t.notes}`}
               </p>
-              <p className="text-slate-700">{t.lines.map((l) => `${l.product_name} ${l.quantity} ${l.base_unit}`).join(", ")}</p>
+              {/* One product per line, like a stock count, so it reads as an audit record. */}
+              <ul className="divide-y divide-line rounded-lg border border-line">
+                {t.lines.map((l, i) => (
+                  <li key={i} className="flex justify-between gap-3 px-3 py-1.5">
+                    <span className="min-w-0 text-ink">{l.product_name}</span>
+                    <span className="shrink-0 font-semibold tabular-nums">
+                      {l.quantity} {l.base_unit}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="pt-1">
+                <PrintButton
+                  doc={() => ({
+                    title: "Stock transfer",
+                    reference: t.reference,
+                    details: [
+                      ["From", t.from_storage],
+                      ["To", t.to_storage],
+                      ["Moved by", t.moved_by],
+                      ["Moved at", t.created_at.slice(0, 16).replace("T", " ")],
+                    ],
+                    columns: ["Product", "Quantity"],
+                    rows: t.lines.map((l) => [l.product_name, `${l.quantity} ${l.base_unit}`]),
+                    notes: t.notes,
+                    sign: ["Sent by", "Received by"],
+                  })}
+                />
+              </div>
             </article>
           ))
         )}
