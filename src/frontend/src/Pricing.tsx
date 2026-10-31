@@ -33,11 +33,11 @@ export const PRO: Tier = {
   tagline: "For businesses with more than one outlet",
   items: [
     "Everything in Free",
-    "Add outlets: pay only for each one after the first",
+    "Add as many outlets as you need",
     "Staff and managers tied to their own outlet",
     "HQ sees its branches' stock and deliveries",
     "Till (POS) sales sent in automatically by API key",
-    "Add customization or priority support when you need them",
+    "Add custom work or priority support when you need them",
   ],
 };
 export const ENTERPRISE: Tier = {
@@ -55,7 +55,7 @@ const COMPARE: [string, boolean | string, boolean | string, boolean | string][] 
   ["Download your data", true, true, true],
   ["HQ and branch links", false, true, true],
   ["Till API keys", false, true, true],
-  ["Customization", false, "Add-on", true],
+  ["Custom work", false, "Quoted per task", true],
   ["Priority support", false, "Add-on", true],
 ];
 
@@ -66,9 +66,12 @@ const FAQ: [string, string][] = [
   ],
   [
     "What counts as an outlet?",
-    "A place you receive deliveries, such as a restaurant or a central kitchen. The first outlet is free; Pro is priced for each one after that.",
+    "A place you receive deliveries, such as a restaurant or a central kitchen. Free covers one outlet. Pro includes your first outlet and adds a small monthly price for each one after that.",
   ],
-  ["Yearly or once for life?", "Pay for each extra outlet by the year, or once for as long as SOPBox runs. Add-ons work the same way."],
+  [
+    "What is the launch price?",
+    "Early customers pay the launch price for their first 12 months, paid yearly, and get priority support free for that year. After that the normal price applies.",
+  ],
   [
     "What if a yearly plan runs out?",
     "Your workspace counts as Free again. Nothing is deleted, and what you already set up keeps working.",
@@ -136,7 +139,7 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
   const [pricing, setPricing] = useState<PricingData | null>(null);
   usePageMeta(
     "Pricing · SOPBox",
-    "SOPBox pricing: free for one store, Pro priced per extra outlet by the year or once for life, and Enterprise plans for groups. Add customization and priority support.",
+    "SOPBox pricing: free for one store, Pro from RM 49 a month at launch, and Enterprise plans for groups. Custom work quoted per task; priority support yearly.",
   );
 
   useEffect(() => {
@@ -147,7 +150,6 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
   }, []);
 
   const wide = "w-full justify-center";
-  const lifetime = pricing?.prices.pro_outlet_lifetime;
   return (
     <div className="min-h-screen bg-surface text-ink">
       <div className="hero-pattern pb-24 text-white sm:pb-28">
@@ -155,8 +157,8 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
         <div className="mx-auto max-w-3xl px-5 pt-2 text-center sm:px-8 sm:pt-8">
           <h1 className="text-3xl font-extrabold leading-tight sm:text-5xl">Free for one store. Pay only as you grow.</h1>
           <p className="mx-auto mt-3 max-w-xl text-white/75 sm:mt-4 sm:text-lg">
-            Every plan has the full receiving check: AI reading, your rules, manager approvals and the activity log. Pay per extra outlet,
-            for a year or once for life.
+            Every plan has the full receiving check: AI reading, your rules, manager approvals and the activity log. Upgrade to Pro when
+            you open more outlets.
           </p>
         </div>
       </div>
@@ -182,16 +184,18 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
           <PlanCard
             tier={PRO}
             featured
-            amount={shown(pricing, "pro_outlet_year")}
-            note={
-              lifetime == null ? "per extra outlet, a year" : `per extra outlet, a year, or ${price(pricing, "pro_outlet_lifetime")} once`
-            }
+            amount={shown(pricing, "pro_month")}
+            note={`a month with your first outlet, plus ${price(pricing, "pro_outlet_month")} a month for each extra outlet. Paid yearly. Launch price for your first 12 months, then ${price(pricing, "pro_month_later")} and ${price(pricing, "pro_outlet_month_later")}.`}
           >
             <a href={signedIn ? "/settings#billing" : "/register"} className={`${primaryButton} ${wide}`}>
               {signedIn ? "Upgrade in Settings" : "Start free, upgrade later"}
             </a>
           </PlanCard>
-          <PlanCard tier={ENTERPRISE} amount="Let's talk" note="one price for your whole group">
+          <PlanCard
+            tier={ENTERPRISE}
+            amount={pricing?.prices.enterprise_month_from == null ? "Let's talk" : `From ${price(pricing, "enterprise_month_from")}`}
+            note="a month, one price for your whole group"
+          >
             <a {...linkTo(navigate, "/contact?topic=sales")} className={`${secondaryButton} ${wide}`}>
               Contact sales
             </a>
@@ -209,12 +213,12 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
             <div className={`${cardClass} flex gap-4`}>
               <Palette aria-hidden className="h-8 w-8 shrink-0 text-brand-600" />
               <div>
-                <h3 className="font-semibold">Customization</h3>
-                <p className="mt-1 text-sm text-muted">Your own branding, fields and checks, SOP templates and reports.</p>
+                <h3 className="font-semibold">Custom work</h3>
+                <p className="mt-1 text-sm text-muted">
+                  Your own checks, reports, SOP templates or data import. We quote each task before we start, so you pay only for what you ask.
+                </p>
                 <p className="mt-3 text-sm font-semibold">
-                  {shown(pricing, "customization_year")}
-                  {pricing?.prices.customization_year != null && " a year"}
-                  {pricing?.prices.customization_lifetime != null && `, or ${price(pricing, "customization_lifetime")} once`}
+                  {pricing?.prices.custom_task_from == null ? "Quoted per task" : `From ${price(pricing, "custom_task_from")} a task`}
                 </p>
               </div>
             </div>
@@ -227,7 +231,7 @@ export default function Pricing({ navigate, signedIn }: { navigate: (to: PublicP
                 </p>
                 <p className="mt-3 text-sm font-semibold">
                   {shown(pricing, "priority_support_year")}
-                  {pricing?.prices.priority_support_year != null && " a year"}
+                  {pricing?.prices.priority_support_year != null && " a year, free in your first year at launch"}
                 </p>
               </div>
             </div>
