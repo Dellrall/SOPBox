@@ -22,6 +22,7 @@ let currentOutlet: number | null = null;
 export const setCurrentOutlet = (id: number | null) => {
   currentOutlet = id;
 };
+export const getCurrentOutlet = () => currentOutlet;
 
 /** The storage area used when none is picked: the first one made in the current outlet, else in the workspace. */
 export const firstStorageId = (storages: StorageArea[]) => {

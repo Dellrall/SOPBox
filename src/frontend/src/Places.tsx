@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Copy, Plus } from "lucide-react";
 import { api } from "./api";
 import type { Links, Outlet } from "./types";
+import { getCurrentOutlet } from "./StorageSelect";
 import { DeleteIconButton, EditIconButton, ErrorNote, SectionTitle, SuccessNote, cardClass, dangerButton, inputClass, primaryButton, secondaryButton } from "./ui";
 
 /** The outlets and a way to change them, shared by the outlet list and the storage areas. */
@@ -100,6 +101,9 @@ export function Outlets() {
 export function StorageAreas({ canEdit }: { canEdit: boolean }) {
   const { outlets, error, busy, run, rename } = useOutlets();
   const [newStorage, setNewStorage] = useState<Record<number, string>>({});
+  // Only the outlet picked in the sidebar; "All outlets" shows each one.
+  const picked = getCurrentOutlet();
+  const shown = outlets.filter((o) => picked === null || o.id === picked);
 
   return (
     <section className={`${cardClass} space-y-4`} aria-labelledby="storage-heading">
@@ -111,9 +115,9 @@ export function StorageAreas({ canEdit }: { canEdit: boolean }) {
           Where stock is kept. Only an empty area with no history can be deleted.
         </p>
       </div>
-      {outlets.map((o) => (
+      {shown.map((o) => (
         <div key={o.id} className="space-y-2">
-          {outlets.length > 1 && <p className="text-xs font-semibold uppercase tracking-wider text-muted">{o.name}</p>}
+          {shown.length > 1 && <p className="text-xs font-semibold uppercase tracking-wider text-muted">{o.name}</p>}
           <ul className="divide-y divide-line rounded-xl border border-line">
             {o.storages.map((s) => (
               <li key={s.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5 text-sm">
