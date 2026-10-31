@@ -469,6 +469,7 @@ function Shell({
   // Bumped on every menu click, so choosing the page you are on returns it to its start
   // (for example from one purchase order back to the list).
   const [visit, setVisit] = useState(0);
+  const [outletTurn, setOutletTurn] = useState(0); // Receive stays mounted: it reloads when this changes
   const go = (id: PageId) => {
     setPage(id);
     setVisit((v) => v + 1);
@@ -627,7 +628,10 @@ function Shell({
             )}
             <OutletSwitch
               me={me}
-              onChange={() => setVisit((v) => v + 1)}
+              onChange={() => {
+                setVisit((v) => v + 1);
+                setOutletTurn((v) => v + 1);
+              }}
               onManage={
                 me.role === "staff"
                   ? undefined
@@ -702,6 +706,7 @@ function Shell({
             canEdit={sectionAllowed(me, "receive", true)}
             purchaseOrderId={receivePo}
             onPurchaseOrderTaken={() => setReceivePo(null)}
+            reload={outletTurn}
           />
         </div>
         {page === "dashboard" && (

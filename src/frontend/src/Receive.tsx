@@ -70,9 +70,11 @@ export default function Receive({
   canEdit,
   purchaseOrderId,
   onPurchaseOrderTaken,
+  reload,
 }: {
   active: boolean;
   canEdit: boolean;
+  reload?: number; // changes when another outlet is picked
   purchaseOrderId?: number | null; // preselect this order, from its "Receive a delivery" button
   onPurchaseOrderTaken?: () => void;
 }) {
@@ -90,7 +92,7 @@ export default function Receive({
   const [stockPhotos, setStockPhotos] = useState<{ key: number; data: string; caption: string }[]>([]);
   const [tagged, setTagged] = useState<number[]>([]);
   // Where the stock is put away. Asked only when the workspace has more than one storage area.
-  const storages = useStorages();
+  const storages = useStorages(reload);
   const [storageId, setStorageId] = useState<number | null>(null);
 
   // Receive stays mounted while you look at other pages, so reload the catalogue each time it is
@@ -100,12 +102,16 @@ export default function Receive({
     Promise.all([api.products(), api.purchaseOrders("issued")])
       .then(([found, issued]) => {
         setProducts(found.filter((p) => !p.archived)); // archived products are not received
-        setOrders(issued.filter((o) => o.receiving_status !== "fully_received"));
+        const open = issued.filter((o) => o.receiving_status !== "fully_received");
+        setOrders(open);
+        // Another outlet picked: an order or storage area from the last one no longer applies.
+        setOrderId((id) => (open.some((o) => o.id === id) ? id : null));
         setError("");
       })
       .catch((e: Error) => setError(`Could not load the catalogue: ${e.message}`))
       .finally(() => setLoaded(true));
-  }, [active]);
+  }, [active, reload]);
+  useEffect(() => setStorageId(null), [reload]); // the last outlet's storage area does not apply
 
   // Fill the lines with what is still to come on the order, in the units it was ordered in.
   function fillFromOrder(order: PurchaseOrder | undefined) {
