@@ -50,6 +50,7 @@ export const GUIDES: Guide[] = [
       "Create an order with the products and quantities, then issue it.",
       "When the goods arrive, tap Receive on the order: the receiving check starts with its lines filled in.",
       "Part deliveries are tracked until everything has arrived.",
+      "Open an order and tap Print or save as PDF for a signed paper copy for your records.",
       "Draft from low stock: pick a supplier and the amounts cover a week of recent use plus each minimum. With 3 weeks of uploaded sales, next week's sales are forecast from their trend. Tap a line to see why.",
     ],
   },
@@ -91,6 +92,7 @@ export const GUIDES: Guide[] = [
       "Leave a product blank if you did not count it. Enter 0 only when you counted none.",
       "Save the count: the difference from the expected stock shows up as a loss or a gain.",
       "Open a saved count: What stands out shows repeat shortfalls and their value in RM. Explain with AI suggests what to check.",
+      "Tap Print / PDF on a saved count to keep a signed copy.",
     ],
   },
   {
@@ -99,7 +101,7 @@ export const GUIDES: Guide[] = [
     icon: ArrowLeftRight,
     what: "What each outlet and storage area holds, transfers between them, and sales.",
     how: [
-      "Move stock between storage areas or outlets with a transfer.",
+      "Move stock between storage areas or outlets with a transfer. Tap Print / PDF on a transfer for a paper copy.",
       "Upload your till's sales so the next count shows only real losses.",
     ],
   },

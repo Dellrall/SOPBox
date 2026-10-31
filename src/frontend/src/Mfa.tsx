@@ -224,7 +224,8 @@ export function TwoStep({ me, onChanged }: { me: Me; onChanged: () => void }) {
       ) : setup ? (
         <div className="space-y-3 text-sm">
           <p>
-            1. In your authenticator app, add an account and type this key, or{" "}
+            1. Get a free authenticator app (Google Authenticator or Microsoft Authenticator). In it, tap +, choose
+            "Enter a setup key" and type this key, or{" "}
             <a className="font-semibold text-brand-700 underline" href={setup.uri}>
               open it in the app
             </a>{" "}
@@ -233,7 +234,7 @@ export function TwoStep({ me, onChanged }: { me: Me; onChanged: () => void }) {
           <code className="block break-all rounded-xl bg-slate-100 p-3 font-mono text-ink" data-testid="mfa-secret">
             {setup.secret.match(/.{1,4}/g)?.join(" ")}
           </code>
-          <p>2. Type the 6-digit code it shows.</p>
+          <p>2. The app now shows a 6-digit code that changes every 30 seconds. Type it here.</p>
           <CodeForm
             submitLabel="Turn on"
             onCode={async (code) => {

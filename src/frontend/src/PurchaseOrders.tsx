@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, Check, ChevronDown, FilePlus2, Search, PackageCheck, Plus, Printer, Send, Sparkles, Trash2, Truck, XCircle } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, FilePlus2, Search, PackageCheck, Plus, Send, Sparkles, Trash2, Truck, XCircle } from "lucide-react";
 import { api } from "./api";
+import { PrintButton } from "./Print";
 import { takeOpen } from "./openTarget";
 import SearchSelect from "./SearchSelect";
 import type { LowStockSupplier, Product, ReorderSuggestion, PurchaseOrder, PurchaseOrderIn, PurchaseOrderStatus, ReceivingStatus, Supplier, SupplierIn } from "./types";
@@ -654,9 +655,31 @@ function OrderDetail({
             </button>
           </>
         )}
-        <button className={secondaryButton} onClick={() => window.print()}>
-          <Printer aria-hidden className="h-4 w-4" /> Print or save as PDF
-        </button>
+        <PrintButton
+          label="Print or save as PDF"
+          doc={() => ({
+            title: "Purchase order",
+            reference: order.reference,
+            details: [
+              ["Supplier", order.supplier],
+              ["Status", order.status === "issued" ? `Issued, ${order.receiving_status.replace(/_/g, " ")}` : order.status],
+              ["Order date", order.order_date],
+              ["Expected", order.expected_date ?? ""],
+              ["Created by", order.created_by],
+              ["Issued by", order.issued_by ? `${order.issued_by}, ${order.issued_at?.slice(0, 10)}` : ""],
+              ["Deliveries", order.delivery_ids.map((d) => `#${d}`).join(", ")],
+            ],
+            columns: ["Product", "Ordered", "Received", "Still to come"],
+            rows: order.lines.map((l) => [
+              l.product_name,
+              `${l.quantity} ${l.unit}`,
+              `${l.received_base_qty} ${l.base_unit}`,
+              `${l.outstanding_base_qty} ${l.base_unit}`,
+            ]),
+            notes: order.notes,
+            sign: ["Ordered by", "Approved by"],
+          })}
+        />
         {canEdit && order.status !== "cancelled" && order.delivery_ids.length === 0 && (
           <button className={dangerButton} onClick={() => setCancelling((c) => !c)}>
             <XCircle aria-hidden className="h-4 w-4" /> Cancel order

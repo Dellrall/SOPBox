@@ -29,7 +29,7 @@ function useOutlets() {
   }
 
   const rename = (current: string, save: (name: string) => Promise<Outlet[]>) => {
-    const name = window.prompt("New name", current)?.trim();
+    const name = window.prompt(`Type the new name for “${current}”, then tap OK.`, current)?.trim();
     if (name && name !== current) void run(() => save(name));
   };
   return { outlets, error, busy, run, rename };

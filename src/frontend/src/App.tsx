@@ -29,6 +29,7 @@ import AuthPage from "./AuthPage";
 import Landing from "./Landing";
 import { InboxBell, InboxPanel, useInboxRefresh } from "./Inbox";
 import { ProfileMenu } from "./ProfileMenu";
+import { PrintHost } from "./Print";
 import { describeSignIn, rememberSignIn } from "./signin";
 import { MascotDock, type Scene } from "./Mascot";
 import { WorkspaceSwitch } from "./WorkspaceSwitch";
@@ -685,6 +686,7 @@ function Shell({
         <ClosedBanner me={me} onOpen={() => go("settings")} />
         <LastSignIn me={me} onReview={() => go("settings")} />
         <InboxPanel onOpen={openNotification} />
+        <PrintHost business={me.workspace.name} by={me.display_name} />
         <Loaded fallback={<p className="text-sm text-muted">Loading…</p>}>
         {/* Receive stays mounted so a half-filled delivery survives a look at another page. */}
         <div hidden={page !== "receive"}>
