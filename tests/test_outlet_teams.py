@@ -137,8 +137,21 @@ def test_picking_an_outlet_shows_only_its_orders_counts_deliveries_tasks_and_act
         assert [t["name"] for t in client.get("/api/tasks", headers=h, params={"day": "2026-10-31"}).json()] == [f"Open {outlet['name']}"]
         assert {s["storage"].split(" / ")[0] for s in client.get("/api/stocktakes", headers=h).json()} == {outlet["name"]}
         assert [d["supplier"] for d in client.get("/api/deliveries", headers=h).json()] == [f"For {outlet['name']}"]
-        details = " ".join(a["detail"] for a in client.get("/api/audit", headers=h).json())
+        entries = client.get("/api/audit", headers=h).json()
+        details = " ".join(a["detail"] for a in entries)
         assert f"For {other['name']}" not in details and f"Open {other['name']}" not in details
+        assert "outlet.created" in [a["action"] for a in entries]  # about the whole workspace: every outlet sees it
+        board = client.get("/api/dashboard", headers=h).json()
+        assert board["delivery_count"] == 1 and [d["supplier"] for d in board["recent_deliveries"]] == [f"For {outlet['name']}"]
+        assert len(board["recent_activity"]) == 1
+
+    # Low stock is per outlet when one is picked: sausage (minimum 50) is stocked at home only.
+    stocked = client.post("/api/stocktakes", headers=at[home["id"]], json={"count_date": "2026-10-31", "lines": [
+        {"product_id": catalogue_ids["sausage"], "expected_stock": 0, "counted_stock": 60}]})
+    assert stocked.status_code == 201, stocked.text
+    low = lambda h: [p["id"] for p in client.get("/api/dashboard", headers=h).json()["low_stock_products"]]  # noqa: E731
+    assert catalogue_ids["sausage"] not in low(at[home["id"]]) and catalogue_ids["sausage"] in low(at[kl["id"]])
+    assert catalogue_ids["sausage"] not in low({})
 
     # All outlets: everything; an order cannot be added without picking where it is for.
     assert len(client.get("/api/purchase-orders").json()) == 2

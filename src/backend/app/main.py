@@ -782,7 +782,7 @@ def dashboard_summary(user: DashboardReader, conn: Conn):
         row["status"]: row["count"]
         for row in conn.execute(
             "SELECT status, COUNT(*)::int AS count FROM deliveries "
-            "WHERE workspace_id = %s GROUP BY status",
+            f"WHERE workspace_id = %s AND {deliveries._OWN} GROUP BY status",
             (ws,),
         ).fetchall()
     }
@@ -790,18 +790,22 @@ def dashboard_summary(user: DashboardReader, conn: Conn):
         "SELECT d.id, d.supplier, d.status, d.created_at, "
         "CASE WHEN po.number IS NULL THEN NULL ELSE 'PO-' || lpad(po.number::text, 4, '0') END AS purchase_order "
         "FROM deliveries d LEFT JOIN purchase_orders po ON po.id = d.purchase_order_id "
-        "WHERE d.workspace_id = %s ORDER BY d.id DESC LIMIT 6",
+        f"WHERE d.workspace_id = %s AND {locations.mine('d.storage_id')} ORDER BY d.id DESC LIMIT 6",
         (ws,),
     ).fetchall()
+    # With an outlet picked, low stock is what that outlet's storage areas hold against each minimum.
     low_stock = conn.execute(
-        "SELECT id, name, stock, min_stock, base_unit FROM products "
-        "WHERE workspace_id = %s AND NOT archived AND stock < min_stock "
+        "SELECT * FROM (SELECT p.id, p.name, p.min_stock, p.base_unit, "
+        f"CASE WHEN {locations.OWN_OUTLET} IS NULL THEN p.stock ELSE COALESCE(l.quantity, 0) END AS stock "
+        "FROM products p LEFT JOIN (SELECT product_id, sum(quantity)::bigint AS quantity FROM stock_levels "
+        f"WHERE {locations.mine('storage_id')} GROUP BY product_id) l ON l.product_id = p.id "
+        "WHERE p.workspace_id = %s AND NOT p.archived) x WHERE stock < min_stock "
         "ORDER BY stock ASC, lower(name) LIMIT 100",
         (ws,),
     ).fetchall()
     since = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat(timespec="seconds")
     activity = conn.execute(
-        "SELECT created_at, status FROM deliveries WHERE workspace_id = %s AND created_at >= %s "
+        f"SELECT created_at, status FROM deliveries WHERE workspace_id = %s AND {deliveries._OWN} AND created_at >= %s "
         "ORDER BY created_at, id LIMIT 5000",
         (ws, since),
     ).fetchall()
