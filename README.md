@@ -34,7 +34,7 @@
 | GitHub Repository | https://github.com/Dellrall/SOPBox          |
 | Live Demo         | https://sopbox.replit.app                      |
 | RunPod Endpoint   | https://api.runpod.ai/v2/sriet0cftztbik        |
-| Slide Deck        |https://docs.google.com/presentation/d/19grJuodMn0e-vGj9hfSoVCfKdqcKE-roTmU2JJK2dPU/edit?usp=sharing|
+| Slide Deck        |https://docs.google.com/presentation/d/1bgZOBKZ0It3YUjl5_K89h_N3jCciHSCj/edit?usp=sharing&ouid=116348766400869509017&rtpof=true&sd=true|
 | Demo Video        |https://youtu.be/mJNwTxj6-pY                                        |
 | How we meet the judging criteria | [docs/JUDGING.md](docs/JUDGING.md) |
 ---
