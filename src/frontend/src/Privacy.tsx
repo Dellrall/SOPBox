@@ -3,7 +3,7 @@ import type { PublicPath } from "./App";
 import { MascotFigure } from "./Mascot";
 import { SiteFooter, SiteHeader, linkTo, usePageMeta } from "./Site";
 
-const UPDATED = "31 October 2026";
+const UPDATED = "1 November 2026";
 
 type Section = { id: string; title: string; body: ReactNode };
 
@@ -54,7 +54,8 @@ export default function Privacy({ navigate, signedIn }: { navigate: (to: PublicP
           </li>
           <li>
             <strong>Your business&apos;s records:</strong> products, suppliers, deliveries, delivery-order and stock photos, readings,
-            approvals, comments, stock counts, sales and the activity log of who did what.
+            approvals, comments, stock counts, expiry lots and what was thrown away, sales (with the lot used, if picked), and the activity
+            log of who did what.
           </li>
           <li>
             <strong>Work you are given:</strong> the jobs you are in charge of (orders, held deliveries, stock counts), requests to take one
@@ -79,6 +80,10 @@ export default function Privacy({ navigate, signedIn }: { navigate: (to: PublicP
             To run SOPBox for your business: checking deliveries, alerting the right people, keeping the activity log, and securing
             accounts. To reply when you contact us.
           </p>
+          <p>
+            We count how many times each business uses AI in a month (which feature and when, nothing more) to keep within the plan&apos;s
+            allowance.
+          </p>
           <p>We do not sell personal data, show advertising, or use your records to train AI models.</p>
         </>
       ),
@@ -94,6 +99,14 @@ export default function Privacy({ navigate, signedIn }: { navigate: (to: PublicP
           <li>
             <strong>RunPod</strong> runs the AI model that reads delivery-order photos. Photos are sent there only to be read, on our own
             endpoint with an open model; they are not used for training.
+          </li>
+          <li>
+            <strong>A second AI service</strong> (an OpenAI-compatible model service run for us by KrackedDev) reads sales reports you
+            choose to read with AI, and answers questions to the assistant. For a question, it receives the question, the last few turns of
+            the chat, and the records the assistant looks up with your own access, such as product names, quantities, supplier names and teammates&apos;
+            names. It
+            never receives passwords or sign-in details, and it cannot change anything in SOPBox. We do not ask it to keep what it reads or to
+            train on it; its own terms apply.
           </li>
           <li>
             <strong>Telegram</strong> carries alerts and your messages to the SOPBox bot, only if you connect Telegram. The bot keeps

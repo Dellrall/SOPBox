@@ -1,9 +1,12 @@
 import {
   ArrowRight,
+  BarChart3,
   BellRing,
   BookOpenCheck,
+  CalendarClock,
   ClipboardCheck,
   ClipboardList,
+  Receipt,
   ShoppingCart,
   Smartphone,
   Sparkles,
@@ -41,10 +44,13 @@ const PRINCIPLES: { who: Who; action: Action; title: string; text: string }[] = 
 const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: Thermometer, title: "Temperature and pack checks", text: "Every line is checked against its range, pack size and the quantity still due on the order." },
   { icon: BellRing, title: "Manager approvals", text: "Failed deliveries wait for a manager, who hears on Telegram and decides with a reason." },
-  { icon: BookOpenCheck, title: "SOP cards", text: "How to receive, store and handle each product, on any phone." },
+  { icon: CalendarClock, title: "Expiry dates and lots", text: "Each batch gets a lot label. Earliest expiry first, alerts before it expires, waste recorded." },
   { icon: ClipboardList, title: "Stock counts", text: "Count each storage area; repeat shortfalls stand out with their value in RM." },
+  { icon: Receipt, title: "Sales off stock", text: "Fill in a sales sheet like a count, or read any till report. The lot used is kept." },
   { icon: ShoppingCart, title: "Orders from low stock", text: "Draft a purchase order sized to a week of use. Price rises are flagged on delivery." },
-  { icon: Sparkles, title: "Ask the helper", text: "Ask what went missing, what to order or which prices went up." },
+  { icon: BarChart3, title: "Reports and paper copies", text: "Reports by period, product or supplier, and a PDF of every order, delivery and count." },
+  { icon: BookOpenCheck, title: "SOP cards and tasks", text: "How to handle each product, daily checklists, and jobs with a person in charge." },
+  { icon: Sparkles, title: "Assistant", text: "Ask what to order or what expires soon. It answers from your records and only suggests." },
 ];
 
 export default function Landing({ navigate }: { navigate: (to: PublicPath) => void }) {
@@ -121,7 +127,7 @@ export default function Landing({ navigate }: { navigate: (to: PublicPath) => vo
       <section id="features" aria-labelledby="features-title" className="border-y border-line bg-white">
         <div className="mx-auto max-w-6xl scroll-mt-20 px-5 py-12 sm:px-8 sm:py-20">
           <h2 id="features-title" className="max-w-2xl text-2xl font-extrabold text-brand-950 sm:text-4xl">
-            Everything a receiving check needs
+            From the door to the shelf
           </h2>
           <ul className="mt-6 grid gap-x-8 gap-y-6 sm:mt-10 sm:gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map(({ icon: Icon, title, text }) => (
