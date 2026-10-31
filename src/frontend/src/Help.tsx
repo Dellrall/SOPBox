@@ -105,6 +105,8 @@ export const GUIDES: Guide[] = [
     how: [
       "Move stock between storage areas or outlets with a transfer. Tap Print / PDF on a transfer for a paper copy.",
       "Upload your till's sales so the next count shows only real losses.",
+      "Sales by menu item: tap Read a report and pick a photo, PDF or sheet from any till, or paste the text. Products are matched by code or name; the AI suggests the rest or asks you a question. Check each line, answer, then Take off stock. Matches are remembered, so next time needs no AI.",
+      "A till connected by API key that sends an unknown item waits under Till sales waiting for you: tap Finish.",
     ],
   },
   {

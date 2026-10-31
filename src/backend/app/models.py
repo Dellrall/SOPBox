@@ -1267,6 +1267,112 @@ class DisposalOut(BaseModel):
     created_at: str
 
 
+class SoldItem(_In):
+    """One line as sold: a menu item or product name, its code if any, how many."""
+
+    name: str = Field(min_length=1, max_length=120)
+    code: str | None = Field(default=None, max_length=40)
+    quantity: float = Field(gt=0, le=1_000_000)
+    unit: str = Field(default="", max_length=20)
+
+
+class SaleComponent(_In):
+    product_id: int = Field(gt=0)
+    per_sold: float = Field(gt=0, le=100_000)  # base units of the product per item sold
+
+
+class SalesReadIn(_In):
+    """Sales to read: a file (photo, PDF, .xlsx, .csv) or pasted text; or items already read, with
+    people's answers to the questions the last read asked, keyed by the sold item's name."""
+
+    storage_id: int
+    filename: str = Field(default="", max_length=200)
+    data: str | None = Field(default=None, max_length=12_000_000)  # base64
+    text: str | None = Field(default=None, max_length=60_000)
+    items: list[SoldItem] | None = Field(default=None, max_length=500)
+    answers: dict[str, str] = Field(default_factory=dict, max_length=200)
+    draft_id: int | None = None  # finishing a till's sale that was kept for a person
+
+    @field_validator("answers")
+    @classmethod
+    def _short(cls, value: dict[str, str]) -> dict[str, str]:
+        return {k[:120]: v[:500] for k, v in value.items() if v.strip()}
+
+
+class SaleComponentOut(BaseModel):
+    product_id: int
+    product_name: str
+    base_unit: str
+    per_sold: float
+    total: int  # base units this line takes off stock
+
+
+SaleLineStatus = Literal["matched", "suggested", "question", "not_stock"]
+
+
+class SalesDraftLine(BaseModel):
+    name: str
+    code: str | None
+    quantity: float
+    unit: str
+    status: SaleLineStatus  # matched: by code or a saved match; suggested: by the AI; question: needs a person
+    source: Literal["code", "saved", "ai", "none"]
+    components: list[SaleComponentOut]
+    question: str | None = None
+
+
+class SalesTotal(BaseModel):
+    product_id: int
+    product_name: str
+    base_unit: str
+    quantity: int
+    in_stock: int
+
+
+class SalesDraft(BaseModel):
+    sale_date: date | None  # as printed, when the AI found one
+    lines: list[SalesDraftLine]
+    totals: list[SalesTotal]  # what would come off stock, worked out by code
+    ai_used: bool
+    ai_available: bool
+    draft_id: int | None = None
+
+
+class SalesConfirmLine(_In):
+    name: str = Field(min_length=1, max_length=120)
+    code: str | None = Field(default=None, max_length=40)
+    quantity: float = Field(gt=0, le=1_000_000)
+    not_stock: bool = False
+    components: list[SaleComponent] = Field(default_factory=list, max_length=20)
+    remember: bool = True  # save the match so the next read needs no AI
+
+
+class SalesConfirmIn(_In):
+    storage_id: int
+    sale_date: date
+    source: str = Field(default="", max_length=200)
+    lines: list[SalesConfirmLine] = Field(min_length=1, max_length=500)
+    draft_id: int | None = None
+
+
+class SaleDraftOut(BaseModel):
+    id: int
+    storage_id: int
+    storage: str
+    sale_date: date
+    source: str
+    items: list[SoldItem]
+    created_at: str
+
+
+class ApiSoldItemsIn(_In):
+    """A till's sale by item name: what saved matches cover is recorded; the rest waits for a person."""
+
+    sale_date: date
+    reference: str | None = Field(default=None, max_length=80)
+    items: list[SoldItem] = Field(min_length=1, max_length=500)
+
+
 class SaleIn(_In):
     storage_id: int
     sale_date: date
@@ -1363,6 +1469,13 @@ class ApiSaleIn(_In):
     # changes no stock, so a till can safely retry after a timeout.
     reference: str | None = Field(default=None, min_length=1, max_length=100)
     lines: list[ApiSaleLineIn] = Field(min_length=1, max_length=5000)
+
+
+class ApiSoldItemsOut(BaseModel):
+    status: Literal["recorded", "needs_review"]
+    sale: SaleOut | None  # when recorded
+    draft_id: int | None  # when kept for a person to finish on Stock & sales
+    unmatched: list[str]  # sold items no product or saved match covers yet
 
 
 class ApiSaleOut(BaseModel):

@@ -26,7 +26,7 @@ SECTIONS = {
     "purchasing": ["suppliers", "purchase_orders", "purchase_order_lines"],
     "stocktake": [
         "outlets", "storages", "stock_levels", "stocktakes", "stocktake_lines",
-        "stock_transfers", "stock_transfer_lines", "sales", "sale_lines", "stock_lots", "stock_disposals",
+        "stock_transfers", "stock_transfer_lines", "sales", "sale_lines", "stock_lots", "stock_disposals", "sale_mappings", "sale_drafts",
     ],
     "activity": ["audit_log"],
 }

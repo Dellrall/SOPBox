@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, ask, telegram_bot, closing, export, hq, inquiries, insights, locations, lots, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
+from app import apikeys, ask, sales_ai, telegram_bot, closing, export, hq, inquiries, insights, locations, lots, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -34,6 +34,12 @@ from app.errors import (
 )
 from app.extraction import explain_gaps, extract_lines, extract_products, write_sop
 from app.models import (
+    ApiSoldItemsIn,
+    ApiSoldItemsOut,
+    SaleDraftOut,
+    SalesConfirmIn,
+    SalesDraft,
+    SalesReadIn,
     AssignIn,
     AssignmentRequest,
     AssignOut,
@@ -1344,6 +1350,25 @@ async def preview_sales(
     return sales.preview(conn, user.workspace_id, storage_id, file.filename or "", content)
 
 
+@app.post("/api/sales/read", response_model=SalesDraft)
+def read_sales(body: SalesReadIn, user: StocktakeEditor, conn: Conn):
+    """Read sales from a file, pasted text or a kept till sale, and match them to products. Saves nothing."""
+    if (body.items is None and body.draft_id is None) or body.answers:
+        auth.limit("sales-read", str(user.workspace_id), 60, 3600)  # each may call the paid AI
+    return sales_ai.read(conn, user.workspace_id, body)
+
+
+@app.post("/api/sales/confirm", response_model=SaleOut, status_code=201)
+def confirm_sales(body: SalesConfirmIn, user: StocktakeEditor, conn: Conn):
+    return sales_ai.confirm(conn, user.workspace_id, user.display_name, body)
+
+
+@app.get("/api/sales/drafts", response_model=list[SaleDraftOut])
+def list_sale_drafts(user: StocktakeReader, conn: Conn):
+    """Till sales with items nothing matched yet, waiting for a person."""
+    return sales_ai.list_drafts(conn, user.workspace_id)
+
+
 @app.get("/api/sales", response_model=list[SaleOut])
 def list_sales(user: StocktakeReader, conn: Conn):
     return sales.list_sales(conn, user.workspace_id)
@@ -1413,6 +1438,12 @@ def api_stock(client: KeyClient, conn: Conn):
 def api_record_sale(body: ApiSaleIn, client: KeyClient, conn: Conn):
     """Record a sale from the key's storage area, by product code."""
     return apikeys.record_sale(conn, client, body)
+
+
+@app.post("/api/v1/sales/items", response_model=ApiSoldItemsOut, status_code=201)
+def api_record_sold_items(body: ApiSoldItemsIn, client: KeyClient, conn: Conn):
+    """Record a sale by item name. Items with no product or saved match wait for a person on Stock & sales."""
+    return sales_ai.from_till(conn, client.workspace_id, client.storage_id, f"API key {client.name}", body)
 
 
 # ---- exporting your data ----------------------------------------------------------------------

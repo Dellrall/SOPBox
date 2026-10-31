@@ -581,6 +581,32 @@ CREATE TABLE IF NOT EXISTS stock_lots (
     UNIQUE (workspace_id, number)
 );
 CREATE INDEX IF NOT EXISTS stock_lots_place_idx ON stock_lots (product_id, storage_id);
+-- What a sold item takes off stock, learnt once from a person (or the AI, confirmed by a person):
+-- "Hot dog set" = 1 pcs Hot dog bun + 1 pcs Beef sausage. A row with no product: not stock (a service
+-- charge, a delivery fee). Matching by this table needs no AI.
+CREATE TABLE IF NOT EXISTS sale_mappings (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    sold_key TEXT NOT NULL,
+    sold_name TEXT NOT NULL,
+    product_id BIGINT REFERENCES products(id) ON DELETE CASCADE,
+    per_sold DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (per_sold >= 0),  -- base units per item sold
+    updated_by TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sale_mappings_key_idx ON sale_mappings (workspace_id, sold_key);
+-- Sales a till sent by item name that could not all be matched: kept for a person to finish.
+CREATE TABLE IF NOT EXISTS sale_drafts (
+    id {_ID},
+    workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    storage_id BIGINT NOT NULL REFERENCES storages(id),
+    sale_date DATE NOT NULL,
+    source TEXT NOT NULL,
+    items TEXT NOT NULL,  -- JSON list of sold items: name, code, quantity, unit
+    external_ref TEXT,
+    created_at TEXT NOT NULL,
+    done_at TEXT
+);
 CREATE TABLE IF NOT EXISTS stock_disposals (
     id {_ID},
     workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -617,6 +643,8 @@ RLS_TABLES = {
     "products": f"workspace_id = {_WS}",
     "stock_lots": f"workspace_id = {_WS}",
     "stock_disposals": f"workspace_id = {_WS}",
+    "sale_mappings": f"workspace_id = {_WS}",
+    "sale_drafts": f"workspace_id = {_WS}",
     "deliveries": f"workspace_id = {_WS}",
     "audit_log": f"workspace_id = {_WS}",
     "stocktakes": f"workspace_id = {_WS}",

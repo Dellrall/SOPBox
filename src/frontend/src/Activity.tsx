@@ -55,6 +55,8 @@ const ACTIONS: Record<string, { label: string; group: Group; icon: LucideIcon; t
   "lot.expiry_set": { label: "Expiry date added", group: "stock", icon: CalendarClock, tone: "bg-slate-100 text-slate-600" },
   "stock.disposed": { label: "Expired stock disposed", group: "stock", icon: Trash2, tone: "bg-red-50 text-red-700" },
   "sales.recorded": { label: "Sales recorded", group: "stock", icon: Receipt, tone: "bg-violet-50 text-violet-700" },
+  "sales.matches_saved": { label: "Sales matches saved", group: "stock", icon: Receipt, tone: "bg-violet-50 text-violet-700" },
+  "sales.kept_for_review": { label: "Till sale kept to check", group: "stock", icon: Receipt, tone: "bg-amber-50 text-amber-700" },
   "outlet.created": { label: "Outlet added", group: "stock", icon: Store, tone: "bg-brand-50 text-brand-700" },
   "outlet.renamed": { label: "Outlet renamed", group: "stock", icon: Store, tone: "bg-slate-100 text-slate-600" },
   "outlet.deleted": { label: "Outlet deleted", group: "stock", icon: Store, tone: "bg-red-50 text-red-700" },

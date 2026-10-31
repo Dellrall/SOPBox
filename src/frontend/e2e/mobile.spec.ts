@@ -596,6 +596,49 @@ test.describe("expiry dates", () => {
   });
 });
 
+test.describe("sales by menu item", () => {
+  test("a till sale with an unknown item is finished by a person and remembered", async ({ browser, baseURL }, testInfo) => {
+    const context = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const tag = `${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
+    expect((await context.request.post("/api/auth/register", {
+      data: { workspace_name: `Sales ${tag}`, display_name: "Sam Owner", email: `s${tag}@example.com`, username: `s${tag}`, password: PASSWORD },
+    })).ok()).toBe(true);
+    const category = await (await context.request.post("/api/categories", { data: { name: "Dry" } })).json();
+    expect((await context.request.post("/api/products", { data: { name: "Bun", category_id: category.id, base_unit: "pcs" } })).ok()).toBe(true);
+    const storage = (await (await context.request.get("/api/outlets")).json())[0].storages[0].id;
+    const key = (await (await context.request.post("/api/api-keys", { data: { name: "Till", storage_id: storage } })).json()).key;
+    const till = await context.request.post("/api/v1/sales/items", {
+      headers: { Authorization: `Bearer ${key}` },
+      data: { sale_date: "2026-10-30", items: [{ name: "Burger", quantity: 3 }] },
+    });
+    expect((await till.json()).status).toBe("needs_review");
+
+    const page = await context.newPage();
+    await page.goto("/");
+    await openPage(page, "Stock & sales");
+    await page.getByRole("tab", { name: "Sales" }).tap();
+    await page.getByRole("button", { name: "Finish" }).tap();
+    const line = page.getByTestId("sold-line");
+    await expect(line).toContainText("Needs you");
+    await line.getByRole("button", { name: "Add product" }).tap();
+    await line.locator("#sold-0-product-0").tap();
+    await page.getByRole("combobox", { name: "Search products" }).fill("Bun");
+    await page.getByRole("option", { name: "Bun (pcs)" }).tap();
+    await line.getByLabel("Each uses pcs").fill("2");
+    await expect(page.getByText("Bun: 6 pcs")).toBeVisible();
+    await expectFitsScreen(page);
+    await page.getByRole("button", { name: "Take off stock" }).tap();
+    await expect(page.getByText(/saved: 1 products taken off/)).toBeVisible();
+
+    const again = await context.request.post("/api/v1/sales/items", {
+      headers: { Authorization: `Bearer ${key}` },
+      data: { sale_date: "2026-10-31", items: [{ name: "burger", quantity: 1 }] },
+    });
+    expect((await again.json()).status).toBe("recorded");
+    await context.close();
+  });
+});
+
 test.describe("ask the helper", () => {
   test("a manager asks what to order and opens the details", async ({ browser, baseURL }, testInfo) => {
     const context = await browser.newContext({ baseURL, ...testInfo.project.use });

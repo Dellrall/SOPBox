@@ -572,6 +572,37 @@ export type SalePreview = {
   lines: { product_id: number; code: string; product_name: string; base_unit: string; quantity: number; in_stock: number }[];
   unknown_codes: string[];
 };
+export type SoldItem = { name: string; code?: string | null; quantity: number; unit?: string };
+export type SaleComponent = { product_id: number; per_sold: number };
+export type SalesDraftLine = {
+  name: string;
+  code: string | null;
+  quantity: number;
+  unit: string;
+  status: "matched" | "suggested" | "question" | "not_stock";
+  source: "code" | "saved" | "ai" | "none";
+  components: (SaleComponent & { product_name: string; base_unit: string; total: number })[];
+  question: string | null;
+};
+export type SalesDraft = {
+  sale_date: string | null;
+  lines: SalesDraftLine[];
+  totals: { product_id: number; product_name: string; base_unit: string; quantity: number; in_stock: number }[];
+  ai_used: boolean;
+  ai_available: boolean;
+  draft_id: number | null;
+};
+export type SalesReadIn = {
+  storage_id: number;
+  filename?: string;
+  data?: string;
+  text?: string;
+  items?: SoldItem[];
+  answers?: Record<string, string>;
+  draft_id?: number | null;
+};
+export type SalesConfirmLine = { name: string; code: string | null; quantity: number; not_stock: boolean; components: SaleComponent[]; remember: boolean };
+export type SaleDraftKept = { id: number; storage_id: number; storage: string; sale_date: string; source: string; items: SoldItem[]; created_at: string };
 export type SaleIn = { storage_id: number; sale_date: string; source: string; lines: ProductQuantity[] };
 export type Sale = {
   id: number;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Download, FileUp, Plus, Trash2 } from "lucide-react";
 import { api } from "./api";
 import { PrintButton } from "./Print";
+import SalesReader from "./SalesReader";
 import SearchSelect from "./SearchSelect";
 import { StorageSelect, firstStorageId, useStorages } from "./StorageSelect";
 import type { Sale, SalePreview, StockLevel, Transfer } from "./types";
@@ -487,6 +488,7 @@ function Sales({ storages, canEdit }: { storages: Storages; canEdit: boolean }) 
           )}
           {error && <ErrorNote message={error} />}
           {notice && <SuccessNote>{notice}</SuccessNote>}
+          <SalesReader storageId={storageId} saleDate={saleDate} onDate={setSaleDate} onSaved={loadHistory} />
         </section>
       )}
       <section className="space-y-3">
