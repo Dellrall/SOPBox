@@ -1,5 +1,8 @@
 import os
 
+# Never call the paid AI service from tests, even with a key in .env (app.config keeps a value already set).
+os.environ["AI_API_KEY"] = ""
+
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
