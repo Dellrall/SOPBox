@@ -151,12 +151,13 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
 type Group = { label: string; icon: LucideIcon; items: PageId[] };
 const MENU: (PageId | Group)[] = [
   "dashboard",
+  "approvals",
   "tasks",
   "reports",
   { label: "Catalogue", icon: PackageSearch, items: ["products", "categories"] },
   { label: "Stock", icon: Boxes, items: ["stocktake", "stock", "expiry"] },
-  // Order, receive it, approve what failed, then the record.
-  { label: "Ordering", icon: Truck, items: ["purchasing", "receive", "approvals", "records"] },
+  // Order, receive it, then the record. Approvals stands alone above: it is checked often.
+  { label: "Ordering", icon: Truck, items: ["purchasing", "receive", "records"] },
 ];
 /** Pages about the person and the business, in the menu under their picture. */
 const PROFILE: PageId[] = ["team", "activity", "help", "settings"];
