@@ -151,13 +151,14 @@ const NAV: { id: PageId; label: string; icon: LucideIcon; roles: Role[]; access?
 type Group = { label: string; icon: LucideIcon; items: PageId[] };
 const MENU: (PageId | Group)[] = [
   "dashboard",
-  "approvals",
-  "tasks",
   "reports",
   { label: "Catalogue", icon: PackageSearch, items: ["products", "categories"] },
   { label: "Stock", icon: Boxes, items: ["stocktake", "stock", "expiry"] },
-  // Order, receive it, then the record. Approvals stands alone above: it is checked often.
+  // Order, receive it, then the record. Approvals stands alone below: it is checked often.
   { label: "Ordering", icon: Truck, items: ["purchasing", "receive", "records"] },
+  // Checked many times a day: on their own at the bottom.
+  "approvals",
+  "tasks",
 ];
 /** Pages about the person and the business, in the menu under their picture. */
 const PROFILE: PageId[] = ["team", "activity", "help", "settings"];
@@ -553,10 +554,10 @@ function Shell({
         onClick={() => go(n.id)}
         aria-current={active ? "page" : undefined}
         className={`group flex w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition ${sub ? "py-2" : "py-2.5"} ${
-          active ? "bg-orbyte-50 text-orbyte shadow-sm" : "text-white/75 hover:bg-white/[0.08] hover:text-white"
+          active ? "bg-brand-50 text-brand-800 shadow-sm" : "text-white/75 hover:bg-white/[0.08] hover:text-white"
         }`}
       >
-        {!sub && <Icon aria-hidden className={`h-[18px] w-[18px] ${active ? "text-orbyte" : "text-white/55 group-hover:text-white"}`} />}
+        {!sub && <Icon aria-hidden className={`h-[18px] w-[18px] ${active ? "text-brand-600" : "text-white/55 group-hover:text-white"}`} />}
         <span className="flex-1">{n.label}</span>
         {n.id === "approvals" && pending > 0 && (
           <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-bold text-brand-950">{pending}</span>
