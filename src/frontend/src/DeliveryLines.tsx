@@ -1,4 +1,39 @@
-import type { DeliveryLine } from "./types";
+import type { PrintDoc } from "./Print";
+import type { Delivery, DeliveryLine } from "./types";
+import { STATUS_LABEL, when } from "./ui";
+
+/** A delivery order (DO) laid out for Print / PDF: each line, its reading and its result. */
+export function deliveryDoc(d: Delivery): PrintDoc {
+  const returned = d.lines.filter((l) => l.returned).length;
+  const priced = d.lines.filter((l) => l.unit_price_sen !== null && !l.returned);
+  const value = priced.reduce((sum, l) => sum + l.quantity * (l.unit_price_sen ?? 0), 0);
+  return {
+    title: "Delivery order",
+    reference: `DO #${d.id}`,
+    badges: [STATUS_LABEL(d.status), ...(returned ? [`${returned} returned`] : [])],
+    details: [
+      ["Supplier", d.supplier],
+      ["Received", when(d.created_at)],
+      ["Purchase order", d.purchase_order ?? ""],
+      ["Received at", d.storage ?? ""],
+      ...(priced.length ? [["Value kept", `RM${(value / 100).toFixed(2)}`] as [string, string]] : []),
+    ],
+    columns: ["Product", "Quantity", "Temperature", "Expiry", "Result"],
+    rows: d.lines.map((l) => [
+      l.name,
+      `${l.quantity} ${l.unit}`,
+      l.temp_c === null ? "" : `${l.temp_c} °C`,
+      l.expiry_on ?? "",
+      l.returned ? "Returned" : l.passed ? "Passed" : ["Needs a manager", l.issues.join("; ")],
+    ]),
+    notes: d.decision_reason ?? undefined,
+    history: [
+      `Received by ${d.received_by} on ${when(d.created_at)}`,
+      d.decided_by && d.decided_at ? `decided by ${d.decided_by} on ${when(d.decided_at)}` : "",
+    ].filter(Boolean).join(" · "),
+    sign: ["Received by", "Checked by"],
+  };
+}
 
 /** The checked lines of a delivery: what arrived, the reading, and why a line failed. */
 export default function DeliveryLines({ lines }: { lines: DeliveryLine[] }) {

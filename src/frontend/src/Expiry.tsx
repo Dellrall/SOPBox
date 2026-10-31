@@ -273,6 +273,26 @@ export default function Expiry({ canEdit }: { canEdit: boolean }) {
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
+                <div className="mt-2">
+                  <PrintButton
+                    doc={() => ({
+                      title: "Disposal record",
+                      reference: `Disposal #${d.id}`,
+                      badges: [METHOD_LABEL[d.method]],
+                      details: [
+                        ["Product", d.product],
+                        ["Lot", d.lot_code ?? ""],
+                        ["Storage area", d.location],
+                        ...(d.value_sen !== null ? [["Value lost", `RM${(d.value_sen / 100).toFixed(2)}`] as [string, string]] : []),
+                      ],
+                      columns: ["Product", "Lot", "Quantity", "How"],
+                      rows: [[d.product, d.lot_code ?? "", `${d.quantity} ${d.base_unit}`, METHOD_LABEL[d.method]]],
+                      notes: d.notes,
+                      history: `Disposed of by ${d.disposed_by} on ${when(d.created_at)}`,
+                      sign: ["Disposed by", "Witnessed by"],
+                    })}
+                  />
+                </div>
               </li>
             ))}
           </ul>

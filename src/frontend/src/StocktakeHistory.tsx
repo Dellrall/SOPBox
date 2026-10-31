@@ -220,13 +220,11 @@ export default function StocktakeHistory({
                                 doc={() => ({
                                   title: "Stock count",
                                   reference: selected.reference,
+                                  badges: [selected.changed_count ? `${selected.changed_count} changed` : "All as expected"],
                                   details: [
                                     ["Storage area", selected.storage ?? ""],
                                     ["Count date", selected.count_date],
-                                    ["Counted by", selected.counted_by],
-                                    ["Saved at", selected.created_at.slice(0, 16).replace("T", " ")],
-                                    ["Products", String(selected.line_count)],
-                                    ["Changed", String(selected.changed_count)],
+                                    ["Products counted", String(selected.line_count)],
                                   ],
                                   columns: ["Product", "Expected", "Counted", "Difference"],
                                   rows: selected.lines.map((l) => [
@@ -236,6 +234,7 @@ export default function StocktakeHistory({
                                     `${l.difference > 0 ? "+" : ""}${l.difference} ${l.base_unit}`,
                                   ]),
                                   notes: selected.notes,
+                                  history: `Counted by ${selected.counted_by}, saved ${selected.created_at.slice(0, 16).replace("T", " ")}`,
                                   sign: ["Counted by", "Checked by"],
                                 })}
                               />
