@@ -488,7 +488,6 @@ CREATE TABLE IF NOT EXISTS task_lists (
     for_role TEXT NOT NULL CHECK (for_role IN ('everyone', 'staff', 'manager')),
     steps JSONB NOT NULL DEFAULT '[]'
 );
-CREATE UNIQUE INDEX IF NOT EXISTS task_lists_name_key ON task_lists (workspace_id, lower(name));
 -- A step ticked on a day. The day is the phone's own date, so lists start fresh at local midnight.
 CREATE TABLE IF NOT EXISTS task_ticks (
     task_list_id BIGINT NOT NULL REFERENCES task_lists(id) ON DELETE CASCADE,
@@ -553,6 +552,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS assignment_requests_pending_key ON assignment_
 -- from before outlets); each activity entry to the outlet it happened in (NULL: the whole workspace).
 ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
 ALTER TABLE task_lists ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
+-- A list name is unique per outlet, so each outlet can have its own Opening and Closing.
+DROP INDEX IF EXISTS task_lists_name_key;
+CREATE UNIQUE INDEX IF NOT EXISTS task_lists_outlet_name_key ON task_lists (workspace_id, COALESCE(outlet_id, 0), lower(name));
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS outlet_id BIGINT REFERENCES outlets(id) ON DELETE SET NULL;
 
 -- Expiry dates. A product that tracks expiry needs a date on each delivery line (or "check later"),

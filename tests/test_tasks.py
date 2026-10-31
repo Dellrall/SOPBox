@@ -67,3 +67,18 @@ def test_another_workspace_cannot_see_or_tick_the_lists(client):
     tick = {"day": TODAY.isoformat(), "step": 0, "done": True}
     assert other.post(f"/api/tasks/{opening['id']}/ticks", json=tick).status_code == 404
     assert other.put(f"/api/tasks/{opening['id']}", json=OPENING).status_code == 404
+
+
+def test_each_outlet_has_its_own_opening_list(client):
+    home = client.get("/api/outlets").json()[0]["id"]
+    kl = client.post("/api/outlets", json={"name": "Outlet KL"}).json()[-1]["id"]
+    at_home, at_kl = {"X-SOPBox-Outlet": str(home)}, {"X-SOPBox-Outlet": str(kl)}
+    first = client.post("/api/tasks", json=OPENING, headers=at_home)
+    assert first.status_code == 201, first.text
+    second = client.post("/api/tasks", json=OPENING, headers=at_kl)
+    assert second.status_code == 201, second.text
+    assert client.post("/api/tasks", json=OPENING, headers=at_kl).status_code == 409  # same outlet, same name
+    # Ticks stay with each outlet's own list.
+    client.post(f"/api/tasks/{first.json()['id']}/ticks", json={"day": TODAY.isoformat(), "step": 0, "done": True}, headers=at_home)
+    kl_lists = client.get("/api/tasks", params={"day": TODAY.isoformat()}, headers=at_kl).json()
+    assert [(t["id"], t["ticks"]) for t in kl_lists] == [(second.json()["id"], [])]
