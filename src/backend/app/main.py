@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import accounts, auth, catalogue, deliveries, inbox, kitchen, passkeys, purchasing, sso, team_group
-from app import apikeys, ask, sales_ai, telegram_bot, closing, export, hq, inquiries, insights, locations, lots, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
+from app import apikeys, ask, reports, sales_ai, telegram_bot, closing, export, hq, inquiries, insights, locations, lots, mfa, notifications, ops, plans, sales, seo, stocktakes, tasks, assignments, efficiency
 from app.auditlog import audit as audit_entry
 from app.config import get_settings
 from app.auth import CurrentUser, ManagerUp, OwnerOnly, User
@@ -34,6 +34,9 @@ from app.errors import (
 )
 from app.extraction import explain_gaps, extract_lines, extract_products, write_sop
 from app.models import (
+    ReportFilter,
+    ReportKind,
+    ReportOut,
     ApiSoldItemsIn,
     ApiSoldItemsOut,
     SaleDraftOut,
@@ -1448,6 +1451,15 @@ def api_record_sale(body: ApiSaleIn, client: KeyClient, conn: Conn):
 def api_record_sold_items(body: ApiSoldItemsIn, client: KeyClient, conn: Conn):
     """Record a sale by item name. Items with no product or saved match wait for a person on Stock & sales."""
     return sales_ai.from_till(conn, client.workspace_id, client.storage_id, f"API key {client.name}", body)
+
+
+# ---- reports ----------------------------------------------------------------------------------
+
+
+@app.get("/api/reports/{kind}", response_model=ReportOut)
+def report(kind: ReportKind, user: ManagerUp, conn: Conn, f: Annotated[ReportFilter, Query()]):
+    """One report over the outlet worked in, filtered by period, product, supplier and storage area."""
+    return reports.build(conn, user.workspace_id, kind, f)
 
 
 # ---- exporting your data ----------------------------------------------------------------------
