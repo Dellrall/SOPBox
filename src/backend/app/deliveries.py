@@ -377,7 +377,8 @@ def list_audit(
 ) -> list[AuditEntry]:
     rows = conn.execute(
         "SELECT * FROM audit_log WHERE workspace_id = %s AND (%s::bigint IS NULL OR actor_id = %s) "
-        f"AND ({locations.OWN_OUTLET} IS NULL OR outlet_id = {locations.OWN_OUTLET}) ORDER BY id DESC LIMIT %s",
+        # An entry with no outlet is about the whole workspace (products, team, settings): every outlet sees it.
+        f"AND ({locations.OWN_OUTLET} IS NULL OR outlet_id IS NULL OR outlet_id = {locations.OWN_OUTLET}) ORDER BY id DESC LIMIT %s",
         (ws, actor_id, actor_id, limit),
     ).fetchall()
     return [AuditEntry(**r) for r in rows]
