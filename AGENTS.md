@@ -36,7 +36,7 @@ cd src/frontend && npm install && npm run dev
 
 Open http://localhost:5173, choose **Create a workspace**, and you are its owner. Tables are created at start-up (`python -m app.migrate` does it on its own).
 
-Without RunPod keys, photo reading, the SOP writer, "Explain with AI" and the Ask helper are off or fall back; everything else works. Sales report reading uses a second, OpenAI-compatible service: put `AI_API_KEY` (and optionally `AI_BASE_URL`, `AI_MODEL`) in `src/backend/.env`; only `AI_` lines are loaded from it. Without it, people match sales lines by hand. Optional variables are listed in `src/backend/.env.example` and in docs/DEVELOPMENT.md, Configuration.
+Without RunPod keys, photo reading, the SOP writer, "Explain with AI" and the Ask helper are off or fall back; everything else works. Sales report reading uses a second, OpenAI-compatible service: put `AI_API_KEY` (and optionally `AI_BASE_URL`, `AI_MODEL`) in `src/backend/.env`; only `AI_` lines are loaded from it. Without it, people match sales lines by hand and the assistant falls back to the fixed questions. Optional variables are listed in `src/backend/.env.example` and in docs/DEVELOPMENT.md, Configuration.
 
 One process, as in production: `npm run build` in `src/frontend`, then uvicorn serves the built app and the API on port 8000.
 
@@ -60,7 +60,8 @@ src/backend/app/        FastAPI app
   locations.py, sales.py, hq.py, apikeys.py   outlets and storage (`mine`, `at_outlet`: rows of the picked outlet only), till sales, HQ branch links, till API
   sales_ai.py           sales by menu item: read any report (AI), match by code, saved match, then AI suggestion or a question; a person confirms, code works out totals, matches are remembered
   reports.py            reports: one SQL per kind over the outlet worked in, filters, totals in code
-  ask.py                the in-app helper
+  ask.py                the in-app helper's fixed questions
+  assistant.py          the assistant chat on the AI_* service: read-only tools with the asker's access, page buttons, actions only on a tap; tool text fenced as data (prompt injection)
   notifications.py, team_group.py, inbox.py   Telegram alerts, Telegram team group, in-app inbox
   plans.py              plans and every price shown (None prints "TBC"); Free holds FREE_PRODUCTS; Pro bills only outlets with work that month (USAGE_ACTIONS); lifetime per outlet; every paid AI call goes through `plans.metered` (monthly AI_MONTH allowance, counted in `ai_uses`)
   plan_codes.py, set_plan.py, reset_mfa.py, migrate.py, devdb.py   command-line tools (python -m app.<name>)

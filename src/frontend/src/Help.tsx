@@ -40,7 +40,7 @@ export const GUIDES: Guide[] = [
     how: [
       "Tap a number to open the list behind it.",
       "Start a receiving check straight from the top of the page, or from Receive in the middle of the bottom bar.",
-      "Tap the sparkle button by the helper to ask what went missing, what to order or which prices went up.",
+      "Tap the sparkle button by the helper to ask what went missing, what to order, what expires soon or what to do next. It answers from your records, gives buttons to the right page, and can offer to draft an order: nothing happens until you tap.",
     ],
   },
   {

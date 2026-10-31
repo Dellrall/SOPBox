@@ -745,3 +745,8 @@ export type Report = {
   truncated: boolean;
   filters_used: { day: boolean; product: boolean; supplier: boolean; storage: boolean };
 };
+
+// ---- assistant ----
+export type AssistantMessage = { role: "user" | "assistant"; content: string };
+export type AssistantAction = { kind: "draft_order"; label: string; supplier_id: number };
+export type AssistantReply = { text: string; links: { page: string; label: string }[]; actions: AssistantAction[] };
