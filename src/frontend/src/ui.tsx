@@ -33,7 +33,7 @@ export function TempInput({
 
 // Shared Tailwind class strings, so every screen looks the same.
 export const inputClass =
-  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-ink sm:px-3.5 sm:py-2.5 shadow-xs transition placeholder:text-slate-400 hover:border-slate-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15";
+  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-ink sm:py-2.5 shadow-xs transition placeholder:text-slate-400 hover:border-slate-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15";
 export const labelClass = "mb-1 block text-sm font-semibold text-slate-700";
 const button =
   "inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition sm:px-4 sm:py-2.5 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
